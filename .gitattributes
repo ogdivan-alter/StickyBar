@@ -1,0 +1,33 @@
+# Normalización de finales de línea
+* text=auto
+
+# Código
+*.cs        text diff=csharp
+*.csproj    text
+*.sln       text eol=crlf
+*.xaml      text
+*.props     text
+*.targets   text
+*.config    text
+*.resx      text
+*.editorconfig text
+
+# Configuración
+*.json      text
+*.jsonc     text
+*.yml       text
+*.yaml      text
+
+# Documentación
+*.md        text
+
+# Excluidos de normalización (binarios)
+*.png       binary
+*.ico       binary
+*.jpg       binary
+*.jpeg      binary
+*.gif       binary
+*.exe       binary
+*.dll       binary
+*.pdb       binary
+*.lnk       binary

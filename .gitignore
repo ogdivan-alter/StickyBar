@@ -1,0 +1,66 @@
+# Build
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa]rtifacts/
+*.binlog
+*.tsbuildinfo
+
+# Pruebas
+[Tt]est[Rr]esults/
+*.trx
+*.coverage
+coverage*.json
+coverage*.xml
+
+# Visual Studio / Rider / VS Code
+.vs/
+.idea/
+.vscode/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.DotSettings.user
+
+# Herramientas de análisis
+[Tt]est[Rr]esults/
+*.dotsettings
+sonarlint/
+*.received.*
+
+# Empaquetado / instaladores
+publish/
+*.msix
+*.appx
+*.appxbundle
+*.msixbundle
+*.appinstaller
+
+# Sistema operativo
+Thumbs.db
+ehthumbs.db
+desktop.ini
+.DS_Store
+$RECYCLE.BIN/
+
+# Logs y temporales locales
+*.log
+logs/
+tmp/
+temp/
+
+# Secretos y configuración local
+*.env
+.env.*
+!.env.example
+secrets.json
+appsettings.Local.json
+appsettings.*.Local.json
+
+# Notas de trabajo del agente (no forman parte del producto)
+.opencode/logs/
+.opencode/cache/

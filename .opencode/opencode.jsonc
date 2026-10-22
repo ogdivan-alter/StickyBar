@@ -1,0 +1,14 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "default_agent": "director-desarrollo",
+  "instructions": [
+    "requerimiento/*.md",
+    "docs/plan/PLAN.md",
+    "docs/plan/ESTADO.md",
+    "docs/plan/decisiones/*.md",
+  ],
+  "experimental": {
+    "todo": true,
+    "subagent_depth": 2,
+  },
+}
