@@ -1,6 +1,6 @@
 # Seguimiento de Etapas — Sticky Dock Utility
 
-Tablero de estado del plan definido en `docs/plan/PLAN.md`.
+Tablero de estado del plan definido en `docs/plan/PLAN.md`. El inventario normalizado de requisitos y las matrices de trazabilidad viven en `docs/plan/TRAZABILIDAD.md`.
 
 - **Propietario**: Director de Desarrollo
 - **Última actualización**: 2026-10-22
@@ -38,6 +38,12 @@ Tablero de estado del plan definido en `docs/plan/PLAN.md`.
 | 2026-10-22 | E7 | Resolución de Q-04 | Se implementa solo el modo réplica espejada. La «configuración individual independiente» de RF05 se registra como desviación de alcance (I-04). E7 queda desbloqueada. | Usuario |
 | 2026-10-22 | E0 | Control de versiones | Se inicializa el repositorio git en la rama `main`, con `.gitignore` y `.gitattributes` para .NET/WPF. Commit inicial con la especificación, el plan y la configuración del agente. | Director de Desarrollo |
 | 2026-10-22 | E0 | Resolución de Q-05 | Se adopta .NET 10 (`net10.0-windows`) como TFM de destino: única versión LTS en soporte activo y única instalada en el equipo. Cumple «.NET 8 o superior» de §5.1. | Usuario |
+| 2026-10-22 | — | Fase B: informe de trazabilidad | El `analista` consolida el inventario (5 RF, 5 RNF, 23 requisitos §4/§5, 5 HU, 11 CA) y entrega matrices directa e inversa. Veredicto: los 11 CA tienen cobertura completa, pero aparecen 14 huecos de trazabilidad, 3 contradicciones y 7 ambigüedades. | Analista de Requerimientos |
+| 2026-10-22 | E0–E8 | Corrección del plan tras la Fase B | Se añaden CA que faltaban: RAM en reposo en E1 (T-02), arranque en Windows 10/11 x64 en E8 (T-01), cambio de resolución en E2 (T-03), creación/renombrado/eliminación de Cintas en E4 (T-04), despliegue desde el cuadro indicador en E4 (T-05), inspección MVVM en E0 (T-11). Se corrigen las trazas de E2 y E6 (T-12, T-13) y se marcan como criterios de robustez los de desconexión de monitor en E7. | Director de Desarrollo |
+| 2026-10-22 | — | Interpretaciones y ampliaciones registradas | Se registran 9 ambigüedades resueltas por el propio documento (C2, C3, A1–A7) y 2 ampliaciones de alcance (AMP-01 persistencia del borde y la gracia, AMP-02 JSON en lugar de SQLite). Se registra I-05 (Mica/Acrylic) como deuda de ADR-001. | Director de Desarrollo |
+| 2026-10-22 | E4, E5 | Nuevas preguntas abiertas | La Fase B deja dos contradicciones que requieren decisión del usuario: Q-06 (¿los argumentos del `.lnk` se editan en la aplicación?) bloquea E5; Q-07 (¿qué pasa con los accesos directos al eliminar una Cinta?) bloquea E4. | Analista de Requerimientos |
+| 2026-10-22 | E5 | Resolución de Q-06 | Se adopta la **solo lectura**: la aplicación lee del `.lnk` destino, argumentos y *working directory* y los reproduce, sin editor de argumentos ni escritura de vuelta. Prevalece §4.5-03 sobre la «configuración» de RF04. E5 queda desbloqueada. | Usuario |
+| 2026-10-22 | E4 | Resolución de Q-07 | Al eliminar una Cinta se eliminan también sus accesos directos, con **confirmación explícita** que indica el número de elementos afectados. La eliminación es atómica en la persistencia. E4 queda desbloqueada: no quedan preguntas abiertas. | Usuario |
 
 ---
 
@@ -135,6 +141,68 @@ Estas preguntas bloquean el cierre de las etapas indicadas. El Director de Desar
   - Lenguaje: **C# 14**, nullable reference types habilitado.
   - Los paquetes que se agreguen deben ser compatibles con `net10.0-windows`.
 
+### Q-06 — ¿Los argumentos del acceso directo se configuran en la aplicación?
+
+- **Estado**: **Resuelta**
+- **Decisión**: **Solo lectura**. La aplicación **lee** del `.lnk` el destino, los argumentos y el *working directory*, y los reproduce fielmente al ejecutar. No edita los argumentos ni escribe de vuelta en el `.lnk`. La configuración de argumentos se hace en Windows, sobre el propio archivo `.lnk`.
+- **Fecha**: 2026-10-22 · **Decidido por**: usuario
+- **Bloquea**: E5 (desbloqueada)
+- **Contradicción detectada**:
+  - **RF04** (§2): «Permite la **configuración y ejecución** de accesos directos con argumentos de línea de comandos (ej. invocaciones vía `wsl.exe` o scripts personalizados)».
+  - **§4.5-03**: «Los accesos directos mantienen de forma **estricta** las propiedades y parámetros de su archivo `.lnk` original (incluidos argumentos de línea de comandos como `wsl.exe` o flags de ejecutable)».
+- **Justificación**: §4.5-03 y HU04-CA1 son criterios verificables y hablan de *mantener*; un editor de argumentos dentro de la aplicación los contradiría y añadiría funcionalidad no solicitada. La parte de RF04 relativa a la *configuración* dentro de la aplicación queda fuera de alcance.
+- **Opciones descartadas**:
+  - *Edición persistida aparte* — crea dos fuentes de verdad (`.lnk` y JSON propio) que pueden divergir, y rompe la «integridad estricta».
+  - *Escritura de vuelta al `.lnk`* — modifica archivos del usuario fuera de `%AppData%` y depende de permisos de escritura en la carpeta de origen.
+- **Efecto en la implementación**:
+  - E5 **no** incluye editor de argumentos. El menú contextual de un acceso directo ofrece únicamente mover a Cinta, regresar a la barra principal y eliminar (§4.5-04).
+  - La prueba de ejecución con argumentos (`.lnk` de `wsl.exe`) verifica que se respetan los del archivo, no que se puedan cambiar.
+  - Si en el futuro se quiere editar argumentos, se registra como idea fuera de alcance y se consulta antes de implementarla.
+
+### Q-07 — ¿Qué ocurre con los accesos directos al eliminar una Cinta?
+
+- **Estado**: **Resuelta**
+- **Decisión**: **Se eliminan junto con la Cinta**, previa **confirmación explícita** que indique cuántos accesos directos se van a eliminar. Cancelar la confirmación deja la Cinta y su contenido intactos.
+- **Fecha**: 2026-10-22 · **Decidido por**: usuario
+- **Bloquea**: E4 (desbloqueada)
+- **Hueco detectado**: RF03 exige «**creación y gestión** de Cintas» y §4.5-04 define cómo eliminar *elementos* de una Cinta o de la barra, pero ningún documento dice qué sucede con los accesos directos que contiene una Cinta cuando se elimina la Cinta.
+- **Justificación**: la eliminación de una Cinta es una acción explícita del usuario sobre el contenedor; conservar sus elementos en la barra convertiría «eliminar» en «disolver», con un resultado que el usuario no pidió. La confirmación con el conteo es la salvaguarda contra el borrado accidental.
+- **Opciones descartadas**:
+  - *Regresan a la barra principal* — no destruye nada, pero desborda la barra principal con elementos que el usuario no colocó allí y hace que «eliminar» signifique dos cosas distintas.
+  - *No se puede eliminar una Cinta con elementos* — obliga a vaciarla elemento por elemento y añade fricción desproporcionada a una operación de gestión ordinaria.
+- **Efecto en la implementación**:
+  - El comando de eliminar Cinta abre un diálogo de confirmación con el número de accesos directos afectados; sin confirmación, no se elimina nada.
+  - La eliminación de la Cinta y de sus elementos es **atómica** desde el punto de vista de la persistencia: o se guarda el estado nuevo completo, o se conserva el anterior.
+  - La eliminación de un elemento individual sigue el camino de §4.5-04, sin diálogo de confirmación por Cinta.
+
+---
+
+## Interpretaciones resueltas por el propio documento (Fase B)
+
+Registradas para que no se reabran como preguntas. En cada caso, la resolución se apoya en el texto de la especificación, no en una decisión nueva.
+
+| ID | Ambigüedad | Resolución | Apoyo documental |
+| --- | --- | --- | --- |
+| C1 | RF04 pide «configuración y ejecución» de accesos directos con argumentos; §4.5-03 exige «integridad estricta» respecto del `.lnk` original | Prevalece **§4.5-03**: la aplicación **lee** los argumentos y los reproduce, sin editor. La «configuración» de RF04 no se ejerce dentro de la aplicación | Resuelta por el usuario en **Q-06** |
+| C2 | EP02 dice «organización **jerárquica**»; §4.4-03 prohíbe el anidamiento | Estructura **plana**: un solo nivel de Cintas. «Jerárquica» se lee como «un nivel de agrupación», no como profundidad variable | §4.4-03 lo prohíbe de forma explícita y taxativa |
+| C3 | §4.2-04 quiere «garantizar la visibilidad»; §4.2-02/03 atan el tono al tema | Prevalece la **regla literal del tono invertido**. §4.2-04 se declara **intención de diseño no normativa** | HU02-CA1 verifica literalmente la inversión de tono; §4.2-04 no es observable |
+| A1 | «Cuadro indicador de la Cinta» sin definir | Indicador **clicable con etiqueta**; la Cinta se abre con **clic** | HU03-CA2 fija el clic; §4.4-01 fija que la animación parte del cuadro indicador |
+| A2 | «Ventana/menú de configuración» desde la bandeja | **Clic izquierdo** abre la ventana de configuración; **clic derecho** abre el menú contextual | HU05-CA1 exige que el clic abra la ventana; §4.6-01 admite ambas vías |
+| A3 | Umbral del acoplamiento magnético sin definir | **Parámetro de implementación**: franja de 48 px al soltar, documentada en E2 y ajustable en un punto | No es un requisito; es el parámetro que hace reproducible HU01-CA1 |
+| A4 | Qué abarca el «área interactiva» | Unión de la barra desplegada **y sus Cintas abiertas**; el tránsito entre ambas lo absorbe el temporizador de gracia | §4.3-03 y el propósito declarado de la gracia (evitar cierres accidentales) |
+| A5 | Métrica de RAM y de CPU | *Working set* con la barra colapsada en el CA temprano de E1; peor caso (desplegada, todas las Cintas) en E8. CPU medida durante 30 s | RNF-01 y RNF-02 no fijan métrica; la elección es conservadora |
+| A6 | «Detección de entrada de puntero **global**» (§5.1-04) | Detección por el **área de la ventana**, sin hook global de ratón, para no comprometer RNF-02 | El comportamiento observable de RF02 se satisface igual; el arquitecto lo confirma en E3 |
+| A7 | «Longitud mínima» de la barra sin valor | Igual a la **pestaña en reposo más la zona de indicadores**; con cero elementos y cero Cintas, exactamente la pestaña | RF03 exige un mínimo y un crecimiento dinámico, sin fijar valor |
+
+## Ampliaciones de alcance registradas (Fase B)
+
+Cambios del plan que **exceden** lo que la especificación enumera. Se registran para que la desviación sea visible y no pase por requisito.
+
+| ID | Ampliación | Motivo | Estado |
+| --- | --- | --- | --- |
+| AMP-01 | Persistir el **borde acoplado** y el **temporizador de gracia** | §5.2-02 enumera solo orden, Cintas y preferencias multimonitor. Sin persistir el borde, la barra vuelve a su posición inicial en cada arranque (E2-CA5, E3-CA5) | Aceptada como preferencia de usuario |
+| AMP-02 | **SQLite no se implementa**: solo JSON versionado | §5.2-02 ofrece «JSON / SQLite liviano» como alternativa. Se elige JSON por simplicidad y menor huella de memoria (RNF-01) | Aceptada (ADR-001 ya lo asume) |
+
 ---
 
 ## Ideas fuera de alcance
@@ -147,6 +215,7 @@ Registradas para una evaluación posterior. **No se implementan** hasta que se a
 | I-02 | Exportación e importación de la configuración en JSON | Propuesta propia | Pendiente |
 | I-03 | Posicionamiento de la barra por arrastre con *snap* en las esquinas | §4.4 sugiere el comportamiento de apertura | Pendiente |
 | I-04 | Configuración independiente por monitor (cintas y accesos directos distintos en cada pantalla) | RF05, segunda mitad de la frase; excluida por Q-04 | Pendiente |
+| I-05 | Mica/Acrylic nativos y estilo Fluent del sistema (§5.1-02) | Deuda asumida por ADR-001 al elegir WPF: la translucidez se resuelve con opacidad por píxel y `DwmEnableBlurBehindWindow` | Pendiente |
 
 ---
 
@@ -154,5 +223,5 @@ Registradas para una evaluación posterior. **No se implementan** hasta que se a
 
 - **Etapas completadas**: 0 de 9.
 - **Etapa en curso**: ninguna.
-- **Próxima acción**: no quedan decisiones pendientes. Ejecutar la **Fase B** (consolidación de la matriz de trazabilidad con el subagente `analista`) y la **Fase C** (ejecución de la etapa E0 con `implementador`).
+- **Próxima acción**: no quedan decisiones pendientes. Ejecutar **E0** (cimientos de solución y build), que no depende de ninguna otra etapa.
 - **Bloqueos que requieren tu decisión**: ninguno.

@@ -3,8 +3,9 @@
 Plan por etapas derivado de la especificación (`requerimiento/`). Este documento es la fuente de verdad del **alcance de cada etapa**; el estado y el seguimiento viven en `docs/plan/ESTADO.md`.
 
 - **Propietario del documento**: Director de Desarrollo
-- **Estado del plan**: borrador inicial (Fase B en curso)
+- **Estado del plan**: completo y trazable (Fase B cerrada el 2026-10-22)
 - **Decisiones vigentes**: `docs/plan/decisiones/`
+- **Inventario y matrices de trazabilidad**: `docs/plan/TRAZABILIDAD.md`
 
 ---
 
@@ -33,7 +34,7 @@ Plan por etapas derivado de la especificación (`requerimiento/`). Este document
 ## E0 — Cimientos de solución y build
 
 - **Objetivo**: disposición del proyecto compilable, con estructura de proyectos, MVVM base y persistencia inicial, que cierre la decisión de stack.
-- **Trazabilidad**: RNF (compatibilidad Windows 10/11 x64, stack), §5.1, §5.2, y soporte estructural de RF01–RF05.
+- **Trazabilidad**: RNF (stack), §5.1 (stack), §5.2-01 (MVVM), §5.2-02 (persistencia), y soporte estructural de RF01–RF05. La compatibilidad Windows 10/11 x64 se verifica en E8.
 - **Dependencias**: — (primera etapa; ADR-001 ya resuelta).
 - **Entregables**:
   - Solución .NET 10 (`net10.0-windows`, Q-05) con **WPF** (ADR-001 *Aceptada*) y los proyectos: aplicación, núcleo de dominio, interoperabilidad Win32 y pruebas.
@@ -48,6 +49,7 @@ Plan por etapas derivado de la especificación (`requerimiento/`). Este document
   - El esquema de persistencia se crea, se relee y sobrevive a un reinicio de la aplicación (prueba automatizada).
   - La escritura de la configuración es atómica: una escritura interrumpida no deja un archivo corrupto (prueba automatizada).
   - ADR-001 está en estado *Aceptada* (WPF sobre .NET 10) y la estructura de proyectos creada la respeta.
+  - La separación MVVM es verificable **por inspección de código**: la lógica de estado, docking, Cintas, temporizadores y animaciones vive en ViewModels y servicios; el code-behind de las vistas no la contiene (§5.2-01).
 - **Riesgo**: `AllowsTransparency` encarece el renderizado → el riesgo queda trazado en R-02 y su mitigación es la medición de CPU/RAM ya incluida en los CA de E1.
 - **Esfuerzo**: 8 puntos.
 
@@ -56,7 +58,7 @@ Plan por etapas derivado de la especificación (`requerimiento/`). Este document
 ## E1 — Ventana base, tema y pestaña en reposo
 
 - **Objetivo**: una barra flotante sin marco, translúcida, con la pestaña semioculta de alto contraste y sensible al tema claro/oscuro de Windows.
-- **Trazabilidad**: RF02 (§4.1, §4.2), §5.2 (proceso sin marco), §4.1.
+- **Trazabilidad**: RF02 (§4.1, §4.2), §5.2-03 (proceso sin marco), §4.1-01, §4.1-02, §4.2-01.
 - **Dependencias**: E0.
 - **Entregables**:
   - Ventana principal *borderless*, `Topmost`, con opacidad y *blur* de fondo.
@@ -65,12 +67,13 @@ Plan por etapas derivado de la especificación (`requerimiento/`). Este document
   - Renderizado de la pestaña translúcida con tono invertido según el tema y micro-efecto de expansión.
   - Posicionamiento inicial dentro del área de trabajo.
 - **Criterios de aceptación**:
-  - Con el tema Oscuro, la pestaña se muestra translúcida de tono **claro**; con el tema Claro, translúcida de tono **oscuro** (§4.2, CA de HU02 #1).
+  - Con el tema Oscuro, la pestaña se muestra translúcida de tono **claro**; con el tema Claro, translúcida de tono **oscuro**, con transparencia perceptible (§4.2-01, §4.2-02, §4.2-03; HU02 CA #1).
   - El cambio de tema de Windows se refleja en la barra **sin reiniciar** la aplicación.
   - La barra permanece visible por encima de las ventanas de otras aplicaciones.
   - La barra en reposo ocupa únicamente la franja de la pestaña; el resto de su área no intercepta el clic.
   - El consumo en reposo, con la barra colapsada, no supera el 1 % de CPU (medición en reposo de 30 s, `qa`).
-- **Riesgo**: coste de renderizado de la transparencia en reposo → medir pronto, en esta etapa.
+  - El consumo de RAM en reposo, con la barra colapsada, no supera los 50 MB (RNF-01). Es la medición temprana que valida el riesgo R-02; E8 la repite en el peor caso.
+- **Riesgo**: coste de renderizado de la transparencia en reposo → medir pronto, en esta etapa (R-02).
 - **Esfuerzo**: 8 puntos.
 
 ---
@@ -78,7 +81,7 @@ Plan por etapas derivado de la especificación (`requerimiento/`). Este document
 ## E2 — Acoplamiento Sticky y detección de la barra de tareas
 
 - **Objetivo**: la barra se adhiere magnéticamente a cualquiera de los tres bordes libres y se reposiciona sola cuando el área de trabajo cambia.
-- **Trazabilidad**: RF01, HU01 (CA #1, CA #2), §5.1 (hooks), §4.4 (orientación de la barra).
+- **Trazabilidad**: RF01, RF03 (eje de la barra), HU01 (CA #1, CA #2), §5.1-03 (hooks).
 - **Dependencias**: E1.
 - **Entregables**:
   - Máquina de estados del borde acoplado: `Superior`, `Izquierdo`, `Derecho`, con exclusión del borde de la barra de tareas.
@@ -86,9 +89,11 @@ Plan por etapas derivado de la especificación (`requerimiento/`). Este document
   - Hooks de sistema (`SHAppBarMessage`, `WM_SETTINGCHANGE`, `SetWinEventHook`) encapsulados en el proyecto de interoperabilidad.
   - Arrastre libre de la barra con *snap* magnético al borde más cercano.
   - Persistencia del borde elegido.
+- **Parámetro de implementación**: el *snap* se dispara cuando el puntero suelta la barra dentro de una franja de proximidad al borde. Valor por defecto: **48 px**; constante documentada y ajustable en un solo punto del código de docking.
 - **Criterios de aceptación**:
-  - Con la barra de tareas en el borde inferior, al arrastrar la barra hacia los bordes superior, izquierdo o derecho, se adhiere magnéticamente al borde elegido (HU01 CA #1).
+  - Con la barra de tareas en el borde inferior, al arrastrar la barra hacia los bordes superior, izquierdo o derecho, se adhiere magnéticamente al borde elegido (HU01 CA #1). Soltada dentro de la franja de 48 px, el acoplamiento ocurre; soltada fuera, la barra permanece flotante.
   - Al cambiar la posición de la barra de tareas, la utilidad se reubica automáticamente para no colisionar (HU01 CA #2).
+  - Al cambiar la resolución del monitor o la de la barra de tareas, la utilidad se reubica y se redimensiona al nuevo *work area* sin quedar fuera de pantalla (RF01).
   - El borde donde reside la barra de tareas nunca es un destino válido del acoplamiento.
   - El hook de interoperabilidad libera sus recursos al cerrarse (verificación de handle y de suscripción al evento).
   - El borde acoplado se conserva tras reiniciar la aplicación.
@@ -100,7 +105,7 @@ Plan por etapas derivado de la especificación (`requerimiento/`). Este document
 ## E3 — Activación por hover, *slide-in* y temporizador de gracia
 
 - **Objetivo**: la barra se despliega al pasar el cursor por la pestaña y se colapsa sola con un margen de gracia configurable.
-- **Trazabilidad**: RF02, HU02 (CA #2, CA #3), §4.3.
+- **Trazabilidad**: RF02, HU02 (CA #2, CA #3), §4.3-01, §4.3-02, §4.3-03, §5.1-04.
 - **Dependencias**: E2.
 - **Entregables**:
   - Detección de entrada y salida del puntero sobre la pestaña y el área interactiva.
@@ -122,19 +127,23 @@ Plan por etapas derivado de la especificación (`requerimiento/`). Este document
 ## E4 — Cintas y despliegue exclusivo
 
 - **Objetivo**: agrupar accesos directos en Cintas que se despliegan perpendicularmente a la barra, con apertura exclusiva.
-- **Trazabilidad**: RF03, HU03 (CA #1, CA #2), §4.4.
+- **Trazabilidad**: RF03, HU03 (CA #1, CA #2), §4.4-01, §4.4-02, §4.4-03, §5.2-02.
 - **Dependencias**: E2.
+- **Decisión de alcance (Q-07, resuelta)**: al eliminar una Cinta se eliminan también sus accesos directos, previa confirmación explícita que indica cuántos elementos se van a borrar. Cancelar deja la Cinta intacta.
 - **Entregables**:
   - Modelo de dominio `Cinta` (nombre, orden, estado) sin nivel de anidamiento.
   - Creación, renombrado, reordenamiento y eliminación de Cintas.
+  - Cuadro indicador de la Cinta: la representación clicable desde la que parte la animación de apertura (§4.4-01).
   - Despliegue perpendicular al eje de la barra con animación *slide* hacia el interior de la pantalla.
   - Comportamiento de acordeón: abrir una cinta cierra la anterior.
   - Longitud dinámica de la barra: crece con el número de elementos y cintas, con longitud mínima.
 - **Criterios de aceptación**:
-  - Con la barra horizontal, la cinta se despliega verticalmente; con la barra vertical, horizontalmente (HU03 CA #1).
-  - Con la cinta 'A' abierta, al activar la cinta 'B' la 'A' se cierra automáticamente (HU03 CA #2).
-  - No es posible crear una cinta dentro de otra cinta (§4.4, estructura plana).
-  - La barra crece dinámicamente al añadir elementos o cintas y conserva una longitud mínima.
+  - Con la barra horizontal, la cinta se despliega verticalmente; con la barra vertical, horizontalmente (HU03 CA #1). La animación parte del cuadro indicador de la Cinta y avanza hacia el interior de la pantalla (§4.4-01).
+  - Con la cinta 'A' abierta, al activar la cinta 'B' la 'A' se cierra automáticamente (HU03 CA #2). La activación es por clic en el cuadro indicador.
+  - No es posible crear una cinta dentro de otra cinta (§4.4-03, estructura plana).
+  - El usuario puede crear, renombrar y eliminar Cintas desde la interfaz; los cambios persisten tras reiniciar la aplicación (RF03, §5.2-02).
+  - Al eliminar una Cinta con accesos directos se pide confirmación indicando cuántos se van a eliminar: confirmada, la Cinta y sus elementos desaparecen y el cambio persiste; cancelada, nada se modifica (Q-07).
+  - La barra crece dinámicamente al añadir elementos o cintas y conserva una longitud mínima: la de la pestaña en reposo más la zona de indicadores de Cintas. Con cero elementos y cero Cintas, la barra mide exactamente la pestaña.
   - La apertura de la cinta no collide con los límites del área de trabajo en los cuatro bordes.
 - **Riesgo**: bajo. Es la etapa con menor incertidumbre técnica del plan.
 - **Esfuerzo**: 8 puntos.
@@ -144,9 +153,10 @@ Plan por etapas derivado de la especificación (`requerimiento/`). Este document
 ## E5 — Accesos directos `.lnk`, drag & drop e integridad de ejecución
 
 - **Objetivo**: arrastrar accesos directos `.lnk` desde el Explorador hacia la barra o una cinta, conservando icono y argumentos, con menú contextual y reordenamiento.
-- **Trazabilidad**: RF04, HU04 (CA #1, CA #2), §4.5, §5.1 (extracción nativa de iconos y lectura de `.lnk`).
+- **Trazabilidad**: RF04, HU04 (CA #1, CA #2), §4.5-01, §4.5-02, §4.5-03, §4.5-04, §4.5-05, §5.1-05.
 - **Dependencias**: E1, E4.
 - **Decisión de alcance (Q-01, resuelta)**: la entrada por drag & drop acepta **únicamente** archivos `.lnk`. Cualquier otro tipo se rechaza con un mensaje que indique que debe empaquetarse previamente como acceso directo (HU04 CA #2).
+- **Decisión de alcance (Q-06, resuelta)**: los argumentos, el destino y el *working directory* se **leen del `.lnk`** y no se editan dentro de la aplicación. La ejecución reproduce fielmente lo que declara el archivo (§4.5-03). No hay editor de argumentos.
 - **Entregables**:
   - Interoperabilidad con `IShellLink` / `IShellItem` para extraer icono, ruta de destino, argumentos y *working directory*.
   - Drag & drop de archivos hacia la barra y hacia las cintas.
@@ -158,7 +168,7 @@ Plan por etapas derivado de la especificación (`requerimiento/`). Este document
   - Al arrastrar un `.lnk` sobre la barra o una cinta, se agrega el elemento respetando el icono y los parámetros de línea de comandos originales (HU04 CA #1).
   - Un `.lnk` que apunta a `wsl.exe` con argumentos conserva esos argumentos al ejecutarse, y el proceso invocado es el esperado (verificable con un `.lnk` de prueba que registre su línea de comandos).
   - Al arrastrar un `.exe` o una carpeta sin empaquetar, la acción se rechaza indicando que debe empaquetarse previamente como acceso directo (HU04 CA #2).
-  - El clic derecho sobre un acceso directo ofrece mover a cinta o a la barra principal, y eliminar (§4.5).
+  - El clic derecho sobre un acceso directo ofrece mover a cinta o a la barra principal, y eliminar (§4.5-04). No ofrece editar destino ni argumentos (Q-06).
   - El reordenamiento por drag & drop interno persiste tras reiniciar la aplicación.
   - Los elementos añadidos conservan el orden de la barra y de cada cinta tras reiniciar.
 - **Riesgo**: COM de `IShellLink` con *marshaling* y *bitmaps* de icono → es la etapa más técnica del plan.
@@ -169,7 +179,7 @@ Plan por etapas derivado de la especificación (`requerimiento/`). Este document
 ## E6 — Bandeja del sistema, ventana de configuración y auto-inicio
 
 - **Objetivo**: gestionar la aplicación desde el área de notificación, con preferencias persistidas y arranque automático opcional.
-- **Trazabilidad**: §4.6, HU05 (CA #1), RF02 (temporizadores configurables).
+- **Trazabilidad**: §4.6-01 (acceso a configuración), §4.6-03 (auto-inicio), HU05 (CA #1), RF02 (temporizador de gracia configurable). El modo réplica de §4.6-02 se cubre en E7.
 - **Dependencias**: E1.
 - **Entregables**:
   - Icono permanente en la bandeja del sistema con menú contextual.
@@ -190,7 +200,7 @@ Plan por etapas derivado de la especificación (`requerimiento/`). Este document
 ## E7 — Multimonitor y réplica espejada
 
 - **Objetivo**: replicar de forma espejada el contenido de la barra en los monitores secundarios seleccionados.
-- **Trazabilidad**: RF05 (parcial, ver Q-04), HU05 (CA #2), §4.6 (réplica).
+- **Trazabilidad**: RF05 (parcial, ver Q-04), HU05 (CA #2), §4.6-02 (réplica).
 - **Dependencias**: E2, E5, E6.
 - **Decisión de alcance (Q-04, resuelta)**: se implementa **solo el modo réplica**. La «configuración individual independiente» de RF05 queda fuera de alcance y se registra como desviación (I-04 en `docs/plan/ESTADO.md`).
 - **Entregables**:
@@ -204,6 +214,7 @@ Plan por etapas derivado de la especificación (`requerimiento/`). Este document
   - Cada barra se acopla al borde libre de **su** monitor y no invade la barra de tareas de ese monitor.
   - Al desconectar un monitor secundario, la barra asociada se cierra sin afectar a la principal.
   - Al volver a conectar ese monitor, la réplica se restaura con el contenido vigente.
+- **Nota de alcance**: los dos criterios de desconexión y reconexión de monitor no derivan de RF05 ni de HU05; se adoptan como **criterios de robustez** para que un cambio de topología no deje una barra huérfana en pantalla. Se marcan como tales para mantener la trazabilidad honesta.
 - **Riesgo**: sincronización de estado entre procesos de UI por monitor → definir un único origen de verdad en el núcleo.
 - **Esfuerzo**: 8 puntos.
 
@@ -212,7 +223,7 @@ Plan por etapas derivado de la especificación (`requerimiento/`). Este document
 ## E8 — Rendimiento, endurecimiento y entrega
 
 - **Objetivo**: cumplir los RNF medidos, endurecer los caminos de error y dejar el producto instalable y documentado.
-- **Trazabilidad**: RNF (RAM < 50 MB, CPU < 1 % en reposo), §4 (transparencias y estilos nativos), §5.2.
+- **Trazabilidad**: RNF (RAM < 50 MB, CPU < 1 % en reposo), RNF-03 (Windows 10/11 x64), §4 (transparencias), §5.2.
 - **Dependencias**: E0–E7.
 - **Entregables**:
   - Medición de RAM en operación normal y de CPU en reposo, con informe.
@@ -228,6 +239,7 @@ Plan por etapas derivado de la especificación (`requerimiento/`). Este document
   - Un acceso directo cuyo destino no existe produce un aviso al usuario, sin cierre de la aplicación.
   - El instalador añade y quita la entrada de auto-inicio de forma coherente.
   - La suite de pruebas cubre cada criterio de aceptación automatizable de E0–E7.
+  - La aplicación arranca y opera en **Windows 10 x64** y **Windows 11 x64** (RNF-03). Verificación manual documentada en el informe de entrega: instalación limpia y operación básica en ambos sistemas.
 - **Riesgo**: el RNF de RAM depende del framework elegido en ADR-001.
 - **Esfuerzo**: 13 puntos.
 
