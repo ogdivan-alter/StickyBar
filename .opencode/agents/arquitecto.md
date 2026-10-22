@@ -20,7 +20,9 @@ Tu trabajo es **decidir antes de codificar** y dejar la decisión escrita, traza
 
 ## Contexto técnico
 
-Stack sugerido por la especificación (§5.1): C# / .NET 8, WinUI 3 (Windows App SDK) o WPF con efectos Mica/Acrylic, MVVM, interoperabilidad Win32 por P/Invoke con `User32.dll` / `Shell32.dll`, persistencia JSON o SQLite ligero en `%AppData%`, proceso en segundo plano sin marco con icono en la bandeja del sistema.
+Stack sugerido por la especificación (§5.1): C# / .NET 8 o superior, WinUI 3 (Windows App SDK) o WPF con efectos Mica/Acrylic, MVVM, interoperabilidad Win32 por P/Invoke con `User32.dll` / `Shell32.dll`, persistencia JSON o SQLite ligero en `%AppData%`, proceso en segundo plano sin marco con icono en la bandeja del sistema.
+
+**Versión adoptada**: .NET 10 (`net10.0-windows`, C# 14) con WPF, según ADR-001 *Aceptada* y Q-05.
 
 RNF a respetar: RAM < 50 MB en operación normal, CPU < 1 % en reposo, Windows 10 y 11 x64.
 

@@ -1,5 +1,5 @@
 ---
-description: Implementador. Ejecuta una etapa del plan de forma acotada, satisfy sus criterios de aceptación y deja el proyecto compilando.
+description: Implementador. Ejecuta una etapa del plan de forma acotada, cumple sus criterios de aceptación y deja el proyecto compilando.
 mode: subagent
 color: "#f59e0b"
 permissions:
@@ -49,7 +49,7 @@ Si falta cualquiera de estos datos, **pide el dato antes de empezar**. Un encarg
 
 ## Estilo de código
 
-- C# moderno con .NET 8: `async`/`await`, nullable reference types, `record` donde encaje.
+- C# moderno con .NET 10 (C# 14): `async`/`await`, nullable reference types, `record` donde encaje.
 - Inglés para identificadores, comentarios y mensajes; español solo en documentación de proyecto.
 - Nombres explícitos: sin abreviaturas crípticas, sin números mágicos sin constante.
 - `P/Invoke` aislado, con tipos seguros y `LibraryImport` cuando la versión de .NET lo soporte.

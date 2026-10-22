@@ -9,6 +9,8 @@
 
 La especificación §5.1 propone **.NET 8** con **WinUI 3 (Windows App SDK) o WPF**, efectos de composición (Mica/Acrylic), patrón MVVM, interoperabilidad Win32 por P/Invoke (`User32.dll` / `Shell32.dll`) y persistencia JSON o SQLite ligero en `%AppData%`.
 
+La **versión concreta** de .NET se decide aparte, en la pregunta Q-05 de `docs/plan/ESTADO.md`: se adopta **.NET 10** (`net10.0-windows`), por ser la única versión LTS en soporte activo y la única instalada en el equipo de desarrollo. La mención «.NET 8» de la especificación se satisface con «.NET 8 o superior».
+
 Esta decisión bloquea la etapa E0, porque determina la estructura de proyectos, el modelo de ventana *borderless* con `Topmost`, el mecanismo de translucidez, las animaciones de *slide*, el icono de bandeja, el drag & drop de archivos y, sobre todo, la forma de resolver los hooks Win32 (`SetWinEventHook`, `SHAppBarMessage`, detección de la barra de tareas, `TrackMouseEvent` para el hover).
 
 ## Drivers
@@ -23,7 +25,7 @@ Esta decisión bloquea la etapa E0, porque determina la estructura de proyectos,
 
 ## Opciones consideradas
 
-### Opción A — WPF sobre .NET 8
+### Opción A — WPF sobre .NET 10
 
 - **Descripción**: aplicación WPF con `AllowsTransparency`, `WindowChrome` y efectos de composición.
 - **Ventajas**:
@@ -38,7 +40,7 @@ Esta decisión bloquea la etapa E0, porque determina la estructura de proyectos,
   - Sin sistema de diseño visual propio: el material de Fluent no viene incluido.
 - **Coste de adopción**: bajo.
 
-### Opción B — WinUI 3 sobre .NET 8 (Windows App SDK)
+### Opción B — WinUI 3 sobre .NET 10 (Windows App SDK)
 
 - **Descripción**: aplicación WinUI 3 con backdrop Mica/Acrylic nativo, *title bar* personalizada y `AppWindow` para el modo *borderless*.
 - **Ventajas**:
@@ -61,7 +63,7 @@ Esta decisión bloquea la etapa E0, porque determina la estructura de proyectos,
 
 ## Decisión
 
-**Se adopta la Opción A: WPF sobre .NET 8.**
+**Se adopta la Opción A: WPF sobre .NET 10.**
 
 Decidido por el usuario el 2026-10-22 (pregunta Q-02 en `docs/plan/ESTADO.md`). El criterio que decide la balanza es, en este orden:
 
@@ -71,7 +73,7 @@ Decidido por el usuario el 2026-10-22 (pregunta Q-02 en `docs/plan/ESTADO.md`). 
 
 Consecuencias inmediatas para la estructura de proyectos (a concretar en E0):
 
-- Aplicación WPF sobre .NET 8, con `net8.0-windows` y `UseWPF`.
+- Aplicación WPF sobre .NET 10, con `net10.0-windows` y `UseWPF`.
 - Ventana principal con `WindowStyle="None"`, `AllowsTransparency="true"`, `Background="Transparent"` y `Topmost="true"`; el marco y la sombra se gestionan con `WindowChrome`.
 - Icono de bandeja mediante `System.Windows.Forms.NotifyIcon`, habilitando `<UseWindowsForms>true</UseWindowsForms>` únicamente en el proyecto de aplicación.
 - Efectos de composición: se emulan con `DwmEnableBlurBehindWindow` (P/Invoke) donde se necesiten. Mica/Acrylic nativos quedan fuera de alcance.
@@ -92,7 +94,7 @@ Consecuencias inmediatas para la estructura de proyectos (a concretar en E0):
 
 ## Alternativas descartadas
 
-- **Opción B — WinUI 3 sobre .NET 8**: descartada por la fricción del runtime de Windows App SDK en Windows 10, el coste de empaquetado MSIX y la huella de memoria mayor frente al RNF.
+- **Opción B — WinUI 3 sobre .NET 10**: descartada por la fricción del runtime de Windows App SDK en Windows 10, el coste de empaquetado MSIX y la huella de memoria mayor frente al RNF.
 - **Opción C — WinUI 3 alojado en un proceso WPF**: descartada por complejidad, salvo revisión posterior.
 - **Prototipo comparativo previo**: no se realizó. La decisión se tomó con el análisis de este ADR; las mediciones reales de RAM y CPU quedan incorporadas como criterios de aceptación de E1, de modo que la evidencia de campo sustituirá al prototipo si en la práctica resultara inadequate.
 

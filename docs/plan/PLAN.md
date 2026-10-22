@@ -36,7 +36,7 @@ Plan por etapas derivado de la especificación (`requerimiento/`). Este document
 - **Trazabilidad**: RNF (compatibilidad Windows 10/11 x64, stack), §5.1, §5.2, y soporte estructural de RF01–RF05.
 - **Dependencias**: — (primera etapa; ADR-001 ya resuelta).
 - **Entregables**:
-  - Solución .NET 8 con **WPF** (ADR-001 *Aceptada*) y los proyectos: aplicación, núcleo de dominio, interoperabilidad Win32 y pruebas.
+  - Solución .NET 10 (`net10.0-windows`, Q-05) con **WPF** (ADR-001 *Aceptada*) y los proyectos: aplicación, núcleo de dominio, interoperabilidad Win32 y pruebas.
   - Estructura de carpetas y convenciones documentadas en `AGENTS.md`.
   - Infraestructura MVVM mínima: `ViewModelBase`, contenedor de dependencias, comandos observables.
   - Servicio de persistencia JSON versionado en `%AppData%\StickyDock\` con escritura atómica y esquema inicial.
@@ -47,7 +47,7 @@ Plan por etapas derivado de la especificación (`requerimiento/`). Este document
   - `dotnet test` finaliza en verde con la suite inicial.
   - El esquema de persistencia se crea, se relee y sobrevive a un reinicio de la aplicación (prueba automatizada).
   - La escritura de la configuración es atómica: una escritura interrumpida no deja un archivo corrupto (prueba automatizada).
-  - ADR-001 está en estado *Aceptada* (WPF sobre .NET 8) y la estructura de proyectosCreated la respeta.
+  - ADR-001 está en estado *Aceptada* (WPF sobre .NET 10) y la estructura de proyectos creada la respeta.
 - **Riesgo**: `AllowsTransparency` encarece el renderizado → el riesgo queda trazado en R-02 y su mitigación es la medición de CPU/RAM ya incluida en los CA de E1.
 - **Esfuerzo**: 8 puntos.
 

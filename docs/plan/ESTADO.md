@@ -33,9 +33,11 @@ Tablero de estado del plan definido en `docs/plan/PLAN.md`.
 | 2026-10-22 | — | Planificación inicial | Se crea el plan de 9 etapas (E0–E8) a partir de RF01–RF05, RNF y los CA de HU01–HU05. Se registra ADR-001 en estado *Propuesta*. | Director de Desarrollo |
 | 2026-10-22 | — | Puesta en marcha del rol | Se crea el agente `director-desarrollo` (agente por defecto) con el equipo `analista`, `arquitecto`, `implementador` y `qa`, los comandos `/planear`, `/avanzar` y `/estado`, y este tablero de seguimiento. | Director de Desarrollo |
 | 2026-10-22 | E5 | Resolución de Q-01 | Se decide que solo se admiten `.lnk` por drag & drop; el resto de tipos se rechaza con mensaje (HU04 CA #2). E5 queda desbloqueada. | Usuario |
-| 2026-10-22 | E0 | Resolución de Q-02 | Se adopta WPF sobre .NET 8. ADR-001 pasa a estado *Aceptada* con el detalle de la decisión y la deuda asumida. E0 queda desbloqueada. | Usuario |
+| 2026-10-22 | E0 | Resolución de Q-02 | Se adopta WPF (la versión de .NET se fija en Q-05). ADR-001 pasa a estado *Aceptada* con el detalle de la decisión y la deuda asumida. E0 queda desbloqueada. | Usuario |
 | 2026-10-22 | E3 | Resolución de Q-03 | Hover fijo en 200 ms; temporizador de gracia con 400 ms por defecto y rango configurable de 300–500 ms. E3 queda desbloqueada. | Usuario |
 | 2026-10-22 | E7 | Resolución de Q-04 | Se implementa solo el modo réplica espejada. La «configuración individual independiente» de RF05 se registra como desviación de alcance (I-04). E7 queda desbloqueada. | Usuario |
+| 2026-10-22 | E0 | Control de versiones | Se inicializa el repositorio git en la rama `main`, con `.gitignore` y `.gitattributes` para .NET/WPF. Commit inicial con la especificación, el plan y la configuración del agente. | Director de Desarrollo |
+| 2026-10-22 | E0 | Resolución de Q-05 | Se adopta .NET 10 (`net10.0-windows`) como TFM de destino: única versión LTS en soporte activo y única instalada en el equipo. Cumple «.NET 8 o superior» de §5.1. | Usuario |
 
 ---
 
@@ -78,14 +80,14 @@ Estas preguntas bloquean el cierre de las etapas indicadas. El Director de Desar
 ### Q-02 — Framework de UI: WinUI 3 o WPF
 
 - **Estado**: **Resuelta**
-- **Decisión**: **WPF sobre .NET 8**. Se adopta la Opción A de `docs/plan/decisiones/ADR-001-stack-y-arquitectura.md`, que queda en estado *Aceptada*.
+- **Decisión**: **WPF sobre .NET 10**. Se adopta la Opción A de `docs/plan/decisiones/ADR-001-stack-y-arquitectura.md`, que queda en estado *Aceptada*. La versión de .NET se fija en Q-05.
 - **Fecha**: 2026-10-22 · **Decidido por**: usuario
 - **Bloquea**: E0 (desbloqueada)
 - **Criterio de decisión, por peso**:
   1. **Compatibilidad y distribución** — ejecutable autocontenido, sin runtime de Windows App SDK en Windows 10 y sin fricción de empaquetado MSIX ni firma.
   2. **Interop Win32** — `HwndSource.AddHook`, `SetWinEventHook` y `SHAppBarMessage` tienen patrones maduros, lo que reduce el riesgo de RF01 y HU01.
   3. **RNF de reposo** — la huella de memoria base de WPF deja más margen bajo el límite de 50 MB.
-- **Opción descartada**: WinUI 3 sobre .NET 8 (Windows App SDK). La comparación documentada queda en el ADR-001.
+- **Opción descartada**: WinUI 3 sobre .NET 10 (Windows App SDK). La comparación documentada queda en el ADR-001.
 - **Deuda asumida**:
   - No hay Mica/Acrylic nativos. La translucidez se resuelve con opacidad por píxel y, si se necesita, desenfoque de fondo vía `DwmEnableBlurBehindWindow`.
   - El estilo visual Fluent hay que construirlo a mano o con una biblioteca ligera.
@@ -114,6 +116,24 @@ Estas preguntas bloquean el cierre de las etapas indicadas. El Director de Desar
   - La configuración expone una opción por monitor para activar o desactivar su presencia, y con ella la réplica.
   - El contenido replicado es **idéntico** en todos los monitores: mismas cintas, mismos accesos directos y mismo orden.
   - Cada barra se acopla al borde libre de **su** monitor y respeta el *work area* de ese monitor; esos elementos son siempre por monitor, con independencia del modo de réplica.
+
+### Q-05 — Versión de .NET como TFM de destino
+
+- **Estado**: **Resuelta**
+- **Decisión**: **.NET 10** (`net10.0-windows`).
+- **Fecha**: 2026-10-22 · **Decidido por**: usuario
+- **Bloquea**: E0 (desbloqueada)
+- **Contexto**: §5.1 pide «.NET 8 (o superior)». En el momento de la decisión:
+  - El SDK instalado en el equipo es el **10.0.401**; no hay SDK ni runtime de .NET 8 instalados.
+  - Estado de soporte oficial (política de .NET, actualizada el 2026-10-13): .NET 10 (LTS) → fin de soporte el **14/11/2028**, en soporte activo. .NET 9 (STS) y .NET 8 (LTS) → fin de soporte el **10/11/2026**, en mantenimiento.
+- **Justificación**: .NET 10 es la única versión **LTS en soporte activo**, la única instalada, y cumple «.NET 8 o superior».
+- **Opciones descartadas**:
+  - **.NET 8** — lectura literal, pero exige instalar SDK y runtime, y deja de recibir parches el 10/11/2026, dentro de tres semanas, con una migración a .NET 10 casi inmediata.
+  - **.NET 9** — está instalada, pero es de soporte estándar (STS) y caduca el mismo día que .NET 8.
+- **Efecto en la implementación**:
+  - TFM de todos los proyectos: `net10.0-windows`.
+  - Lenguaje: **C# 14**, nullable reference types habilitado.
+  - Los paquetes que se agreguen deben ser compatibles con `net10.0-windows`.
 
 ---
 
