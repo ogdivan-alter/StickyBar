@@ -1,0 +1,25 @@
+<Project>
+
+  <!--
+    Shared build settings for every project of the solution.
+    Stack decision: WPF on .NET 10 (ADR-001, Q-02, Q-05 in docs/plan/ESTADO.md).
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+
+    <!-- E0-CA1: the build must finish without warnings, so any warning is an error. -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <Deterministic>true</Deterministic>
+
+    <IsPackable>false</IsPackable>
+    <NeutralLanguage>en</NeutralLanguage>
+    <Product>Sticky Dock Utility</Product>
+    <Company>Sticky Dock Utility</Company>
+    <Version>0.1.0</Version>
+  </PropertyGroup>
+
+</Project>

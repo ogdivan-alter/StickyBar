@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Win32 interoperability boundary. Every P/Invoke of the product lives here, wrapped in safe types
+    (AGENTS.md). `AllowUnsafeBlocks` is required by the LibraryImport source generator.
+  -->
+  <PropertyGroup>
+    <RootNamespace>StickyDock.Interop</RootNamespace>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+</Project>

@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    WPF shell (ADR-001). The application only composes services and hosts the view;
+    state and behaviour belong to the view models and services of StickyDock.Core.
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <UseWPF>true</UseWPF>
+    <RootNamespace>StickyDock.App</RootNamespace>
+    <AssemblyName>StickyDock</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\StickyDock.Core\StickyDock.Core.csproj" />
+    <ProjectReference Include="..\StickyDock.Interop\StickyDock.Interop.csproj" />
+  </ItemGroup>
+
+</Project>

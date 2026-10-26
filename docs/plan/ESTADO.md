@@ -12,7 +12,7 @@ Tablero de estado del plan definido en `docs/plan/PLAN.md`. El inventario normal
 
 | Etapa | Nombre | Estado | Avance | Actualizado | Depende de | Bloqueo |
 | --- | --- | --- | ---: | --- | --- | --- |
-| E0 | Cimientos de solución y build | No iniciada | 0 % | 2026-10-22 | — | — |
+| E0 | Cimientos de solución y build | Completada | 100 % | 2026-10-22 | — | — |
 | E1 | Ventana base, tema y pestaña | No iniciada | 0 % | 2026-10-22 | E0 | — |
 | E2 | Sticky docking y barra de tareas | No iniciada | 0 % | 2026-10-22 | E1 | — |
 | E3 | Hover, slide-in y gracia | No iniciada | 0 % | 2026-10-22 | E2 | — |
@@ -44,6 +44,8 @@ Tablero de estado del plan definido en `docs/plan/PLAN.md`. El inventario normal
 | 2026-10-22 | E4, E5 | Nuevas preguntas abiertas | La Fase B deja dos contradicciones que requieren decisión del usuario: Q-06 (¿los argumentos del `.lnk` se editan en la aplicación?) bloquea E5; Q-07 (¿qué pasa con los accesos directos al eliminar una Cinta?) bloquea E4. | Analista de Requerimientos |
 | 2026-10-22 | E5 | Resolución de Q-06 | Se adopta la **solo lectura**: la aplicación lee del `.lnk` destino, argumentos y *working directory* y los reproduce, sin editor de argumentos ni escritura de vuelta. Prevalece §4.5-03 sobre la «configuración» de RF04. E5 queda desbloqueada. | Usuario |
 | 2026-10-22 | E4 | Resolución de Q-07 | Al eliminar una Cinta se eliminan también sus accesos directos, con **confirmación explícita** que indica el número de elementos afectados. La eliminación es atómica en la persistencia. E4 queda desbloqueada: no quedan preguntas abiertas. | Usuario |
+| 2026-10-22 | E0 | Inicio de ejecución | Se abre E0 con el plan cerrado y sin preguntas abiertas. La etapa crea la solución .NET 10/WPF, la infraestructura MVVM, la persistencia JSON atómica y la suite inicial. El commit queda pendiente de confirmación del usuario. | Director de Desarrollo |
+| 2026-10-22 | E0 | QA aprobado | QA verifica E0-CA1..E0-CA6: builds Release/Debug sin advertencias, 60 tests en verde en ambos perfiles, persistencia JSON versionada con escritura atómica y ruta inyectable, MVVM separado del code-behind, estructura WPF/.NET 10 coherente con ADR-001. Veredicto APROBADO PARA CERRAR. Sin commit. | QA |
 
 ---
 
