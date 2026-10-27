@@ -9,7 +9,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\StickyDock.Interop\StickyDock.Interop.csproj" />
   </ItemGroup>
 
 </Project>

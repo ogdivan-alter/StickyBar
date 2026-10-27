@@ -1,4 +1,5 @@
 using Microsoft.Win32;
+using StickyDock.Core.Services;
 
 namespace StickyDock.Interop.Theme;
 
@@ -6,7 +7,7 @@ namespace StickyDock.Interop.Theme;
 /// Detects the Windows light/dark theme. Uses the AppsUseLightTheme registry value with live updates via
 /// <see cref="SystemEvents.UserPreferenceChanged"/> and falls back safely.
 /// </summary>
-public sealed class WindowsThemeService : IWindowsThemeService
+public sealed class WindowsThemeService : IWindowsThemeService, IThemeService
 {
     private readonly object _sync = new();
     private bool _isLightTheme;
@@ -96,17 +97,6 @@ public sealed class WindowsThemeService : IWindowsThemeService
 /// <summary>
 /// Provides Windows theme information.
 /// </summary>
-public interface IWindowsThemeService : IDisposable
+public interface IWindowsThemeService : IThemeService
 {
-    /// <summary>Raised when the theme changes.</summary>
-    event EventHandler<ThemeChangedEventArgs>? ThemeChanged;
-
-    /// <summary>Gets whether Windows is using the light theme.</summary>
-    bool IsLightTheme { get; }
 }
-
-/// <summary>
-/// Arguments for theme changes.
-/// </summary>
-/// <param name="IsLightTheme">True when Windows uses the light theme.</param>
-public sealed record ThemeChangedEventArgs(bool IsLightTheme);

@@ -1,7 +1,7 @@
+using StickyDock.Core.Configuration;
 using StickyDock.Core.Diagnostics;
 using StickyDock.Core.Mvvm;
 using StickyDock.Core.Services;
-using StickyDock.Interop.Theme;
 
 namespace StickyDock.Core.ViewModels;
 
@@ -12,28 +12,46 @@ public sealed class DockBarViewModel : ViewModelBase
 {
     private readonly ILogger _logger;
     private readonly IDockStateService _dockStateService;
-    private readonly IWindowsThemeService _themeService;
+    private readonly IThemeService? _themeService;
+    private readonly DockEdgeService _dockEdgeService;
+    private readonly IConfigurationStore<StickyDockConfiguration> _configurationStore;
+    private StickyDockConfiguration _configuration;
     private bool _isLightTheme;
     private DockState _dockState = DockState.Tab;
     private bool _isHovered;
     private double _tabOpacity = 1.0;
     private double _scaleX = 1.0;
     private double _scaleY = 1.0;
+    private DockEdge? _dockEdge;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="DockBarViewModel"/> class.
     /// </summary>
-    public DockBarViewModel(ILogger logger, IDockStateService dockStateService, IWindowsThemeService themeService)
+    public DockBarViewModel(
+        ILogger logger,
+        IDockStateService dockStateService,
+        IThemeService? themeService,
+        DockEdgeService dockEdgeService,
+        StickyDockConfiguration configuration,
+        IConfigurationStore<StickyDockConfiguration> configurationStore)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _dockStateService = dockStateService ?? throw new ArgumentNullException(nameof(dockStateService));
-        _themeService = themeService ?? throw new ArgumentNullException(nameof(themeService));
+        _themeService = themeService;
+        _dockEdgeService = dockEdgeService ?? throw new ArgumentNullException(nameof(dockEdgeService));
+        _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
+        _configurationStore = configurationStore ?? throw new ArgumentNullException(nameof(configurationStore));
 
-        _isLightTheme = _themeService.IsLightTheme;
+        _isLightTheme = _themeService?.IsLightTheme ?? true;
         _dockState = _dockStateService.State;
+        _dockEdge = _dockEdgeService.CurrentEdge;
 
-        _themeService.ThemeChanged += OnThemeChanged;
+        if (_themeService != null)
+        {
+            _themeService.ThemeChanged += OnThemeChanged;
+        }
         _dockStateService.StateChanged += OnDockStateChanged;
+        _dockEdgeService.EdgeChanged += OnDockEdgeChanged;
 
         _logger.Information("Dock bar view model created.");
     }
@@ -139,5 +157,31 @@ public sealed class DockBarViewModel : ViewModelBase
     private void OnDockStateChanged(object? sender, DockStateChangedEventArgs e)
     {
         DockState = e.State;
+    }
+
+    /// <summary>Gets the current dock edge.</summary>
+    public DockEdge? DockEdge
+    {
+        get => _dockEdge;
+        private set => SetProperty(ref _dockEdge, value);
+    }
+
+    private void OnDockEdgeChanged(object? sender, DockEdgeChangedEventArgs e)
+    {
+        DockEdge = e.Edge;
+        _ = PersistDockEdgeAsync(e.Edge);
+    }
+
+    private async Task PersistDockEdgeAsync(DockEdge? edge)
+    {
+        try
+        {
+            _configuration = _configuration with { DockEdge = edge };
+            await _configurationStore.SaveAsync(_configuration).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.Error("Failed to persist dock edge.", ex);
+        }
     }
 }

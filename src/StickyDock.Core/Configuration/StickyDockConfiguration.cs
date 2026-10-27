@@ -17,4 +17,27 @@ public sealed record StickyDockConfiguration : IVersionedDocument
 
     /// <inheritdoc />
     public int SchemaVersion { get; init; } = CurrentSchemaVersion;
+
+    /// <summary>
+    /// Persisted dock edge preference (E2). Null means not docked / auto-position.
+    /// </summary>
+    public DockEdge? DockEdge { get; init; }
+}
+
+/// <summary>
+/// Edge where the dock bar is attached. Plan states Top/Left/Right; include Bottom for flexibility.
+/// </summary>
+public enum DockEdge
+{
+    /// <summary>Docked to the top edge of the work area.</summary>
+    Top,
+
+    /// <summary>Docked to the left edge of the work area.</summary>
+    Left,
+
+    /// <summary>Docked to the right edge of the work area.</summary>
+    Right,
+
+    /// <summary>Docked to the bottom edge of the work area.</summary>
+    Bottom
 }

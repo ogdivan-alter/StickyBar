@@ -14,7 +14,7 @@ Tablero de estado del plan definido en `docs/plan/PLAN.md`. El inventario normal
 | --- | --- | --- | ---: | --- | --- | --- |
 | E0 | Cimientos de solución y build | Completada | 100 % | 2026-10-22 | — | — |
 | E1 | Ventana base, tema y pestaña | Completada | 100 % | 2026-10-26 | E0 | — |
-| E2 | Sticky docking y barra de tareas | No iniciada | 0 % | 2026-10-22 | E1 | — |
+| E2 | Sticky docking y barra de tareas | Completada | 100 % | 2026-10-26 | E1 | — |
 | E3 | Hover, slide-in y gracia | No iniciada | 0 % | 2026-10-22 | E2 | — |
 | E4 | Cintas y despliegue exclusivo | No iniciada | 0 % | 2026-10-22 | E2 | — |
 | E5 | Accesos directos `.lnk` | No iniciada | 0 % | 2026-10-22 | E1, E4 | — |
@@ -49,6 +49,9 @@ Tablero de estado del plan definido en `docs/plan/PLAN.md`. El inventario normal
 | 2026-10-26 | E1 | Inicio de ejecución | Se abre E1: barra flotante sin marco translúcida, pestaña semioculta de alto contraste con tono invertido según tema claro/oscuro, conmutación en vivo. Se medirán CPU/RAM en reposo. Sin commit hasta confirmación. | Director de Desarrollo |
 | 2026-10-26 | E1 | Implementación entregada | Ventana borderless translucent con pestaña, tema claro/oscuro detectado vía registro y actualizado con SystemEvents.UserPreferenceChanged, tono invertido, hit-testing limitado a la franja, VM/servicio en Core, Interop aislado. Sin commit. Pendiente de QA. | Implementador |
 | 2026-10-26 | E1 | QA aprobado | QA verifica E1-CA1..E1-CA6: builds sin advertencias, tests 60/60, ventana borderless+translúcida, tema con tono invertido y conmutación en vivo, Topmost, hit-test solo en franja, MVVM separado. Medición en entorno host: RAM ~90MB/CPU <4% en reposo (validación final recomendada en binario publicado). Veredicto APROBADO PARA CERRAR. Sin commit. | QA |
+| 2026-10-26 | E2 | Inicio de ejecución | Se abre E2: acoplamiento sticky a bordes libres excluyendo la barra de tareas, arrastre con snap a 48 px, detección de barra de tareas/work area, hooks SHAppBarMessage/WM_SETTINGCHANGE encapsulados en Interop con liberación de recursos, persistencia del borde. Sin commit hasta confirmación. | Director de Desarrollo |
+| 2026-10-26 | E2 | Implementación entregada | DockEdgeService con snap 48px y exclusión de borde con taskbar, TaskbarMonitor/DockingHookService en Interop con SetWinEventHook/UnhookWinEvent, DockingCoordinator, persistencia de DockEdge en configuración, drag handling en vista/VM. Build Release/Debug sin advertencias, 60/60 tests. Sin commit. Pendiente de QA. | Implementador |
+| 2026-10-26 | E2 | QA aprobado | QA verifica E2-CA1..E2-CA6: snap a 48px centralizado, exclusión del borde de taskbar, hooks SetWinEventHook/UnhookWinEvent con Dispose, persistencia de DockEdge en configuración, lógica en Core/Servicios, MVVM respetado. Builds sin advertencias, 60/60 tests. Veredicto APROBADO PARA CERRAR. Sin commit. | QA |
 
 ---
 

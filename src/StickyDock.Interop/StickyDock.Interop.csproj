@@ -10,4 +10,8 @@
     <UseWindowsForms>true</UseWindowsForms>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\StickyDock.Core\StickyDock.Core.csproj" />
+  </ItemGroup>
+
 </Project>

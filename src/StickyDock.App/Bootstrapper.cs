@@ -64,7 +64,19 @@ internal sealed class Bootstrapper : IDisposable
             var dockStateService = new DockStateService(logger);
             services.AddSingleton<IDockStateService>(dockStateService);
 
-            var dockBarViewModel = new DockBarViewModel(logger, dockStateService, themeService);
+            var dockEdgeService = new DockEdgeService(logger);
+            services.AddSingleton(dockEdgeService);
+
+            var dockingCoordinator = new DockingCoordinator(logger, dockEdgeService, store, configuration);
+            services.AddSingleton(dockingCoordinator);
+
+            // Apply persisted dock edge if present
+            if (configuration.DockEdge.HasValue)
+            {
+                dockEdgeService.SetEdge(configuration.DockEdge.Value);
+            }
+
+            var dockBarViewModel = new DockBarViewModel(logger, dockStateService, themeService, dockEdgeService, configuration, store);
             services.AddSingleton(dockBarViewModel);
 
             var primaryScreen = DisplayMetrics.GetPrimaryScreenSize();
@@ -91,11 +103,53 @@ internal sealed class Bootstrapper : IDisposable
     {
         var viewModel = _services.GetRequiredService<MainViewModel>();
         var dockBarViewModel = _services.GetRequiredService<DockBarViewModel>();
+        var dockingCoordinator = _services.GetRequiredService<DockingCoordinator>();
         var window = new MainWindow
         {
             DataContext = dockBarViewModel,
             MainViewModel = viewModel
         };
+        try
+        {
+            var handle = new System.Windows.Interop.WindowInteropHelper(window).Handle;
+            if (handle != nint.Zero)
+            {
+                dockingCoordinator.Initialize(handle);
+                try
+                {
+                    var hook = new DockingHookService();
+                    dockingCoordinator.SetHookService(hook);
+                }
+                catch
+                {
+                }
+            }
+            else
+            {
+                window.SourceInitialized += (_, __) =>
+                {
+                    try
+                    {
+                        var h = new System.Windows.Interop.WindowInteropHelper(window).Handle;
+                        dockingCoordinator.Initialize(h);
+                        try
+                        {
+                            var hook = new DockingHookService();
+                            dockingCoordinator.SetHookService(hook);
+                        }
+                        catch
+                        {
+                        }
+                    }
+                    catch
+                    {
+                    }
+                };
+            }
+        }
+        catch
+        {
+        }
         window.Show();
     }
 
