@@ -3,7 +3,9 @@ using StickyDock.App.Views;
 using StickyDock.Core.Configuration;
 using StickyDock.Core.DependencyInjection;
 using StickyDock.Core.Diagnostics;
+using StickyDock.Core.Services;
 using StickyDock.Core.ViewModels;
+using StickyDock.Interop.Theme;
 using StickyDock.Interop.Win32;
 
 namespace StickyDock.App;
@@ -55,6 +57,16 @@ internal sealed class Bootstrapper : IDisposable
 
             services.AddSingleton(new MainViewModel(configuration, logger));
 
+            // E1: theme service and dock state service
+            var themeService = new WindowsThemeService();
+            services.AddSingleton<IWindowsThemeService>(themeService);
+
+            var dockStateService = new DockStateService(logger);
+            services.AddSingleton<IDockStateService>(dockStateService);
+
+            var dockBarViewModel = new DockBarViewModel(logger, dockStateService, themeService);
+            services.AddSingleton(dockBarViewModel);
+
             var primaryScreen = DisplayMetrics.GetPrimaryScreenSize();
             logger.Information(
                 string.Create(
@@ -78,7 +90,12 @@ internal sealed class Bootstrapper : IDisposable
     public void ShowMainWindow()
     {
         var viewModel = _services.GetRequiredService<MainViewModel>();
-        var window = new MainWindow { DataContext = viewModel };
+        var dockBarViewModel = _services.GetRequiredService<DockBarViewModel>();
+        var window = new MainWindow
+        {
+            DataContext = dockBarViewModel,
+            MainViewModel = viewModel
+        };
         window.Show();
     }
 

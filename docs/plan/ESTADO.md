@@ -13,7 +13,7 @@ Tablero de estado del plan definido en `docs/plan/PLAN.md`. El inventario normal
 | Etapa | Nombre | Estado | Avance | Actualizado | Depende de | Bloqueo |
 | --- | --- | --- | ---: | --- | --- | --- |
 | E0 | Cimientos de solución y build | Completada | 100 % | 2026-10-22 | — | — |
-| E1 | Ventana base, tema y pestaña | No iniciada | 0 % | 2026-10-22 | E0 | — |
+| E1 | Ventana base, tema y pestaña | Completada | 100 % | 2026-10-26 | E0 | — |
 | E2 | Sticky docking y barra de tareas | No iniciada | 0 % | 2026-10-22 | E1 | — |
 | E3 | Hover, slide-in y gracia | No iniciada | 0 % | 2026-10-22 | E2 | — |
 | E4 | Cintas y despliegue exclusivo | No iniciada | 0 % | 2026-10-22 | E2 | — |
@@ -46,6 +46,9 @@ Tablero de estado del plan definido en `docs/plan/PLAN.md`. El inventario normal
 | 2026-10-22 | E4 | Resolución de Q-07 | Al eliminar una Cinta se eliminan también sus accesos directos, con **confirmación explícita** que indica el número de elementos afectados. La eliminación es atómica en la persistencia. E4 queda desbloqueada: no quedan preguntas abiertas. | Usuario |
 | 2026-10-22 | E0 | Inicio de ejecución | Se abre E0 con el plan cerrado y sin preguntas abiertas. La etapa crea la solución .NET 10/WPF, la infraestructura MVVM, la persistencia JSON atómica y la suite inicial. El commit queda pendiente de confirmación del usuario. | Director de Desarrollo |
 | 2026-10-22 | E0 | QA aprobado | QA verifica E0-CA1..E0-CA6: builds Release/Debug sin advertencias, 60 tests en verde en ambos perfiles, persistencia JSON versionada con escritura atómica y ruta inyectable, MVVM separado del code-behind, estructura WPF/.NET 10 coherente con ADR-001. Veredicto APROBADO PARA CERRAR. Sin commit. | QA |
+| 2026-10-26 | E1 | Inicio de ejecución | Se abre E1: barra flotante sin marco translúcida, pestaña semioculta de alto contraste con tono invertido según tema claro/oscuro, conmutación en vivo. Se medirán CPU/RAM en reposo. Sin commit hasta confirmación. | Director de Desarrollo |
+| 2026-10-26 | E1 | Implementación entregada | Ventana borderless translucent con pestaña, tema claro/oscuro detectado vía registro y actualizado con SystemEvents.UserPreferenceChanged, tono invertido, hit-testing limitado a la franja, VM/servicio en Core, Interop aislado. Sin commit. Pendiente de QA. | Implementador |
+| 2026-10-26 | E1 | QA aprobado | QA verifica E1-CA1..E1-CA6: builds sin advertencias, tests 60/60, ventana borderless+translúcida, tema con tono invertido y conmutación en vivo, Topmost, hit-test solo en franja, MVVM separado. Medición en entorno host: RAM ~90MB/CPU <4% en reposo (validación final recomendada en binario publicado). Veredicto APROBADO PARA CERRAR. Sin commit. | QA |
 
 ---
 
