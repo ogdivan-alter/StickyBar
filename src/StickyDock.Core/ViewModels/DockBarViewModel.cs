@@ -1,21 +1,25 @@
-using StickyDock.Core.Configuration;
+using System.Windows.Input;
 using StickyDock.Core.Diagnostics;
+using StickyDock.Core.Docking;
 using StickyDock.Core.Mvvm;
 using StickyDock.Core.Services;
 
 namespace StickyDock.Core.ViewModels;
 
 /// <summary>
-/// View model for the dock bar. Holds state (tab/expanded) and theme state without any view references.
+/// View model for the dock bar. Holds state (tab/expanded), the theme state and the docked edge, without any view
+/// references and without owning the docking decisions.
 /// </summary>
+/// <remarks>
+/// The docked edge is decided and persisted by <see cref="DockPlacementCoordinator"/>; this view model only mirrors what
+/// the coordinator reports, so there is a single writer of the preference (ADR-002).
+/// </remarks>
 public sealed class DockBarViewModel : ViewModelBase
 {
     private readonly ILogger _logger;
     private readonly IDockStateService _dockStateService;
     private readonly IThemeService? _themeService;
-    private readonly DockEdgeService _dockEdgeService;
-    private readonly IConfigurationStore<StickyDockConfiguration> _configurationStore;
-    private StickyDockConfiguration _configuration;
+
     private bool _isLightTheme;
     private DockState _dockState = DockState.Tab;
     private bool _isHovered;
@@ -27,34 +31,46 @@ public sealed class DockBarViewModel : ViewModelBase
     /// <summary>
     /// Initializes a new instance of the <see cref="DockBarViewModel"/> class.
     /// </summary>
+    /// <param name="logger">Logger of the view model.</param>
+    /// <param name="dockStateService">Service that owns the tab/expanded state.</param>
+    /// <param name="themeService">Optional source of the Windows light/dark theme.</param>
     public DockBarViewModel(
         ILogger logger,
         IDockStateService dockStateService,
-        IThemeService? themeService,
-        DockEdgeService dockEdgeService,
-        StickyDockConfiguration configuration,
-        IConfigurationStore<StickyDockConfiguration> configurationStore)
+        IThemeService? themeService)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _dockStateService = dockStateService ?? throw new ArgumentNullException(nameof(dockStateService));
         _themeService = themeService;
-        _dockEdgeService = dockEdgeService ?? throw new ArgumentNullException(nameof(dockEdgeService));
-        _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
-        _configurationStore = configurationStore ?? throw new ArgumentNullException(nameof(configurationStore));
 
         _isLightTheme = _themeService?.IsLightTheme ?? true;
         _dockState = _dockStateService.State;
-        _dockEdge = _dockEdgeService.CurrentEdge;
+
+        DragCommand = new RelayCommand(() => DragRequested?.Invoke(this, EventArgs.Empty));
 
         if (_themeService != null)
         {
             _themeService.ThemeChanged += OnThemeChanged;
         }
+
         _dockStateService.StateChanged += OnDockStateChanged;
-        _dockEdgeService.EdgeChanged += OnDockEdgeChanged;
 
         _logger.Information("Dock bar view model created.");
     }
+
+    /// <summary>
+    /// Raised when the view asks for a drag of the bar. The composition root forwards it to the docking coordinator.
+    /// </summary>
+    public event EventHandler? DragRequested;
+
+    /// <summary>
+    /// Gets the command that starts a drag of the bar.
+    /// </summary>
+    /// <remarks>
+    /// The window is entirely client area, so the pointer events of E1 and E3 keep arriving and the drag cannot be a
+    /// non-client caption. The gesture ends up in <c>IDockWindowHost.BeginDrag</c> (contingency of ADR-002).
+    /// </remarks>
+    public ICommand DragCommand { get; }
 
     /// <summary>Gets whether Windows is using the light theme.</summary>
     public bool IsLightTheme
@@ -146,6 +162,21 @@ public sealed class DockBarViewModel : ViewModelBase
         }
     }
 
+    /// <summary>
+    /// Gets the edge the bar is docked to, or <see langword="null"/> while it floats.
+    /// </summary>
+    public DockEdge? DockEdge
+    {
+        get => _dockEdge;
+        private set => SetProperty(ref _dockEdge, value);
+    }
+
+    /// <summary>
+    /// Mirrors the placement reported by the docking coordinator.
+    /// </summary>
+    /// <param name="edge">Edge the bar is docked to, or <see langword="null"/> while it floats.</param>
+    public void ApplyPlacement(DockEdge? edge) => DockEdge = edge;
+
     private void OnThemeChanged(object? sender, ThemeChangedEventArgs e)
     {
         IsLightTheme = e.IsLightTheme;
@@ -157,31 +188,5 @@ public sealed class DockBarViewModel : ViewModelBase
     private void OnDockStateChanged(object? sender, DockStateChangedEventArgs e)
     {
         DockState = e.State;
-    }
-
-    /// <summary>Gets the current dock edge.</summary>
-    public DockEdge? DockEdge
-    {
-        get => _dockEdge;
-        private set => SetProperty(ref _dockEdge, value);
-    }
-
-    private void OnDockEdgeChanged(object? sender, DockEdgeChangedEventArgs e)
-    {
-        DockEdge = e.Edge;
-        _ = PersistDockEdgeAsync(e.Edge);
-    }
-
-    private async Task PersistDockEdgeAsync(DockEdge? edge)
-    {
-        try
-        {
-            _configuration = _configuration with { DockEdge = edge };
-            await _configurationStore.SaveAsync(_configuration).ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-            _logger.Error("Failed to persist dock edge.", ex);
-        }
     }
 }

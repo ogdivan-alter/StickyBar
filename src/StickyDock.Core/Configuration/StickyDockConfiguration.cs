@@ -1,12 +1,14 @@
+using DockEdgeKind = StickyDock.Core.Docking.DockEdge;
+
 namespace StickyDock.Core.Configuration;
 
 /// <summary>
 /// Root document persisted in <c>%AppData%\StickyDock\settings.json</c>.
 /// </summary>
 /// <remarks>
-/// E0 defines the versioned envelope and the atomic read/write contract; the sections that hold the docked edge (E2),
-/// the grace timer (E3), the ribbons and shortcuts (E4, E5) and the monitor selection (E7) are added by later stages
-/// as new schema versions with their own <see cref="IConfigurationMigration"/>.
+/// E0 defines the versioned envelope and the atomic read/write contract; the sections that hold the grace timer (E3),
+/// the ribbons and shortcuts (E4, E5) and the monitor selection (E7) are added by later stages as new schema versions
+/// with their own <see cref="IConfigurationMigration"/>.
 /// </remarks>
 public sealed record StickyDockConfiguration : IVersionedDocument
 {
@@ -19,25 +21,13 @@ public sealed record StickyDockConfiguration : IVersionedDocument
     public int SchemaVersion { get; init; } = CurrentSchemaVersion;
 
     /// <summary>
-    /// Persisted dock edge preference (E2). Null means not docked / auto-position.
+    /// Gets the persisted dock edge (E2, AMP-01).
     /// </summary>
-    public DockEdge? DockEdge { get; init; }
-}
-
-/// <summary>
-/// Edge where the dock bar is attached. Plan states Top/Left/Right; include Bottom for flexibility.
-/// </summary>
-public enum DockEdge
-{
-    /// <summary>Docked to the top edge of the work area.</summary>
-    Top,
-
-    /// <summary>Docked to the left edge of the work area.</summary>
-    Left,
-
-    /// <summary>Docked to the right edge of the work area.</summary>
-    Right,
-
-    /// <summary>Docked to the bottom edge of the work area.</summary>
-    Bottom
+    /// <remarks>
+    /// <see langword="null"/> means the bar floats and keeps the position the user left it in. The default is
+    /// <see cref="DockEdgeKind.Top"/>, which is where the first run already placed the bar (ADR-002). The property name
+    /// and the numeric values of the enum are part of the persisted contract: <c>settings.json</c> stores
+    /// <c>"dockEdge": 0..3</c> with the order <c>Top, Left, Right, Bottom</c>.
+    /// </remarks>
+    public DockEdgeKind? DockEdge { get; init; } = DockEdgeKind.Top;
 }

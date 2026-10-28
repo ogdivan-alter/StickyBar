@@ -1,8 +1,12 @@
 using System.Globalization;
+using System.Windows;
+using System.Windows.Interop;
+using StickyDock.App.Docking;
 using StickyDock.App.Views;
 using StickyDock.Core.Configuration;
 using StickyDock.Core.DependencyInjection;
 using StickyDock.Core.Diagnostics;
+using StickyDock.Core.Docking;
 using StickyDock.Core.Services;
 using StickyDock.Core.ViewModels;
 using StickyDock.Interop.Theme;
@@ -13,10 +17,18 @@ namespace StickyDock.App;
 /// <summary>
 /// Composition root of the application: builds the services, loads the configuration and creates the shell window.
 /// </summary>
+/// <remarks>
+/// The docking graph is composed here too, in <c>SourceInitialized</c>, because the native handle only exists once the
+/// window has been created (H-E2-01). The coordinator owns the event source and is disposed when the window closes.
+/// </remarks>
 internal sealed class Bootstrapper : IDisposable
 {
     private readonly ServiceContainer _services;
     private readonly RotatingFileLogger _logger;
+
+    private DockPlacementCoordinator? _dockingCoordinator;
+    private DockBarViewModel? _dockBarViewModel;
+    private bool _disposed;
 
     private Bootstrapper(ServiceContainer services, RotatingFileLogger logger)
     {
@@ -48,6 +60,7 @@ internal sealed class Bootstrapper : IDisposable
             services.AddSingleton<IConfigurationStore<StickyDockConfiguration>>(store);
 
             var configuration = await LoadConfigurationAsync(store, logger, cancellationToken).ConfigureAwait(false);
+            services.AddSingleton(configuration);
 
             if (!store.Exists)
             {
@@ -57,26 +70,14 @@ internal sealed class Bootstrapper : IDisposable
 
             services.AddSingleton(new MainViewModel(configuration, logger));
 
-            // E1: theme service and dock state service
+            // E1: theme service and dock state service.
             var themeService = new WindowsThemeService();
             services.AddSingleton<IWindowsThemeService>(themeService);
 
             var dockStateService = new DockStateService(logger);
             services.AddSingleton<IDockStateService>(dockStateService);
 
-            var dockEdgeService = new DockEdgeService(logger);
-            services.AddSingleton(dockEdgeService);
-
-            var dockingCoordinator = new DockingCoordinator(logger, dockEdgeService, store, configuration);
-            services.AddSingleton(dockingCoordinator);
-
-            // Apply persisted dock edge if present
-            if (configuration.DockEdge.HasValue)
-            {
-                dockEdgeService.SetEdge(configuration.DockEdge.Value);
-            }
-
-            var dockBarViewModel = new DockBarViewModel(logger, dockStateService, themeService, dockEdgeService, configuration, store);
+            var dockBarViewModel = new DockBarViewModel(logger, dockStateService, themeService);
             services.AddSingleton(dockBarViewModel);
 
             var primaryScreen = DisplayMetrics.GetPrimaryScreenSize();
@@ -97,67 +98,128 @@ internal sealed class Bootstrapper : IDisposable
     }
 
     /// <summary>
-    /// Shows the shell window bound to its view model.
+    /// Shows the shell window bound to its view model and composes the docking once the native handle exists.
     /// </summary>
     public void ShowMainWindow()
     {
-        var viewModel = _services.GetRequiredService<MainViewModel>();
+        var mainViewModel = _services.GetRequiredService<MainViewModel>();
         var dockBarViewModel = _services.GetRequiredService<DockBarViewModel>();
-        var dockingCoordinator = _services.GetRequiredService<DockingCoordinator>();
+        var configuration = _services.GetRequiredService<StickyDockConfiguration>();
+        var store = _services.GetRequiredService<IConfigurationStore<StickyDockConfiguration>>();
+
         var window = new MainWindow
         {
             DataContext = dockBarViewModel,
-            MainViewModel = viewModel
+            MainViewModel = mainViewModel,
         };
-        try
-        {
-            var handle = new System.Windows.Interop.WindowInteropHelper(window).Handle;
-            if (handle != nint.Zero)
-            {
-                dockingCoordinator.Initialize(handle);
-                try
-                {
-                    var hook = new DockingHookService();
-                    dockingCoordinator.SetHookService(hook);
-                }
-                catch
-                {
-                }
-            }
-            else
-            {
-                window.SourceInitialized += (_, __) =>
-                {
-                    try
-                    {
-                        var h = new System.Windows.Interop.WindowInteropHelper(window).Handle;
-                        dockingCoordinator.Initialize(h);
-                        try
-                        {
-                            var hook = new DockingHookService();
-                            dockingCoordinator.SetHookService(hook);
-                        }
-                        catch
-                        {
-                        }
-                    }
-                    catch
-                    {
-                    }
-                };
-            }
-        }
-        catch
-        {
-        }
+
+        _dockBarViewModel = dockBarViewModel;
+
+        window.SourceInitialized += (_, _) => AttachDocking(window, dockBarViewModel, configuration, store);
+        window.Closed += OnMainWindowClosed;
+
         window.Show();
     }
 
     /// <inheritdoc />
     public void Dispose()
     {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+
+        DetachDocking();
         _services.Dispose();
         _logger.Dispose();
+    }
+
+    private void AttachDocking(
+        Window window,
+        DockBarViewModel viewModel,
+        StickyDockConfiguration configuration,
+        IConfigurationStore<StickyDockConfiguration> store)
+    {
+        var handle = new WindowInteropHelper(window).Handle;
+
+        if (handle == nint.Zero)
+        {
+            _logger.Error("The docking was not started: the window has no native handle.");
+            return;
+        }
+
+        var messageSource = HwndSource.FromHwnd(handle);
+
+        if (messageSource is null)
+        {
+            _logger.Error("The docking was not started: the window has no message source.");
+            return;
+        }
+
+        // Both sources are cheap while idle: window messages and a hook filtered by the taskbar window (ADR-002).
+        var events = new CompositeDockingEventSource(
+            new WpfMessageDockingEventSource(messageSource),
+            new WinEventDockingEventSource());
+
+        var coordinator = new DockPlacementCoordinator(
+            events,
+            new Win32WindowGeometrySource(handle),
+            new WpfDockWindowHost(window),
+            store,
+            configuration,
+            _logger);
+
+        _dockingCoordinator = coordinator;
+        coordinator.PlacementChanged += OnPlacementChanged;
+        viewModel.DragRequested += OnDragRequested;
+
+        try
+        {
+            coordinator.Start();
+        }
+        catch (Exception exception)
+        {
+            // The bar keeps working where it is; only the docking stays inactive.
+            _logger.Critical("The docking could not be started; the bar stays where it is.", exception);
+            DetachDocking();
+        }
+    }
+
+    private void OnPlacementChanged(object? sender, DockPlacementChangedEventArgs e)
+        => _dockBarViewModel?.ApplyPlacement(e.Edge);
+
+    private void OnDragRequested(object? sender, EventArgs e) => _dockingCoordinator?.BeginDrag();
+
+    private void OnMainWindowClosed(object? sender, EventArgs e)
+    {
+        if (sender is Window window)
+        {
+            window.Closed -= OnMainWindowClosed;
+        }
+
+        DetachDocking();
+    }
+
+    private void DetachDocking()
+    {
+        var coordinator = _dockingCoordinator;
+
+        if (coordinator is null)
+        {
+            return;
+        }
+
+        _dockingCoordinator = null;
+        coordinator.PlacementChanged -= OnPlacementChanged;
+
+        if (_dockBarViewModel is not null)
+        {
+            _dockBarViewModel.DragRequested -= OnDragRequested;
+        }
+
+        coordinator.Dispose();
     }
 
     private static async Task<StickyDockConfiguration> LoadConfigurationAsync(

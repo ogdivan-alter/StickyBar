@@ -1,82 +1,124 @@
 using System.Runtime.InteropServices;
+using StickyDock.Core.Docking;
 
 namespace StickyDock.Interop.Win32;
 
 /// <summary>
-/// Taskbar and appbar information.
+/// Safe wrapper of <c>SHAppBarMessage(ABM_GETTASKBARPOS / ABM_GETSTATE)</c> with the <c>Shell_TrayWnd</c> fallback.
 /// </summary>
+/// <remarks>
+/// <c>SHAppBarMessage</c> describes the primary taskbar; the fallback covers sessions where the shell does not answer.
+/// The edge is derived against the monitor that hosts the bar, never against the primary screen, so the result is
+/// usable with mixed DPI (R-05).
+/// </remarks>
 public static class TaskbarMonitor
 {
-    private const int ABM_GETSTATE = 0x00000004;
-    private const int ABS_AUTOHIDE = 0x00000001;
-
-    private const int ABM_GETTASKBARPOS = 0x00000005;
+    private const int AbmGetState = 0x00000004;
+    private const int AbmGetTaskbarPos = 0x00000005;
+    private const int AbsAutoHide = 0x00000001;
+    private const uint MonitorDefaultToNearest = 0x00000002;
+    private const string TaskbarWindowClass = "Shell_TrayWnd";
 
     /// <summary>
-    /// Gets the taskbar position/edge and its rect on the monitor containing the given window.
+    /// Probes the taskbar as seen from the monitor that hosts the given window.
     /// </summary>
-    public static TaskbarInfo GetTaskbarInfo(nint windowHandle)
+    /// <param name="windowHandle">Handle of the bar window, used to locate its monitor.</param>
+    /// <returns>
+    /// The placement of the taskbar. When the probe cannot locate the taskbar, the returned placement reports
+    /// <see cref="TaskbarPlacement.IsOnCurrentMonitor"/> as <see langword="false"/> and the bar excludes no edge.
+    /// </returns>
+    public static TaskbarPlacement GetTaskbarPlacement(nint windowHandle)
     {
-        var abd = new APPBARDATA
-        {
-            cbSize = (uint)Marshal.SizeOf<APPBARDATA>()
-        };
+        var state = QueryState();
+        var monitor = GetMonitorBounds(windowHandle);
 
-        var result = NativeMethods.SHAppBarMessage((uint)ABM_GETTASKBARPOS, ref abd);
-        if (result != 0)
+        if (TryQueryFromShell(out var shellBounds, out var shellEdge))
         {
-            var edge = (TaskbarEdge)abd.uEdge;
-            return new TaskbarInfo(edge, ToRectInterop(abd.rc), IsAutoHide());
+            return new TaskbarPlacement(state, shellEdge, shellBounds, Intersects(shellBounds, monitor));
         }
 
-        var taskbarHwnd = NativeMethods.FindWindowW("Shell_TrayWnd", null);
-        if (taskbarHwnd != nint.Zero)
+        var taskbarWindow = NativeMethods.FindWindowW(TaskbarWindowClass, null);
+
+        if (taskbarWindow == nint.Zero || !NativeMethods.GetWindowRect(taskbarWindow, out var rect))
         {
-            if (NativeMethods.GetWindowRect(taskbarHwnd, out var rect))
-            {
-                var screen = DisplayMetrics.GetPrimaryScreenSize();
-                var edge = rect.Bottom >= screen.HeightInPixels - 2 ? TaskbarEdge.Bottom
-                          : rect.Top <= 2 ? TaskbarEdge.Top
-                          : rect.Left <= 2 ? TaskbarEdge.Left
-                          : rect.Right >= screen.WidthInPixels - 2 ? TaskbarEdge.Right
-                          : TaskbarEdge.Bottom;
-                return new TaskbarInfo(edge, new InteropRect(rect.Left, rect.Top, rect.Right - rect.Left, rect.Bottom - rect.Top), IsAutoHide());
-            }
+            return new TaskbarPlacement(state, DockEdge.Bottom, PixelRect.Empty, IsOnCurrentMonitor: false);
         }
 
-        return new TaskbarInfo(TaskbarEdge.Bottom, new InteropRect(0, 0, 0, 0), IsAutoHide());
+        var bounds = ToPixelRect(rect);
+
+        return new TaskbarPlacement(state, DeriveEdge(bounds, monitor), bounds, Intersects(bounds, monitor));
     }
 
-    private static bool IsAutoHide()
+    private static bool TryQueryFromShell(out PixelRect bounds, out DockEdge edge)
     {
-        var abd = new APPBARDATA
+        var data = new APPBARDATA
         {
-            cbSize = (uint)Marshal.SizeOf<APPBARDATA>()
+            cbSize = (uint)Marshal.SizeOf<APPBARDATA>(),
         };
-        var state = NativeMethods.SHAppBarMessage((uint)ABM_GETSTATE, ref abd);
-        return (state & ABS_AUTOHIDE) == ABS_AUTOHIDE;
+
+        if (NativeMethods.SHAppBarMessage(AbmGetTaskbarPos, ref data) != 0
+            && AppBarEdgeMapping.TryFromAppBarEdge(data.uEdge, out edge))
+        {
+            bounds = ToPixelRect(data.rc);
+            return true;
+        }
+
+        bounds = PixelRect.Empty;
+        edge = default;
+        return false;
     }
 
-    private static InteropRect ToRectInterop(RECT r) => new(r.Left, r.Top, r.Right - r.Left, r.Bottom - r.Top);
+    private static TaskbarState QueryState()
+    {
+        var data = new APPBARDATA
+        {
+            cbSize = (uint)Marshal.SizeOf<APPBARDATA>(),
+        };
+
+        var state = NativeMethods.SHAppBarMessage(AbmGetState, ref data);
+
+        return (state & (nint)AbsAutoHide) != 0 ? TaskbarState.AutoHide : TaskbarState.Visible;
+    }
+
+    private static PixelRect GetMonitorBounds(nint windowHandle)
+    {
+        var monitor = NativeMethods.MonitorFromWindow(windowHandle, MonitorDefaultToNearest);
+        var info = new MONITORINFO
+        {
+            cbSize = Marshal.SizeOf<MONITORINFO>(),
+        };
+
+        return monitor != nint.Zero && NativeMethods.GetMonitorInfoW(monitor, ref info)
+            ? ToPixelRect(info.rcMonitor)
+            : PixelRect.Empty;
+    }
+
+    /// <summary>
+    /// Derives the edge of a taskbar from its rectangle: a wide taskbar sits at the top or at the bottom, a tall one at
+    /// the left or at the right, and the half of the monitor it falls in tells which.
+    /// </summary>
+    private static DockEdge DeriveEdge(PixelRect taskbar, PixelRect monitor)
+    {
+        if (taskbar.Height <= taskbar.Width)
+        {
+            var taskbarCentre = (long)taskbar.Y + (taskbar.Height / 2);
+            var monitorCentre = (long)monitor.Y + (monitor.Height / 2);
+
+            return taskbarCentre < monitorCentre ? DockEdge.Top : DockEdge.Bottom;
+        }
+
+        var taskbarMiddle = (long)taskbar.X + (taskbar.Width / 2);
+        var monitorMiddle = (long)monitor.X + (monitor.Width / 2);
+
+        return taskbarMiddle < monitorMiddle ? DockEdge.Left : DockEdge.Right;
+    }
+
+    private static bool Intersects(PixelRect first, PixelRect second)
+        => first.X < second.Right
+        && first.Right > second.X
+        && first.Y < second.Bottom
+        && first.Bottom > second.Y;
+
+    private static PixelRect ToPixelRect(RECT rect)
+        => new(rect.Left, rect.Top, rect.Right - rect.Left, rect.Bottom - rect.Top);
 }
-
-/// <summary>
-/// Taskbar info.
-/// </summary>
-public readonly record struct TaskbarInfo(TaskbarEdge Edge, InteropRect Rect, bool AutoHide);
-
-/// <summary>
-/// Taskbar edge.
-/// </summary>
-public enum TaskbarEdge
-{
-    Left = 0,
-    Top = 1,
-    Right = 2,
-    Bottom = 3
-}
-
-/// <summary>
-/// Rectangle.
-/// </summary>
-public readonly record struct InteropRect(int X, int Y, int Width, int Height);
