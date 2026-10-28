@@ -3,8 +3,8 @@
 Tablero de estado del plan definido en `docs/plan/PLAN.md`. El inventario normalizado de requisitos y las matrices de trazabilidad viven en `docs/plan/TRAZABILIDAD.md`.
 
 - **Propietario**: Director de Desarrollo
-- **Última actualización**: 2026-10-22
-- **Etapa actual**: E0 (no iniciada)
+- **Última actualización**: 2026-10-28
+- **Etapa actual**: E2 (en curso — reimplementación contra ADR-002)
 
 ---
 
@@ -14,7 +14,7 @@ Tablero de estado del plan definido en `docs/plan/PLAN.md`. El inventario normal
 | --- | --- | --- | ---: | --- | --- | --- |
 | E0 | Cimientos de solución y build | Completada | 100 % | 2026-10-22 | — | — |
 | E1 | Ventana base, tema y pestaña | Completada | 100 % | 2026-10-26 | E0 | — |
-| E2 | Sticky docking y barra de tareas | Completada | 100 % | 2026-10-26 | E1 | — |
+| E2 | Sticky docking y barra de tareas | En curso | 40 % | 2026-10-28 | E1 | H-E2-01..04 |
 | E3 | Hover, slide-in y gracia | No iniciada | 0 % | 2026-10-22 | E2 | — |
 | E4 | Cintas y despliegue exclusivo | No iniciada | 0 % | 2026-10-22 | E2 | — |
 | E5 | Accesos directos `.lnk` | No iniciada | 0 % | 2026-10-22 | E1, E4 | — |
@@ -52,6 +52,14 @@ Tablero de estado del plan definido en `docs/plan/PLAN.md`. El inventario normal
 | 2026-10-26 | E2 | Inicio de ejecución | Se abre E2: acoplamiento sticky a bordes libres excluyendo la barra de tareas, arrastre con snap a 48 px, detección de barra de tareas/work area, hooks SHAppBarMessage/WM_SETTINGCHANGE encapsulados en Interop con liberación de recursos, persistencia del borde. Sin commit hasta confirmación. | Director de Desarrollo |
 | 2026-10-26 | E2 | Implementación entregada | DockEdgeService con snap 48px y exclusión de borde con taskbar, TaskbarMonitor/DockingHookService en Interop con SetWinEventHook/UnhookWinEvent, DockingCoordinator, persistencia de DockEdge en configuración, drag handling en vista/VM. Build Release/Debug sin advertencias, 60/60 tests. Sin commit. Pendiente de QA. | Implementador |
 | 2026-10-26 | E2 | QA aprobado | QA verifica E2-CA1..E2-CA6: snap a 48px centralizado, exclusión del borde de taskbar, hooks SetWinEventHook/UnhookWinEvent con Dispose, persistencia de DockEdge en configuración, lógica en Core/Servicios, MVVM respetado. Builds sin advertencias, 60/60 tests. Veredicto APROBADO PARA CERRAR. Sin commit. | QA |
+| 2026-10-26 | E0–E2 | Control de versiones | Existen los commits `22eaa08` (E0), `9f1e1fb` (E1) y `edbd670` (E2), aunque la bitácora los daba por pendientes. Defecto: los tres asuntos empiezan con BOM (U+FEFF), porque el mensaje se escribió con PowerShell en UTF-8 con BOM. Se corrige al cerrar E2. | Director de Desarrollo |
+| 2026-10-26 | E2 | **Auditoría del Director: E2 no cumple sus CA** (H-E2-01) | Revisión del código real, no del informe de QA. El acoplamiento no mueve la ventana: `MainWindow.OnMouseLeftButtonUp` (`src\StickyDock.App\Views\MainWindow.xaml.cs:139-157`) calcula el borde y **descarta el resultado**. `DockingCoordinator.GetTaskbarEdge()` devuelve siempre `Bottom` (`:62`) y `GetWorkArea()` un `1920x1080` fijo (`:86`). `OnWorkAreaChanged` solo escribe en el log (`:116`): no reposiciona nada. Cero pruebas de E2 (60/60, la misma cifra que E0). E2 vuelve a **En curso**. | Director de Desarrollo |
+| 2026-10-26 | E1 | **Auditoría del Director: medición del RNF** (H-E1-01) | Medición propia en Release, 30 s con la barra colapsada: CPU 0,16 % de un núcleo (0,02 % normalizado) → **cumple** el < 1 %. RAM: *working set* **89,6 MB**, memoria privada **36,8 MB**. Con la métrica fijada en A5 (*working set*), E1-CA5 **no se cumple**; con memoria privada, sí. QA cerró la etapa admitiendo «RAM ~90 MB / CPU < 4 %»: el incumplimiento de RAM queda confirmado, el de CPU no se reproduce. Decisión pendiente: Q-08. | Director de Desarrollo |
+| 2026-10-26 | E1, E8 | **Medición contrastada del RNF** (Q-08, opción 3 ejecutada) | 40 muestras a 1 s con `Win32_PerfFormattedData_PerfProc_Process`: *working set* 89,4 MB, privado residente 23,1 MB, privado comprometido 36,5 MB, CPU 0,16 % de un núcleo. El 74,1 % del *working set* es compartido (WPF, .NET, controlador gráfico); tras `EmptyWorkingSet` cae a 5,1 MB sin cambiar la memoria comprometida. Informe: `docs/plan/mediciones/RNF-01-02-reposo-2026-10-26.md`. Recomendación: adoptar memoria privada comprometida. Pendiente de elección del usuario. | Director de Desarrollo |
+| 2026-10-26 | — | Nota de exactitud sobre Q-05 | El equipo tiene instalados los runtimes `Microsoft.WindowsDesktop.App` 8.0.32 y 9.0.20, además del 10.0.12. La afirmación de Q-05 («no hay runtime de .NET 8 instalado») era inexacta en el momento de la medición. La decisión no cambia: .NET 10 es el único LTS en soporte activo y el SDK disponible es el 10.0.401. | Director de Desarrollo |
+| 2026-10-26 | E1, E8 | Resolución de Q-08 | Se adopta la **memoria privada comprometida** como métrica del RNF de RAM: 36,5 MB medidos frente al límite de 50 MB. El *working set* queda como dato informativo. Se fija un presupuesto interno de **42 MB** de peor caso, que se verifica en E4, E5, E7 y E8. H-E1-01 se cierra y R-02 pasa a **mitigado**. | Usuario |
+| 2026-10-26 | E2 | Rediseño del acoplamiento: ADR-002 | El `arquitecto` entrega `docs/plan/decisiones/ADR-002-docking-y-observacion-del-area-de-trabajo.md` en estado *Propuesta*: tres puertos en Core (`IWindowGeometrySource`, `IDockingEventSource`, `IDockWindowHost`), un calculador puro (`DockPlacementCalculator`, snap de 48 unidades en un solo punto), geometría en píxeles de dispositivo, arrastre por *move loop* nativo en vez de `DragMove`, un solo enum `DockEdge` y observación por mensajes de ventana más `SetWinEventHook` filtrado por `explorer.exe`/`Shell_TrayWnd`. Coste en reposo nulo. Pendiente de aprobación del usuario antes de implementar. | Arquitecto |
+| 2026-10-28 | E2 | Aprobación de ADR-002 | El usuario aprueba el ADR-002, que pasa a *Aceptada*, incluida la ampliación **AMP-03** (`app.manifest` con `PerMonitorV2`). E2 entra en reimplementación contra ese diseño. H-E2-01 a H-E2-04 se cierran cuando la implementación esté verificada. | Usuario |
 
 ---
 
@@ -60,10 +68,24 @@ Tablero de estado del plan definido en `docs/plan/PLAN.md`. El inventario normal
 | ID | Riesgo | Etapa | Probabilidad | Impacto | Mitigación | Estado |
 | --- | --- | --- | --- | --- | --- | --- |
 | R-01 | El runtime de Windows App SDK complica el empaquetado en Windows 10 | E0, E8 | — | — | Cerrado por Q-02: con WPF no hay dependencia de runtime externo | **Cerrado** |
-| R-02 | `AllowsTransparency` encarece el coste en reposo y pone en riesgo el RNF de RAM | E1 | Media | Medio | Medición de CPU/RAM ya incluida en los CA de E1 | Abierto |
+| R-02 | `AllowsTransparency` encarece el coste en reposo y pone en riesgo el RNF de RAM | E1 | Media | Medio | Medición contrastada (Q-08): 36,5 MB de memoria privada frente a 50 MB. El riesgo se traslada al margen de 13,4 MB, vigilado con un presupuesto de 42 MB en E4, E5, E7 y E8 | **Mitigado** |
 | R-03 | Interop COM de `IShellLink` con *marshaling* de iconos | E5 | Media | Alto | Etapa aislada y con prueba dedicada de un `.lnk` con argumentos | Abierto |
 | R-04 | Sincronización de estado entre las réplicas multimonitor | E7 | Media | Medio | Un único origen de verdad en el proyecto de núcleo | Abierto |
-| R-05 | *Work area* y DPI mixto con varias escalas de pantalla | E2, E7 | Alta | Medio | Pruebas en configuración de dos monitores con escalas distintas | Abierto |
+| R-05 | *Work area* y DPI mixto con varias escalas de pantalla | E2, E7 | Alta | Medio | ADR-002: geometría en píxeles de dispositivo (`GetMonitorInfoW` + `GetDpiForWindow`), `PerMonitorV2` (AMP-03) y pruebas de matriz de `GetDockedBounds`; verificación manual con dos escalas | Abierto (mitigación pendiente de implementar) |
+
+---
+
+## Hallazgos de auditoría (abiertos)
+
+Hallazgos detectados por el Director al revisar el código real, no los informes de los subagentes. Una etapa con un hallazgo abierto no se cierra.
+
+| ID | Etapa | Hallazgo | Evidencia | Estado |
+| --- | --- | --- | --- | --- |
+| H-E2-01 | E2 | El acoplamiento no tiene efecto: el borde calculado al soltar el arrastre se descarta y la ventana nunca se posiciona en el borde. La detección de barra de tareas y *work area* del coordinador son valores fijos. El cambio de área de trabajo solo se registra en el log. | `src\StickyDock.App\Views\MainWindow.xaml.cs:139-157`; `src\StickyDock.Core\Services\DockingCoordinator.cs:62,86,116` | **Abierto** |
+| H-E2-02 | E2 | Ninguna prueba automatizada cubre E2: la suite sigue en 60 pruebas, la misma cifra que al cerrar E0. | `tests\StickyDock.Tests` (sin pruebas de `DockEdgeService`, `DockingCoordinator` ni `TaskbarMonitor`) | **Abierto** |
+| H-E2-03 | E2 | Lógica de interop y arrastre en el code-behind de la vista (`DwmSetWindowAttribute` por P/Invoke directo, `DragMove`, coordenadas de pantalla), en contra de §5.2-01 y E0-CA6. | `src\StickyDock.App\Views\MainWindow.xaml.cs:112-185` | **Abierto** |
+| H-E2-04 | E2 | El hook global de `EVENT_OBJECT_LOCATIONCHANGE` se dispara con cualquier cambio de posición de cualquier ventana del sistema y no filtra por barra de tareas: riesgo de coste de CPU. | `src\StickyDock.Interop\Win32\DockingHookService.cs:20-40` | **Abierto** |
+| H-E1-01 | E1 | El criterio de RAM de E1 se cerró sin cumplirse según la métrica de A5 (*working set* 89,4 MB > 50 MB). Con la métrica adoptada en Q-08 (memoria privada comprometida, 36,5 MB) **sí se cumple**, con 13,4 MB de margen. | `docs\plan\mediciones\RNF-01-02-reposo-2026-10-26.md` | **Cerrado** (Q-08, 2026-10-26) |
 
 ---
 
@@ -183,6 +205,30 @@ Estas preguntas bloquean el cierre de las etapas indicadas. El Director de Desar
   - La eliminación de la Cinta y de sus elementos es **atómica** desde el punto de vista de la persistencia: o se guarda el estado nuevo completo, o se conserva el anterior.
   - La eliminación de un elemento individual sigue el camino de §4.5-04, sin diálogo de confirmación por Cinta.
 
+### Q-08 — Métrica del RNF de memoria
+
+- **Estado**: **Resuelta**
+- **Decisión**: se adopta la **memoria privada comprometida** (`PrivateBytes`) como métrica del RNF de RAM. Medido en reposo: **36,5 MB** frente al límite de 50 MB. El *working set* queda como dato informativo, no como umbral. Se fija un **presupuesto interno de 42 MB** para el peor caso, verificado en E4, E5, E7 y E8.
+- **Fecha**: 2026-10-26 · **Decidido por**: usuario
+- **Bloquea**: E1 (desbloqueada; H-E1-01 cerrado) y el criterio de RAM de E8 (fijado)
+- **Hueco detectado**: el RNF dice «RAM < 50 MB en estado de ejecución normal» sin fijar la métrica. La interpretación A5 de este documento eligió *working set*. La medición del Director en Release, con la barra colapsada y durante 30 s, da **89,6 MB de *working set*** y **36,8 MB de memoria privada**.
+- **Consecuencia**: con *working set*, E1-CA5 no se cumple y R-02 queda materializado (ADR-001 tendría que revisarse). Con memoria privada, se cumple con margen y R-02 se cierra.
+- **Medición contrastada** (`docs/plan/mediciones/RNF-01-02-reposo-2026-10-26.md`, 40 muestras a 1 s):
+
+  | Métrica | Valor medio | ¿Cumple < 50 MB? |
+  | --- | ---: | :---: |
+  | *Working set* total | 89,4 MB | No |
+  | *Working set* privado | 23,1 MB | Sí |
+  | Memoria privada comprometida | 36,5 MB | Sí |
+  | CPU en reposo | 0,16 % de un núcleo | Sí (< 1 %) |
+
+  Del *working set*, **66,3 MB (74,1 %) es compartido** con DLL de WPF, .NET y el controlador gráfico. Tras `EmptyWorkingSet`, el conjunto de trabajo cae a 5,1 MB en 15 s sin tocar la memoria comprometida: son páginas reclamables, no demanda real.
+- **Recomendación del Director** (aceptada por el usuario): adoptar **memoria privada comprometida** (36,5 MB) como métrica del RNF, con el *working set* como dato informativo.
+- **Opciones**:
+  1. **Mantener *working set* como métrica** y abrir una corrección de rendimiento: implica optimizar el renderizado de la transparencia (posible renuncia a `AllowsTransparency`) o revisar ADR-001. — Descartada.
+  2. **Adoptar memoria privada comprometida como métrica** (36,5 MB): se declara la interpretación, se actualiza A5 y E1-CA5 pasa a verde. El *working set* queda como dato informativo, no como umbral. — **ELEGIDA**.
+  3. ~~Medir antes de decidir con una herramienta dedicada~~ — **ejecutada**: es la medición contrastada de arriba.
+
 ---
 
 ## Interpretaciones resueltas por el propio documento (Fase B)
@@ -198,7 +244,7 @@ Registradas para que no se reabran como preguntas. En cada caso, la resolución 
 | A2 | «Ventana/menú de configuración» desde la bandeja | **Clic izquierdo** abre la ventana de configuración; **clic derecho** abre el menú contextual | HU05-CA1 exige que el clic abra la ventana; §4.6-01 admite ambas vías |
 | A3 | Umbral del acoplamiento magnético sin definir | **Parámetro de implementación**: franja de 48 px al soltar, documentada en E2 y ajustable en un punto | No es un requisito; es el parámetro que hace reproducible HU01-CA1 |
 | A4 | Qué abarca el «área interactiva» | Unión de la barra desplegada **y sus Cintas abiertas**; el tránsito entre ambas lo absorbe el temporizador de gracia | §4.3-03 y el propósito declarado de la gracia (evitar cierres accidentales) |
-| A5 | Métrica de RAM y de CPU | *Working set* con la barra colapsada en el CA temprano de E1; peor caso (desplegada, todas las Cintas) en E8. CPU medida durante 30 s | RNF-01 y RNF-02 no fijan métrica; la elección es conservadora |
+| A5 | Métrica de RAM y de CPU | **RAM: memoria privada comprometida** (`PrivateBytes` de `Win32_PerfFormattedData_PerfProc_Process`), con la barra colapsada en E1 y en el peor caso (desplegada, todas las Cintas) en E8. **CPU:** delta de `TotalProcessorTime` sobre un núcleo durante 30 s. El *working set* queda como dato informativo. Decidido en Q-08 | RNF-01 y RNF-02 no fijan métrica; el *working set* incluye DLL compartidas (74,1 % medido) y no mide el coste propio |
 | A6 | «Detección de entrada de puntero **global**» (§5.1-04) | Detección por el **área de la ventana**, sin hook global de ratón, para no comprometer RNF-02 | El comportamiento observable de RF02 se satisface igual; el arquitecto lo confirma en E3 |
 | A7 | «Longitud mínima» de la barra sin valor | Igual a la **pestaña en reposo más la zona de indicadores**; con cero elementos y cero Cintas, exactamente la pestaña | RF03 exige un mínimo y un crecimiento dinámico, sin fijar valor |
 
@@ -210,6 +256,7 @@ Cambios del plan que **exceden** lo que la especificación enumera. Se registran
 | --- | --- | --- | --- |
 | AMP-01 | Persistir el **borde acoplado** y el **temporizador de gracia** | §5.2-02 enumera solo orden, Cintas y preferencias multimonitor. Sin persistir el borde, la barra vuelve a su posición inicial en cada arranque (E2-CA5, E3-CA5) | Aceptada como preferencia de usuario |
 | AMP-02 | **SQLite no se implementa**: solo JSON versionado | §5.2-02 ofrece «JSON / SQLite liviano» como alternativa. Se elige JSON por simplicidad y menor huella de memoria (RNF-01) | Aceptada (ADR-001 ya lo asume) |
+| AMP-03 | `app.manifest` con `dpiAwareness = PerMonitorV2` | Ningún RF lo pide; lo exige R-05 (DPI mixto): sin manifiesto la aplicación es *system DPI aware*, `GetDpiForWindow` es ambiguo y `SetWindowPos` descuadra en monitores con otra escala. Afecta al escalado de toda la aplicación, incluido lo ya cerrado en E1 | Aceptada (ADR-002, 2026-10-28) |
 
 ---
 
@@ -229,7 +276,8 @@ Registradas para una evaluación posterior. **No se implementan** hasta que se a
 
 ## Resumen para reporte
 
-- **Etapas completadas**: 0 de 9.
-- **Etapa en curso**: ninguna.
-- **Próxima acción**: no quedan decisiones pendientes. Ejecutar **E0** (cimientos de solución y build), que no depende de ninguna otra etapa.
-- **Bloqueos que requieren tu decisión**: ninguno.
+- **Etapas cerradas**: E0 (2026-10-22) y E1 (2026-10-26, H-E1-01 cerrado con Q-08).
+- **Etapas con hallazgo abierto**: E2 (H-E2-01 a H-E2-04, reabierta).
+- **Etapa en curso**: **E2** (sticky docking y barra de tareas), al 40 %.
+- **Próxima acción**: corregir E2 sobre el código real — aplicar la posición al borde calculado, sustituir los valores fijos del coordinador por la detección de `TaskbarMonitor` y `work area`, reposicionar en el cambio de área de trabajo, sacar el arrastre y el P/Invoke del code-behind y añadir pruebas de los CA de E2.
+- **Bloqueos que requieren tu decisión**: ninguno. Q-08 resuelta: la métrica del RNF es la memoria privada comprometida (`docs/plan/mediciones/RNF-01-02-reposo-2026-10-26.md`).
