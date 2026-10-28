@@ -34,7 +34,7 @@ Comandos disponibles: `/planear`, `/avanzar`, `/estado`.
 - **MVVM**: la lógica de estado, el docking, las cintas, los temporizadores y las animaciones viven en ViewModels y servicios, nunca en el code-behind de las vistas.
 - **Interop Win32**: todo `P/Invoke` a `User32.dll` / `Shell32.dll` vive en el proyecto de interoperabilidad, con tipos seguros. No usar `IntPtr` desnudo en la lógica de negocio.
 - **Persistencia**: JSON versionado en `%AppData%`, con migración de esquema y escritura atómica.
-- **RNF**: RAM < 50 MB en operación normal, CPU < 1 % en reposo. Revisar timers, polling, hooks y animaciones permanentes en cada revisión.
+- **RNF**: RAM < 50 MB en operación normal medidos como **memoria privada comprometida** (`PrivateBytes`, Q-08; el *working set* es informativo) y CPU < 1 % en reposo. Presupuesto interno de 42 MB de peor caso. Revisar timers, polling, hooks y animaciones permanentes en cada revisión.
 
 ## Reglas de contribución
 

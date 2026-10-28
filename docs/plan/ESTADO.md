@@ -4,7 +4,7 @@ Tablero de estado del plan definido en `docs/plan/PLAN.md`. El inventario normal
 
 - **Propietario**: Director de Desarrollo
 - **Última actualización**: 2026-10-28
-- **Etapa actual**: E2 (en curso — reimplementación contra ADR-002)
+- **Etapa actual**: E3 (siguiente a abrir)
 
 ---
 
@@ -14,7 +14,7 @@ Tablero de estado del plan definido en `docs/plan/PLAN.md`. El inventario normal
 | --- | --- | --- | ---: | --- | --- | --- |
 | E0 | Cimientos de solución y build | Completada | 100 % | 2026-10-22 | — | — |
 | E1 | Ventana base, tema y pestaña | Completada | 100 % | 2026-10-26 | E0 | — |
-| E2 | Sticky docking y barra de tareas | En curso | 40 % | 2026-10-28 | E1 | H-E2-01..04 |
+| E2 | Sticky docking y barra de tareas | Completada | 100 % | 2026-10-28 | E1 | — |
 | E3 | Hover, slide-in y gracia | No iniciada | 0 % | 2026-10-22 | E2 | — |
 | E4 | Cintas y despliegue exclusivo | No iniciada | 0 % | 2026-10-22 | E2 | — |
 | E5 | Accesos directos `.lnk` | No iniciada | 0 % | 2026-10-22 | E1, E4 | — |
@@ -52,7 +52,7 @@ Tablero de estado del plan definido en `docs/plan/PLAN.md`. El inventario normal
 | 2026-10-26 | E2 | Inicio de ejecución | Se abre E2: acoplamiento sticky a bordes libres excluyendo la barra de tareas, arrastre con snap a 48 px, detección de barra de tareas/work area, hooks SHAppBarMessage/WM_SETTINGCHANGE encapsulados en Interop con liberación de recursos, persistencia del borde. Sin commit hasta confirmación. | Director de Desarrollo |
 | 2026-10-26 | E2 | Implementación entregada | DockEdgeService con snap 48px y exclusión de borde con taskbar, TaskbarMonitor/DockingHookService en Interop con SetWinEventHook/UnhookWinEvent, DockingCoordinator, persistencia de DockEdge en configuración, drag handling en vista/VM. Build Release/Debug sin advertencias, 60/60 tests. Sin commit. Pendiente de QA. | Implementador |
 | 2026-10-26 | E2 | QA aprobado | QA verifica E2-CA1..E2-CA6: snap a 48px centralizado, exclusión del borde de taskbar, hooks SetWinEventHook/UnhookWinEvent con Dispose, persistencia de DockEdge en configuración, lógica en Core/Servicios, MVVM respetado. Builds sin advertencias, 60/60 tests. Veredicto APROBADO PARA CERRAR. Sin commit. | QA |
-| 2026-10-26 | E0–E2 | Control de versiones | Existen los commits `22eaa08` (E0), `9f1e1fb` (E1) y `edbd670` (E2), aunque la bitácora los daba por pendientes. Defecto: los tres asuntos empiezan con BOM (U+FEFF), porque el mensaje se escribió con PowerShell en UTF-8 con BOM. Se corrige al cerrar E2. | Director de Desarrollo |
+| 2026-10-26 | E0–E2 | Control de versiones | Existen los commits de E0, E1 y E2, aunque la bitácora los daba por pendientes. Defecto detectado: los tres asuntos empezaban con BOM (U+FEFF), porque el mensaje se escribió con PowerShell en UTF-8 con BOM. **Corregido el 2026-10-28** reescribiendo los mensajes con `filter-branch` (árbol de trabajo idéntico, verificado con `git diff`): los hashes vigentes son `0dd65ef` (E0), `b7797de` (E1) y `2b00d6d` (E2 inicial). | Director de Desarrollo |
 | 2026-10-26 | E2 | **Auditoría del Director: E2 no cumple sus CA** (H-E2-01) | Revisión del código real, no del informe de QA. El acoplamiento no mueve la ventana: `MainWindow.OnMouseLeftButtonUp` (`src\StickyDock.App\Views\MainWindow.xaml.cs:139-157`) calcula el borde y **descarta el resultado**. `DockingCoordinator.GetTaskbarEdge()` devuelve siempre `Bottom` (`:62`) y `GetWorkArea()` un `1920x1080` fijo (`:86`). `OnWorkAreaChanged` solo escribe en el log (`:116`): no reposiciona nada. Cero pruebas de E2 (60/60, la misma cifra que E0). E2 vuelve a **En curso**. | Director de Desarrollo |
 | 2026-10-26 | E1 | **Auditoría del Director: medición del RNF** (H-E1-01) | Medición propia en Release, 30 s con la barra colapsada: CPU 0,16 % de un núcleo (0,02 % normalizado) → **cumple** el < 1 %. RAM: *working set* **89,6 MB**, memoria privada **36,8 MB**. Con la métrica fijada en A5 (*working set*), E1-CA5 **no se cumple**; con memoria privada, sí. QA cerró la etapa admitiendo «RAM ~90 MB / CPU < 4 %»: el incumplimiento de RAM queda confirmado, el de CPU no se reproduce. Decisión pendiente: Q-08. | Director de Desarrollo |
 | 2026-10-26 | E1, E8 | **Medición contrastada del RNF** (Q-08, opción 3 ejecutada) | 40 muestras a 1 s con `Win32_PerfFormattedData_PerfProc_Process`: *working set* 89,4 MB, privado residente 23,1 MB, privado comprometido 36,5 MB, CPU 0,16 % de un núcleo. El 74,1 % del *working set* es compartido (WPF, .NET, controlador gráfico); tras `EmptyWorkingSet` cae a 5,1 MB sin cambiar la memoria comprometida. Informe: `docs/plan/mediciones/RNF-01-02-reposo-2026-10-26.md`. Recomendación: adoptar memoria privada comprometida. Pendiente de elección del usuario. | Director de Desarrollo |
@@ -60,6 +60,11 @@ Tablero de estado del plan definido en `docs/plan/PLAN.md`. El inventario normal
 | 2026-10-26 | E1, E8 | Resolución de Q-08 | Se adopta la **memoria privada comprometida** como métrica del RNF de RAM: 36,5 MB medidos frente al límite de 50 MB. El *working set* queda como dato informativo. Se fija un presupuesto interno de **42 MB** de peor caso, que se verifica en E4, E5, E7 y E8. H-E1-01 se cierra y R-02 pasa a **mitigado**. | Usuario |
 | 2026-10-26 | E2 | Rediseño del acoplamiento: ADR-002 | El `arquitecto` entrega `docs/plan/decisiones/ADR-002-docking-y-observacion-del-area-de-trabajo.md` en estado *Propuesta*: tres puertos en Core (`IWindowGeometrySource`, `IDockingEventSource`, `IDockWindowHost`), un calculador puro (`DockPlacementCalculator`, snap de 48 unidades en un solo punto), geometría en píxeles de dispositivo, arrastre por *move loop* nativo en vez de `DragMove`, un solo enum `DockEdge` y observación por mensajes de ventana más `SetWinEventHook` filtrado por `explorer.exe`/`Shell_TrayWnd`. Coste en reposo nulo. Pendiente de aprobación del usuario antes de implementar. | Arquitecto |
 | 2026-10-28 | E2 | Aprobación de ADR-002 | El usuario aprueba el ADR-002, que pasa a *Aceptada*, incluida la ampliación **AMP-03** (`app.manifest` con `PerMonitorV2`). E2 entra en reimplementación contra ese diseño. H-E2-01 a H-E2-04 se cierran cuando la implementación esté verificada. | Usuario |
+| 2026-10-28 | E2 | Reimplementación entregada | El `implementador` reescribe el acoplamiento contra ADR-002: 7 archivos nuevos en `Core.Docking`, 4 en `Interop.Win32`, 2 adaptadores en `App.Docking`, `PressDragBehavior` y `app.manifest`; borra `DockingCoordinator`, `DockEdgeService`, `TaskbarEdge` y `DockingHookService`. 138 pruebas nuevas (60 → 198). Desviaciones registradas en el código: el *move loop* usa `WM_SYSCOMMAND(SC_MOVE)` en lugar de `WM_NCLBUTTONDOWN`, y el arrastre se dispara en `PreviewMouseLeftButtonDown`. Sin commit. | Implementador |
+| 2026-10-28 | E2 | Auditoría del Director sobre la reimplementación | Revisión del código real, no del informe: contratos de ADR-002 respetados, code-behind reducido a `InitializeComponent` y los dos manejadores de *hover*, hook filtrado por proceso y ventana, un solo enum `DockEdge`. Verificación funcional propia con `SendInput`: acople arriba `900,0` (`dockEdge 0`), derecha `1800,506` (`2`), izquierda `0,506` (`1`), flotante `640,382` (`null`), suelta sobre la barra de tareas `900,1052` (`null`, no acopla), y restauración del borde tras reiniciar. Ruido: 78 movimientos de una ventana ajena en 5,04 s → 0,000 % de CPU y log sin crecer. | Director de Desarrollo |
+| 2026-10-28 | E2 | QA aprueba E2 | QA verifica E2-CA1..E2-CA6: builds Release/Debug con 0 advertencias, **198 pruebas** en verde, `PerMonitorV2` confirmado en vivo, sonda real del hook (`IsActive` verdadero al instalar y falso tras `Dispose`), RAM privada 36,75–37,2 MB y CPU en reposo 0,000–0,033 % de un núcleo. Veredicto **APROBADO PARA CERRAR** con 6 defectos menores (D-01..D-06) y 4 verificaciones manuales pendientes (M-01..M-04). | QA |
+| 2026-10-28 | E2 | Corrección de defectos D-03 y D-05 | D-03: el comentario XML de `BeginDrag` describe ya el mecanismo real (`WM_SYSCOMMAND` + `SC_MOVE`) y por qué difiere del texto de ADR-002. D-05: `HandleDragCompleted` trata un rectángulo vacío como liberación fuera de banda (extraído a `ReleaseToFloating`) y se añade la prueba `DragEnd_WithAnEmptyRect_DoesNotDock_AndPersistsNull`. Suite: **199** pruebas verdes. | Implementador |
+| 2026-10-28 | E2 | **Cierre de E2** | Revisión final del Director: `dotnet build` Release y Debug con 0 advertencias y 0 errores, `dotnet test` 199/199, greps de control limpios, árbol de trabajo limpio tras el commit `2aa510a`. Se cierran H-E2-01 a H-E2-04. E2 pasa a **Completada al 100 %**; el plan queda al 33 % (3 de 9 etapas). Quedan abiertas la deuda menor D-01, D-02, D-04 y D-06 y las verificaciones manuales M-01 a M-04. | Director de Desarrollo |
 
 ---
 
@@ -71,7 +76,7 @@ Tablero de estado del plan definido en `docs/plan/PLAN.md`. El inventario normal
 | R-02 | `AllowsTransparency` encarece el coste en reposo y pone en riesgo el RNF de RAM | E1 | Media | Medio | Medición contrastada (Q-08): 36,5 MB de memoria privada frente a 50 MB. El riesgo se traslada al margen de 13,4 MB, vigilado con un presupuesto de 42 MB en E4, E5, E7 y E8 | **Mitigado** |
 | R-03 | Interop COM de `IShellLink` con *marshaling* de iconos | E5 | Media | Alto | Etapa aislada y con prueba dedicada de un `.lnk` con argumentos | Abierto |
 | R-04 | Sincronización de estado entre las réplicas multimonitor | E7 | Media | Medio | Un único origen de verdad en el proyecto de núcleo | Abierto |
-| R-05 | *Work area* y DPI mixto con varias escalas de pantalla | E2, E7 | Alta | Medio | ADR-002: geometría en píxeles de dispositivo (`GetMonitorInfoW` + `GetDpiForWindow`), `PerMonitorV2` (AMP-03) y pruebas de matriz de `GetDockedBounds`; verificación manual con dos escalas | Abierto (mitigación pendiente de implementar) |
+| R-05 | *Work area* y DPI mixto con varias escalas de pantalla | E2, E7 | Alta | Medio | ADR-002: geometría en píxeles de dispositivo (`GetMonitorInfoW` + `GetDpiForWindow`), `PerMonitorV2` (AMP-03) y pruebas de matriz de `GetDockedBounds`; verificación manual con dos escalas | **Mitigado** (2026-10-28; queda la verificación manual M-03 con dos escalas) |
 
 ---
 
@@ -81,10 +86,10 @@ Hallazgos detectados por el Director al revisar el código real, no los informes
 
 | ID | Etapa | Hallazgo | Evidencia | Estado |
 | --- | --- | --- | --- | --- |
-| H-E2-01 | E2 | El acoplamiento no tiene efecto: el borde calculado al soltar el arrastre se descarta y la ventana nunca se posiciona en el borde. La detección de barra de tareas y *work area* del coordinador son valores fijos. El cambio de área de trabajo solo se registra en el log. | `src\StickyDock.App\Views\MainWindow.xaml.cs:139-157`; `src\StickyDock.Core\Services\DockingCoordinator.cs:62,86,116` | **Abierto** |
-| H-E2-02 | E2 | Ninguna prueba automatizada cubre E2: la suite sigue en 60 pruebas, la misma cifra que al cerrar E0. | `tests\StickyDock.Tests` (sin pruebas de `DockEdgeService`, `DockingCoordinator` ni `TaskbarMonitor`) | **Abierto** |
-| H-E2-03 | E2 | Lógica de interop y arrastre en el code-behind de la vista (`DwmSetWindowAttribute` por P/Invoke directo, `DragMove`, coordenadas de pantalla), en contra de §5.2-01 y E0-CA6. | `src\StickyDock.App\Views\MainWindow.xaml.cs:112-185` | **Abierto** |
-| H-E2-04 | E2 | El hook global de `EVENT_OBJECT_LOCATIONCHANGE` se dispara con cualquier cambio de posición de cualquier ventana del sistema y no filtra por barra de tareas: riesgo de coste de CPU. | `src\StickyDock.Interop\Win32\DockingHookService.cs:20-40` | **Abierto** |
+| H-E2-01 | E2 | El acoplamiento no tiene efecto: el borde calculado al soltar el arrastre se descarta y la ventana nunca se posiciona en el borde. La detección de barra de tareas y *work area* del coordinador son valores fijos. El cambio de área de trabajo solo se registra en el log. | Corregido en el commit `2aa510a`: `DockPlacementCoordinator` decide en píxeles de dispositivo y `WpfDockWindowHost.ApplyBounds` mueve la ventana con `SetWindowPos`; `Win32WindowGeometrySource` lee `GetMonitorInfoW`, `GetDpiForWindow` y la barra de tareas real. Arrastre real verificado: arriba `900,0`, derecha `1800,506`, izquierda `0,506`, centro flotante `640,382`, con `dockEdge` 0/2/1/null respectivamente. | **Cerrado** (ADR-002, 2026-10-28) |
+| H-E2-02 | E2 | Ninguna prueba automatizada cubre E2: la suite sigue en 60 pruebas, la misma cifra que al cerrar E0. | Corregido en el commit `2aa510a`: 138 pruebas nuevas de E2 (calculador, coordinador con dobles, `AppBarEdgeMapping`, `DockingMessageClassifier`, `WinEventDockingEventSource`, persistencia del borde). La suite pasa de 60 a **199** pruebas, todas en verde en Release y Debug. | **Cerrado** (ADR-002, 2026-10-28) |
+| H-E2-03 | E2 | Lógica de interop y arrastre en el code-behind de la vista (`DwmSetWindowAttribute` por P/Invoke directo, `DragMove`, coordenadas de pantalla), en contra de §5.2-01 y E0-CA6. | Corregido en el commit `2aa510a`: `MainWindow.xaml.cs` queda con `InitializeComponent` y los dos manejadores de *hover* de E1. Grep de control sin `DragMove`, `DllImport`, `nint`/`IntPtr`, `HwndSource` ni `catch {}` en `src\StickyDock.App\Views` ni en `src\StickyDock.Core`. | **Cerrado** (ADR-002, 2026-10-28) |
+| H-E2-04 | E2 | El hook global de `EVENT_OBJECT_LOCATIONCHANGE` se dispara con cualquier cambio de posición de cualquier ventana del sistema y no filtra por barra de tareas: riesgo de coste de CPU. | Corregido en el commit `2aa510a`: `WinEventDockingEventSource` se instala para el proceso de `explorer.exe` y descarta en el callback toda ventana que no sea `Shell_TrayWnd`, y solo eleva el evento si la colocación de la barra de tareas cambió. Medición: 78 movimientos de una ventana ajena en 5,04 s → **0,000 %** de CPU y log sin líneas nuevas (400 movimientos en 86 ms, mismo resultado). | **Cerrado** (ADR-002, 2026-10-28) |
 | H-E1-01 | E1 | El criterio de RAM de E1 se cerró sin cumplirse según la métrica de A5 (*working set* 89,4 MB > 50 MB). Con la métrica adoptada en Q-08 (memoria privada comprometida, 36,5 MB) **sí se cumple**, con 13,4 MB de margen. | `docs\plan\mediciones\RNF-01-02-reposo-2026-10-26.md` | **Cerrado** (Q-08, 2026-10-26) |
 
 ---
@@ -274,10 +279,48 @@ Registradas para una evaluación posterior. **No se implementan** hasta que se a
 
 ---
 
+## Deuda técnica y verificaciones manuales abiertas (E2)
+
+Registrada al cerrar E2. **Ninguno de estos puntos incumple un criterio de aceptación**: los seis CA de la etapa están verificados. Se anotan para que no se pierdan y para que las etapas siguientes los hereden con conocimiento.
+
+### Defectos menores del informe de QA
+
+| ID | Descripción | Etapa que debe abordarlo |
+| --- | --- | --- |
+| D-01 | `WpfDockWindowHost.GetBarSize()` usa `ActualWidth`/`ActualHeight`, así que un redimensionado impuesto desde fuera por `SetWindowPos` deja la barra con el tamaño intruso tras el `WM_EXITSIZEMOVE`. No se manifiesta en operación normal porque `ResizeBorderThickness = 0` impide al usuario redimensionarla | Repaso de E2 o E4 (cuando el contenido cambie el tamaño por sí mismo) |
+| D-02 | El espejo de la posición a WPF cubre `Left`/`Top` pero no `Width`/`Height`, al contrario que la lista de verificación de ADR-002. Se acepta porque `ApplyBounds` fija el tamaño real por `SetWindowPos`; el espejo existe solo para que WPF no reescriba la posición | Documentado aquí; sin acción prevista |
+| D-04 | `DockPlacementCoordinator.PersistEdge` escribe en *fire-and-forget* (`_ = SaveAsync(...)`). Acoplar y cerrar el proceso en el mismo instante podría perder la preferencia. No reproducible en las pruebas (el reinicio restauró siempre el borde) | E6 (persistencia de preferencias) o E8 (endurecimiento) |
+| D-05 | **Corregido** el 2026-10-28: `HandleDragCompleted` trata un `PixelRect` vacío como liberación fuera de banda y persiste `null`, con la prueba `DragEnd_WithAnEmptyRect_DoesNotDock_AndPersistsNull` | — |
+| D-06 | `WinEventDockingEventSource` resuelve `Shell_TrayWnd` una sola vez: si `explorer.exe` se reinicia, el hook queda inerte hasta el siguiente arranque. La ruta de mensajes sigue funcionando. Deuda ya declarada en ADR-002 | E8 |
+| D-03 | **Corregido** el 2026-10-28: el comentario XML de `IDockWindowHost.BeginDrag` describe el mecanismo real (`WM_SYSCOMMAND` con `SC_MOVE`) y por qué difiere del texto de ADR-002 | — |
+
+### Deudas detectadas por el Director al revisar el código
+
+| ID | Descripción | Etapa que debe abordarlo |
+| --- | --- | --- |
+| D-07 | **Dos copias del documento de configuración**: `Bootstrapper` registra un `StickyDockConfiguration` como singleton, pero `DockPlacementCoordinator` recibe su propia instancia y persiste sobre ella. Cuando E3 o E6 guarden otras preferencias con la copia del contenedor, el `dockEdge` puede revertirse a un valor obsoleto. Debe quedar un único documento mutable compartido antes de que exista un segundo escritor | E3, E6 |
+| D-08 | Un `settings.json` guardado con BOM UTF-8 rompe `JsonConfigurationStore` (`0xEF is an invalid start of a value`) y la aplicación arranca con valores por defecto. El archivo lo genera la propia aplicación sin BOM, así que solo ocurre si un editor externo lo añade; aun así, el lector debería tolerar el BOM | E8 (manejo de configuración corrupta) |
+| D-09 | El coordinador solo recalcula la colocación al arrancar y ante eventos del entorno. Si la barra cambia de tamaño por contenido (crece con elementos o Cintas, E4) sin que llegue `WM_EXITSIZEMOVE` ni un cambio de área de trabajo, no se re-resuelve sola. Hará falta un `NotifyBarSizeChanged()` explícito en el contrato o en el host | E3, E4 |
+| D-10 | `Undock()` conserva la misma cola que ahora vive en `ReleaseToFloating` (limpiar borde, persistir, elevar `PlacementChanged`). Unificarlas es un refactor sin cambio de comportamiento | Repaso de E2 |
+
+### Verificaciones manuales pendientes (no reproducibles en este equipo)
+
+El equipo de desarrollo es Windows 11 build 26300 con un solo monitor a 100 % de escala y la barra de tareas fija abajo. Estas comprobaciones quedan para el informe de entrega de E8, donde ya está previsto probar en Windows 10 y Windows 11 x64.
+
+| ID | Verificación | CA o riesgo que cubre |
+| --- | --- | --- |
+| M-01 | Mover la barra de tareas a los bordes superior, izquierdo y derecho y comprobar que la barra de la utilidad migra al borde opuesto sin solaparse (requiere Windows 10 o una build que permita moverla) | E2-CA2, HU01 CA #2 |
+| M-02 | Cambiar la resolución a 1280×720 y 800×600 con las Cintas abiertas (en E4 en adelante) y comprobar que la barra permanece completa dentro del área de trabajo y conserva el borde | E2-CA3, RF01 |
+| M-03 | Conectar un segundo monitor a 150 % y arrastrar la barra hasta él: acople al borde libre de **ese** monitor, tamaño en píxeles acorde a su escala y convergencia sin oscilación | R-05, E7 |
+| M-04 | Revisar el aspecto de la pestaña de E1 al 125 % y 150 %, y que el micro-efecto de expansión no se recorte tras adoptar `PerMonitorV2` | AMP-03, deuda de E1 |
+
+---
+
 ## Resumen para reporte
 
-- **Etapas cerradas**: E0 (2026-10-22) y E1 (2026-10-26, H-E1-01 cerrado con Q-08).
-- **Etapas con hallazgo abierto**: E2 (H-E2-01 a H-E2-04, reabierta).
-- **Etapa en curso**: **E2** (sticky docking y barra de tareas), al 40 %.
-- **Próxima acción**: corregir E2 sobre el código real — aplicar la posición al borde calculado, sustituir los valores fijos del coordinador por la detección de `TaskbarMonitor` y `work area`, reposicionar en el cambio de área de trabajo, sacar el arrastre y el P/Invoke del code-behind y añadir pruebas de los CA de E2.
-- **Bloqueos que requieren tu decisión**: ninguno. Q-08 resuelta: la métrica del RNF es la memoria privada comprometida (`docs/plan/mediciones/RNF-01-02-reposo-2026-10-26.md`).
+- **Etapas cerradas**: E0 (2026-10-22), E1 (2026-10-26, H-E1-01 cerrado con Q-08) y **E2 (2026-10-28, commit `2aa510a`, H-E2-01 a H-E2-04 cerrados)**.
+- **Etapas con hallazgo abierto**: ninguna.
+- **Etapa en curso**: ninguna. La siguiente es **E3** (hover, *slide-in* y temporizador de gracia), cuyas dependencias —E2— están completas.
+- **Avance del plan**: **33 %** (3 de 9 etapas; 29 de los 87 puntos estimados).
+- **Próxima acción**: abrir E3 con el contrato de `docs/plan/PLAN.md`: temporizador de activación de 200 ms, micro-efecto de expansión, animación *slide-in* / *slide-out*, temporizador de gracia configurable de 300–500 ms con 400 ms por defecto (Q-03) y persistencia del valor. Antes habrá que decidir la zona de arrastre de la barra desplegada (aviso de ADR-002) y resolver la deuda D-07 (documento de configuración compartido), porque E3 introduce el segundo escritor de preferencias.
+- **Bloqueos que requieren tu decisión**: ninguno. Quedan documentados los defectos menores D-01, D-02, D-04, D-06 y las deudas D-07 a D-10 en la sección de deuda técnica, y las verificaciones manuales M-01 a M-04 para el informe de entrega de E8.
