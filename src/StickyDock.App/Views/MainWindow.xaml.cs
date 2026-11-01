@@ -1,14 +1,16 @@
 using System.Windows;
-using System.Windows.Input;
 using StickyDock.Core.ViewModels;
 
 namespace StickyDock.App.Views;
 
 /// <summary>
-/// Shell window. Beyond <see cref="InitializeComponent"/> and the two hover handlers carried over from E1 it contains no
-/// code on purpose: state, docking, ribbons, timers and animations belong to view models and services (§5.2-01,
-/// E0-CA6, H-E2-03).
+/// Shell window. It contains no code on purpose beyond <see cref="InitializeComponent"/> and the main view model: state,
+/// docking, ribbons, timers and animations belong to view models and services (§5.2-01, E0-CA6, ADR-003 D5).
 /// </summary>
+/// <remarks>
+/// The pointer regions, the drag gesture and the animations of E3 are attached declaratively in the XAML, so the window
+/// has no event handler of its own.
+/// </remarks>
 public partial class MainWindow : Window
 {
     /// <summary>
@@ -17,27 +19,8 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-
-        MouseEnter += OnMouseEnter;
-        MouseLeave += OnMouseLeave;
     }
 
     /// <summary>Gets or sets the main view model.</summary>
     public MainViewModel? MainViewModel { get; set; }
-
-    private void OnMouseEnter(object sender, MouseEventArgs e)
-    {
-        if (DataContext is DockBarViewModel viewModel)
-        {
-            viewModel.IsHovered = true;
-        }
-    }
-
-    private void OnMouseLeave(object sender, MouseEventArgs e)
-    {
-        if (DataContext is DockBarViewModel viewModel)
-        {
-            viewModel.IsHovered = false;
-        }
-    }
 }

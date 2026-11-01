@@ -17,11 +17,11 @@ public sealed class DockPlacementCoordinatorTests
     private static readonly PixelRect WorkArea = new(0, 0, 1920, 1040);
 
     [Theory]
-    [InlineData(DockEdge.Top, 885, 0)]
-    [InlineData(DockEdge.Left, 0, 497)]
-    [InlineData(DockEdge.Right, 1770, 497)]
-    [InlineData(DockEdge.Bottom, 885, 995)]
-    public void Start_WithAPersistedEdge_DocksToThatEdge(DockEdge edge, int expectedX, int expectedY)
+    [InlineData(DockEdge.Top, 885, 0, 150, 45)]
+    [InlineData(DockEdge.Left, 0, 445, 45, 150)]
+    [InlineData(DockEdge.Right, 1875, 445, 45, 150)]
+    [InlineData(DockEdge.Bottom, 885, 995, 150, 45)]
+    public void Start_WithAPersistedEdge_DocksToThatEdge(DockEdge edge, int expectedX, int expectedY, int expectedWidth, int expectedHeight)
     {
         // E2-CA6: the persisted edge is applied again when the application starts.
         using var fixture = Create(edge, taskbarOnCurrentMonitor: false);
@@ -30,7 +30,7 @@ public sealed class DockPlacementCoordinatorTests
 
         fixture.Coordinator.Start();
 
-        var expected = new PixelRect(expectedX, expectedY, 150, 45);
+        var expected = new PixelRect(expectedX, expectedY, expectedWidth, expectedHeight);
         Assert.Equal(edge, fixture.Coordinator.CurrentEdge);
         Assert.Equal(expected, Assert.Single(fixture.Host.AppliedBounds));
         Assert.Equal(expected, fixture.Host.Bounds);
@@ -179,14 +179,14 @@ public sealed class DockPlacementCoordinatorTests
         // E2-CA2: every source drives the same decision, so the bar never collides with the taskbar.
         using var fixture = Create(DockEdge.Left);
         fixture.Coordinator.Start();
-        Assert.Equal(new PixelRect(0, 497, 150, 45), fixture.Host.Bounds);
+        Assert.Equal(new PixelRect(0, 445, 45, 150), fixture.Host.Bounds);
 
         fixture.Geometry.Taskbar = TaskbarAt(DockEdge.Left);
 
         fixture.Events.Raise(kind);
 
         Assert.Equal(DockEdge.Right, fixture.Coordinator.CurrentEdge);
-        Assert.Equal(new PixelRect(1770, 497, 150, 45), fixture.Host.Bounds);
+        Assert.Equal(new PixelRect(1875, 445, 45, 150), fixture.Host.Bounds);
         Assert.Equal(DockEdge.Right, fixture.Store.LastSaved!.DockEdge);
     }
 
@@ -205,7 +205,7 @@ public sealed class DockPlacementCoordinatorTests
         fixture.Events.Raise(DockingEventKind.WorkAreaChanged);
 
         Assert.Equal(DockEdge.Right, fixture.Coordinator.CurrentEdge);
-        Assert.Equal(new PixelRect(1130, 337, 150, 45), fixture.Host.Bounds);
+        Assert.Equal(new PixelRect(1235, 285, 45, 150), fixture.Host.Bounds);
         Assert.Empty(fixture.Store.Saved);
     }
 
@@ -283,7 +283,7 @@ public sealed class DockPlacementCoordinatorTests
         fixture.Coordinator.DockTo(DockEdge.Right);
 
         Assert.Equal(DockEdge.Right, fixture.Coordinator.CurrentEdge);
-        Assert.Equal(new PixelRect(1770, 497, 150, 45), fixture.Host.Bounds);
+        Assert.Equal(new PixelRect(1875, 445, 45, 150), fixture.Host.Bounds);
         Assert.Equal(DockEdge.Right, Assert.Single(fixture.Store.Saved).DockEdge);
     }
 
@@ -335,6 +335,147 @@ public sealed class DockPlacementCoordinatorTests
         fixture.Coordinator.BeginDrag();
 
         Assert.Equal(1, fixture.Host.BeginDragCount);
+    }
+
+    [Fact]
+    public void BeginDrag_RaisesDragStartedBeforeTheNativeMoveLoopBlocks()
+    {
+        // The interaction controller suppresses its automatic transitions from DragStarted on (ADR-003, D3).
+        using var fixture = Create(DockEdge.Top);
+        var started = 0;
+        fixture.Coordinator.DragStarted += (_, _) => started++;
+
+        fixture.Coordinator.BeginDrag();
+
+        Assert.Equal(1, started);
+    }
+
+    [Fact]
+    public void DragEnd_RaisesDragCompleted()
+    {
+        using var fixture = Create(DockEdge.Top);
+        fixture.Coordinator.Start();
+        var completed = 0;
+        fixture.Coordinator.DragCompleted += (_, _) => completed++;
+
+        fixture.Events.Raise(DockingEventKind.WindowDragCompleted);
+
+        Assert.Equal(1, completed);
+    }
+
+    [Fact]
+    public void NotifyBarSizeChanged_GrowsTheDockedBarInward()
+    {
+        // D-09: the deployed footprint is applied without waiting for an environment event.
+        using var fixture = Create(DockEdge.Top);
+        fixture.Coordinator.Start();
+        Assert.Equal(new PixelRect(885, 0, 150, 45), fixture.Host.Bounds);
+
+        fixture.BarSize.Expanded = true;
+
+        fixture.Coordinator.NotifyBarSizeChanged();
+
+        Assert.Equal(new PixelRect(855, 0, 210, 120), fixture.Host.Bounds);
+        Assert.Equal(DockEdge.Top, fixture.Coordinator.CurrentEdge);
+        Assert.Empty(fixture.Store.Saved);
+    }
+
+    [Fact]
+    public void NotifyBarSizeChanged_OnAVerticalEdge_SwapsTheFootprint()
+    {
+        using var fixture = Create(DockEdge.Left);
+        fixture.Coordinator.Start();
+        Assert.Equal(new PixelRect(0, 445, 45, 150), fixture.Host.Bounds);
+
+        fixture.BarSize.Expanded = true;
+
+        fixture.Coordinator.NotifyBarSizeChanged();
+
+        Assert.Equal(new PixelRect(0, 415, 120, 210), fixture.Host.Bounds);
+    }
+
+    [Fact]
+    public void NotifyBarSizeChanged_WithTheSameSize_DoesNotMoveTheWindow()
+    {
+        // Rule R4: recalculating with the same footprint is a no-op.
+        using var fixture = Create(DockEdge.Top);
+        fixture.Coordinator.Start();
+
+        fixture.Coordinator.NotifyBarSizeChanged();
+
+        Assert.Single(fixture.Host.AppliedBounds);
+    }
+
+    [Fact]
+    public void NotifyBarSizeChanged_OfAFloatingBar_KeepsTheAnchorSide()
+    {
+        // Invariant I2: a floating bar grows away from the nearest edge, so the anchored side does not move.
+        using var fixture = Create(persistedEdge: null);
+        fixture.Host.Bounds = new PixelRect(700, 400, 150, 45);
+        fixture.Coordinator.Start();
+
+        fixture.BarSize.Expanded = true;
+
+        fixture.Coordinator.NotifyBarSizeChanged();
+
+        Assert.Null(fixture.Coordinator.CurrentEdge);
+        Assert.Equal(new PixelRect(670, 400, 210, 120), fixture.Host.Bounds);
+    }
+
+    [Fact]
+    public void NotifyBarSizeChanged_AppliesOncePerTransition()
+    {
+        using var fixture = Create(DockEdge.Top);
+        fixture.Coordinator.Start();
+
+        fixture.BarSize.Expanded = true;
+        fixture.Coordinator.NotifyBarSizeChanged();
+        fixture.Coordinator.NotifyBarSizeChanged();
+
+        Assert.Equal(2, fixture.Host.AppliedBounds.Count);
+    }
+
+    [Fact]
+    public void Apply_WhenTheHostReenters_AppliesOnceAndKeepsLastApplied()
+    {
+        // Rule R2 (ADR-003, §6.6): the rectangle is recorded as applied before the window is moved, so a message that
+        // arrives while the move is running already sees it and does not move the window a second time.
+        using var fixture = Create(DockEdge.Top);
+        fixture.Coordinator.Start();
+        var appliedBeforeGrowth = fixture.Host.AppliedBounds.Count;
+
+        fixture.BarSize.Expanded = true;
+
+        var reentered = false;
+        fixture.Host.OnApplyBounds = _ =>
+        {
+            if (reentered)
+            {
+                return;
+            }
+
+            reentered = true;
+            fixture.Coordinator.NotifyBarSizeChanged();
+        };
+
+        fixture.Coordinator.NotifyBarSizeChanged();
+
+        var applied = fixture.Host.AppliedBounds;
+        Assert.True(reentered);
+        Assert.Equal(appliedBeforeGrowth + 1, applied.Count);
+        Assert.Equal(new PixelRect(855, 0, 210, 120), applied[^1]);
+        Assert.Equal(new PixelRect(855, 0, 210, 120), fixture.Host.Bounds);
+    }
+
+    [Fact]
+    public void NotifyBarSizeChanged_BeforeStart_IsIgnored()
+    {
+        using var fixture = Create(DockEdge.Top);
+
+        fixture.BarSize.Expanded = true;
+        fixture.Coordinator.NotifyBarSizeChanged();
+
+        Assert.Empty(fixture.Host.AppliedBounds);
     }
 
     [Fact]
@@ -399,8 +540,7 @@ public sealed class DockPlacementCoordinatorTests
     private static Fixture Create(
         DockEdge? persistedEdge,
         DockEdge? taskbarEdge = DockEdge.Bottom,
-        bool taskbarOnCurrentMonitor = true,
-        DockBarSize? barSize = null)
+        bool taskbarOnCurrentMonitor = true)
     {
         var events = new FakeDockingEventSource();
         var geometry = new FakeWindowGeometrySource
@@ -410,19 +550,14 @@ public sealed class DockPlacementCoordinatorTests
         };
 
         var host = new FakeDockWindowHost();
-
-        if (barSize is { } size)
-        {
-            host.BarSize = size;
-        }
-
+        var barSize = new FakeBarSizeSource();
         var store = new RecordingConfigurationStore();
         var logger = new RecordingLogger();
-        var configuration = new StickyDockConfiguration { DockEdge = persistedEdge };
+        var document = new ConfigurationDocument(store, new StickyDockConfiguration { DockEdge = persistedEdge }, logger);
 
-        var coordinator = new DockPlacementCoordinator(events, geometry, host, store, configuration, logger);
+        var coordinator = new DockPlacementCoordinator(events, geometry, host, barSize, document, logger);
 
-        return new Fixture(coordinator, events, geometry, host, store, logger);
+        return new Fixture(coordinator, events, geometry, host, barSize, store, logger);
     }
 
     /// <summary>Wiring of one coordinator with its doubles, disposed together with the coordinator.</summary>
@@ -433,6 +568,7 @@ public sealed class DockPlacementCoordinatorTests
             FakeDockingEventSource events,
             FakeWindowGeometrySource geometry,
             FakeDockWindowHost host,
+            FakeBarSizeSource barSize,
             RecordingConfigurationStore store,
             RecordingLogger logger)
         {
@@ -440,6 +576,7 @@ public sealed class DockPlacementCoordinatorTests
             Events = events;
             Geometry = geometry;
             Host = host;
+            BarSize = barSize;
             Store = store;
             Logger = logger;
         }
@@ -451,6 +588,8 @@ public sealed class DockPlacementCoordinatorTests
         public FakeWindowGeometrySource Geometry { get; }
 
         public FakeDockWindowHost Host { get; }
+
+        public FakeBarSizeSource BarSize { get; }
 
         public RecordingConfigurationStore Store { get; }
 

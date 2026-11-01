@@ -76,7 +76,7 @@ public static class DockPlacementCalculator
     /// </summary>
     /// <param name="edge">Edge the bar is docked to.</param>
     /// <param name="monitor">Monitor that hosts the bar.</param>
-    /// <param name="size">Size of the bar as laid out by the UI framework.</param>
+    /// <param name="size">Declared footprint of the state the bar is in (ADR-003, D2).</param>
     /// <returns>
     /// A rectangle inside the work area, centred along the edge. When the bar does not fit, it is clipped so that it
     /// never leaves the work area (E2-CA3).
@@ -84,15 +84,8 @@ public static class DockPlacementCalculator
     public static PixelRect GetDockedBounds(DockEdge edge, MonitorGeometry monitor, DockBarSize size)
     {
         var workArea = monitor.WorkArea;
-        var scale = monitor.Scale;
 
-        var width = Math.Min(
-            (int)Math.Round(size.WidthDips * scale, MidpointRounding.AwayFromZero),
-            workArea.Width);
-        var height = Math.Min(
-            (int)Math.Round(size.HeightDips * scale, MidpointRounding.AwayFromZero),
-            workArea.Height);
-
+        var (width, height) = GetPixelSize(size, monitor);
         var centredX = workArea.X + ((workArea.Width - width) / 2);
         var centredY = workArea.Y + ((workArea.Height - height) / 2);
 
@@ -143,14 +136,7 @@ public static class DockPlacementCalculator
                 continue;
             }
 
-            var distance = edge switch
-            {
-                DockEdge.Top => Math.Max(0, draggedBounds.Y - workArea.Y),
-                DockEdge.Left => Math.Max(0, draggedBounds.X - workArea.X),
-                DockEdge.Right => Math.Max(0, workArea.Right - draggedBounds.Right),
-                DockEdge.Bottom => Math.Max(0, workArea.Bottom - draggedBounds.Bottom),
-                _ => int.MaxValue,
-            };
+            var distance = GetDistance(edge, draggedBounds, workArea);
 
             // Strict comparison keeps the first edge of the declaration order when two distances tie.
             if (distance <= thresholdPixels && distance < shortestDistance)
@@ -161,6 +147,72 @@ public static class DockPlacementCalculator
         }
 
         return target;
+    }
+
+    /// <summary>
+    /// Gets the nearest edge of the work area to a floating rectangle, which is the side it grows away from.
+    /// </summary>
+    /// <param name="bounds">Rectangle of the floating bar, in device pixels.</param>
+    /// <param name="workArea">Work area of the monitor.</param>
+    /// <returns>The nearest edge; ties are broken in the order <c>Top</c>, <c>Left</c>, <c>Right</c>, <c>Bottom</c>.</returns>
+    /// <remarks>
+    /// A floating bar has no edge that anchors it, so this decides the direction in which it grows and keeps the
+    /// opposite side fixed (ADR-003, §6.3). It is an engineering decision of that ADR; no requirement covers it.
+    /// </remarks>
+    public static DockEdge GetNearestEdge(PixelRect bounds, PixelRect workArea)
+    {
+        var nearest = DockEdge.Top;
+        var shortestDistance = int.MaxValue;
+
+        foreach (var edge in AllEdges)
+        {
+            var distance = GetDistance(edge, bounds, workArea);
+
+            // Strict comparison keeps the first edge of the declaration order when two distances tie.
+            if (distance < shortestDistance)
+            {
+                shortestDistance = distance;
+                nearest = edge;
+            }
+        }
+
+        return nearest;
+    }
+
+    /// <summary>
+    /// Gets the rectangle of a floating bar resized to <paramref name="size"/>, growing away from
+    /// <paramref name="anchor"/> so that the opposite side stays fixed (invariant I2 of ADR-003).
+    /// </summary>
+    /// <param name="current">Rectangle of the floating bar, in device pixels.</param>
+    /// <param name="anchor">Edge the bar grows away from, taken from <see cref="GetNearestEdge"/>.</param>
+    /// <param name="monitor">Monitor that hosts the bar.</param>
+    /// <param name="size">Declared footprint of the state the bar is in.</param>
+    /// <returns>
+    /// <paramref name="current"/> untouched when its size is already the declared one, which is what keeps the
+    /// recalculation idempotent (rule R4); otherwise the resized rectangle, not yet clamped to the work area.
+    /// </returns>
+    public static PixelRect GetFloatingBounds(PixelRect current, DockEdge anchor, MonitorGeometry monitor, DockBarSize size)
+    {
+        var (width, height) = GetPixelSize(size, monitor);
+
+        if (current.Width == width && current.Height == height)
+        {
+            return current;
+        }
+
+        var centreX = current.X + (current.Width / 2);
+        var centreY = current.Y + (current.Height / 2);
+
+        return anchor switch
+        {
+            DockEdge.Top => new PixelRect(centreX - (width / 2), current.Y, width, height),
+            DockEdge.Bottom => new PixelRect(centreX - (width / 2), current.Bottom - height, width, height),
+            DockEdge.Left => new PixelRect(current.X, centreY - (height / 2), width, height),
+            DockEdge.Right => new PixelRect(current.Right - width, centreY - (height / 2), width, height),
+
+            // Unreachable: DockEdge has four members. Kept explicit so that a new member fails visibly.
+            _ => throw new ArgumentOutOfRangeException(nameof(anchor), anchor, "Unknown dock edge."),
+        };
     }
 
     /// <summary>
@@ -187,6 +239,39 @@ public static class DockPlacementCalculator
         var y = Math.Clamp(bounds.Y, workArea.Y, workArea.Bottom - height);
 
         return new PixelRect(x, y, width, height);
+    }
+
+    /// <summary>
+    /// Distance between the rectangle of the bar and one edge of the work area, in device pixels, never negative.
+    /// </summary>
+    /// <remarks>
+    /// A bar released past the edge counts as distance zero, which is what the user expects when dragging it against
+    /// the border (ADR-002, franja de snap).
+    /// </remarks>
+    private static int GetDistance(DockEdge edge, PixelRect bounds, PixelRect workArea) => edge switch
+    {
+        DockEdge.Top => Math.Max(0, bounds.Y - workArea.Y),
+        DockEdge.Left => Math.Max(0, bounds.X - workArea.X),
+        DockEdge.Right => Math.Max(0, workArea.Right - bounds.Right),
+        DockEdge.Bottom => Math.Max(0, workArea.Bottom - bounds.Bottom),
+        _ => int.MaxValue,
+    };
+
+    /// <summary>
+    /// Converts a declared footprint into device pixels, clipped to the work area so that the bar never exceeds it.
+    /// </summary>
+    private static (int Width, int Height) GetPixelSize(DockBarSize size, MonitorGeometry monitor)
+    {
+        var scale = monitor.Scale;
+
+        var width = Math.Min(
+            (int)Math.Round(size.WidthDips * scale, MidpointRounding.AwayFromZero),
+            monitor.WorkArea.Width);
+        var height = Math.Min(
+            (int)Math.Round(size.HeightDips * scale, MidpointRounding.AwayFromZero),
+            monitor.WorkArea.Height);
+
+        return (width, height);
     }
 
     private static DockEdge GetOpposite(DockEdge edge) => edge switch

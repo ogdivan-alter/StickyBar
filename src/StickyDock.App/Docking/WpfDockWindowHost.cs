@@ -29,16 +29,6 @@ internal sealed class WpfDockWindowHost : IDockWindowHost
     private nint Handle => new WindowInteropHelper(_window).Handle;
 
     /// <inheritdoc />
-    public DockBarSize GetBarSize()
-    {
-        // Before the first layout pass ActualWidth and ActualHeight are zero, so the declared size is used instead.
-        var width = UseActual(_window.ActualWidth) ? _window.ActualWidth : _window.Width;
-        var height = UseActual(_window.ActualHeight) ? _window.ActualHeight : _window.Height;
-
-        return new DockBarSize(width, height);
-    }
-
-    /// <inheritdoc />
     public PixelRect GetBounds() => WindowPlacement.GetBounds(Handle);
 
     /// <inheritdoc />
@@ -73,8 +63,6 @@ internal sealed class WpfDockWindowHost : IDockWindowHost
             }
         });
     }
-
-    private static bool UseActual(double value) => value > 0 && !double.IsNaN(value);
 
     private void MirrorPositionIntoWpf(PixelRect bounds)
     {

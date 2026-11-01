@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+using StickyDock.Core.Interaction;
 using DockEdgeKind = StickyDock.Core.Docking.DockEdge;
 
 namespace StickyDock.Core.Configuration;
@@ -6,16 +8,25 @@ namespace StickyDock.Core.Configuration;
 /// Root document persisted in <c>%AppData%\StickyDock\settings.json</c>.
 /// </summary>
 /// <remarks>
-/// E0 defines the versioned envelope and the atomic read/write contract; the sections that hold the grace timer (E3),
-/// the ribbons and shortcuts (E4, E5) and the monitor selection (E7) are added by later stages as new schema versions
-/// with their own <see cref="IConfigurationMigration"/>.
+/// E0 defines the versioned envelope and the atomic read/write contract; E2 adds the docked edge, E3 the grace period of
+/// the collapse timer (schema version 2) and later stages the ribbons, the shortcuts and the monitor selection, each as a
+/// new schema version with its own <see cref="IConfigurationMigration"/>.
 /// </remarks>
 public sealed record StickyDockConfiguration : IVersionedDocument
 {
     /// <summary>
+    /// Serialized name of <see cref="GracePeriodMilliseconds"/>.
+    /// </summary>
+    /// <remarks>
+    /// The naming policy of the store is camelCase, which would produce <c>gracePeriodMilliseconds</c>; the short name is
+    /// the one declared by ADR-003 and the one the migration writes.
+    /// </remarks>
+    public const string GracePeriodPropertyName = "gracePeriodMs";
+
+    /// <summary>
     /// Schema version written and understood by this build.
     /// </summary>
-    public const int CurrentSchemaVersion = 1;
+    public const int CurrentSchemaVersion = 2;
 
     /// <inheritdoc />
     public int SchemaVersion { get; init; } = CurrentSchemaVersion;
@@ -30,4 +41,15 @@ public sealed record StickyDockConfiguration : IVersionedDocument
     /// <c>"dockEdge": 0..3</c> with the order <c>Top, Left, Right, Bottom</c>.
     /// </remarks>
     public DockEdgeKind? DockEdge { get; init; } = DockEdgeKind.Top;
+
+    /// <summary>
+    /// Gets the grace period of the collapse timer, in milliseconds (E3, Q-03).
+    /// </summary>
+    /// <remarks>
+    /// Values outside <see cref="GracePeriod.MinimumMilliseconds"/>..<see cref="GracePeriod.MaximumMilliseconds"/> are
+    /// normalized on read by <see cref="GracePeriod.Normalize"/>; the persisted value is whatever the user chose. The
+    /// default is <see cref="GracePeriod.DefaultMilliseconds"/>.
+    /// </remarks>
+    [JsonPropertyName(GracePeriodPropertyName)]
+    public int GracePeriodMilliseconds { get; init; } = GracePeriod.DefaultMilliseconds;
 }

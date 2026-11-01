@@ -10,12 +10,6 @@ namespace StickyDock.Core.Docking;
 public interface IDockWindowHost
 {
     /// <summary>
-    /// Gets the size WPF lays out for the bar, in device-independent units.
-    /// </summary>
-    /// <returns>The size of the bar as laid out by the UI framework.</returns>
-    DockBarSize GetBarSize();
-
-    /// <summary>
     /// Gets the current window rectangle.
     /// </summary>
     /// <returns>The rectangle of the window, in device pixels.</returns>

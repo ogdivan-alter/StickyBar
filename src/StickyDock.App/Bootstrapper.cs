@@ -2,11 +2,13 @@ using System.Globalization;
 using System.Windows;
 using System.Windows.Interop;
 using StickyDock.App.Docking;
+using StickyDock.App.Timing;
 using StickyDock.App.Views;
 using StickyDock.Core.Configuration;
 using StickyDock.Core.DependencyInjection;
 using StickyDock.Core.Diagnostics;
 using StickyDock.Core.Docking;
+using StickyDock.Core.Interaction;
 using StickyDock.Core.Services;
 using StickyDock.Core.ViewModels;
 using StickyDock.Interop.Theme;
@@ -18,8 +20,14 @@ namespace StickyDock.App;
 /// Composition root of the application: builds the services, loads the configuration and creates the shell window.
 /// </summary>
 /// <remarks>
-/// The docking graph is composed here too, in <c>SourceInitialized</c>, because the native handle only exists once the
-/// window has been created (H-E2-01). The coordinator owns the event source and is disposed when the window closes.
+/// <para>
+/// The docking graph is composed in <c>SourceInitialized</c>, because the native handle only exists once the window has
+/// been created (H-E2-01). The coordinator owns the event source and is disposed when the window closes.
+/// </para>
+/// <para>
+/// The interaction graph is composed in <see cref="ShowMainWindow"/>, on the UI thread: the scheduler of the timers wraps
+/// a <see cref="System.Windows.Threading.DispatcherTimer"/>, which must be created on that thread (ADR-003, D4).
+/// </para>
 /// </remarks>
 internal sealed class Bootstrapper : IDisposable
 {
@@ -27,6 +35,8 @@ internal sealed class Bootstrapper : IDisposable
     private readonly RotatingFileLogger _logger;
 
     private DockPlacementCoordinator? _dockingCoordinator;
+    private DockInteractionController? _interactionController;
+    private IDockStateService? _dockStates;
     private DockBarViewModel? _dockBarViewModel;
     private bool _disposed;
 
@@ -52,15 +62,15 @@ internal sealed class Bootstrapper : IDisposable
             services.AddSingleton<ILogger>(logger);
             services.AddSingleton(paths);
 
-            var store = new JsonConfigurationStore<StickyDockConfiguration>(
-                paths.ConfigurationFilePath,
-                static () => new StickyDockConfiguration(),
-                logger: logger);
-
-            services.AddSingleton<IConfigurationStore<StickyDockConfiguration>>(store);
+            var store = StickyDockSettings.CreateStore(paths.ConfigurationFilePath, logger);
+            services.AddSingleton(store);
 
             var configuration = await LoadConfigurationAsync(store, logger, cancellationToken).ConfigureAwait(false);
-            services.AddSingleton(configuration);
+
+            // The single writer of the preferences (ADR-003, D1): every consumer sees the same instance, and the write is
+            // flushed when the container disposes it (D-04).
+            var document = new ConfigurationDocument(store, configuration, logger);
+            services.AddSingleton<IConfigurationDocument>(document);
 
             if (!store.Exists)
             {
@@ -70,15 +80,9 @@ internal sealed class Bootstrapper : IDisposable
 
             services.AddSingleton(new MainViewModel(configuration, logger));
 
-            // E1: theme service and dock state service.
+            // E1: theme service.
             var themeService = new WindowsThemeService();
             services.AddSingleton<IWindowsThemeService>(themeService);
-
-            var dockStateService = new DockStateService(logger);
-            services.AddSingleton<IDockStateService>(dockStateService);
-
-            var dockBarViewModel = new DockBarViewModel(logger, dockStateService, themeService);
-            services.AddSingleton(dockBarViewModel);
 
             var primaryScreen = DisplayMetrics.GetPrimaryScreenSize();
             logger.Information(
@@ -98,14 +102,15 @@ internal sealed class Bootstrapper : IDisposable
     }
 
     /// <summary>
-    /// Shows the shell window bound to its view model and composes the docking once the native handle exists.
+    /// Composes the interaction, shows the shell window bound to its view model and composes the docking once the native
+    /// handle exists.
     /// </summary>
     public void ShowMainWindow()
     {
+        ComposeInteraction();
+
         var mainViewModel = _services.GetRequiredService<MainViewModel>();
         var dockBarViewModel = _services.GetRequiredService<DockBarViewModel>();
-        var configuration = _services.GetRequiredService<StickyDockConfiguration>();
-        var store = _services.GetRequiredService<IConfigurationStore<StickyDockConfiguration>>();
 
         var window = new MainWindow
         {
@@ -115,7 +120,7 @@ internal sealed class Bootstrapper : IDisposable
 
         _dockBarViewModel = dockBarViewModel;
 
-        window.SourceInitialized += (_, _) => AttachDocking(window, dockBarViewModel, configuration, store);
+        window.SourceInitialized += (_, _) => AttachDocking(window);
         window.Closed += OnMainWindowClosed;
 
         window.Show();
@@ -136,11 +141,35 @@ internal sealed class Bootstrapper : IDisposable
         _logger.Dispose();
     }
 
-    private void AttachDocking(
-        Window window,
-        DockBarViewModel viewModel,
-        StickyDockConfiguration configuration,
-        IConfigurationStore<StickyDockConfiguration> store)
+    /// <summary>
+    /// Builds the interaction graph on the UI thread: the interaction controller is the single implementation of the dock
+    /// state and of the region sink, so the same instance is registered under both contracts (ADR-003, D4 and D7).
+    /// </summary>
+    private void ComposeInteraction()
+    {
+        if (_services.IsRegistered(typeof(IDockStateService)))
+        {
+            return;
+        }
+
+        var configuration = _services.GetRequiredService<IConfigurationDocument>();
+        var controller = new DockInteractionController(new DispatcherTimerScheduler(), configuration, _logger);
+
+        _services.AddSingleton<IDockStateService>(controller);
+        _services.AddSingleton<IDockRegionSink>(controller);
+
+        // The footprint is declared in Core, so the size the coordinator applies is verifiable without the window (D2).
+        _services.AddSingleton<IDockBarSizeSource>(new DockBarSizeSource(controller, DockBarMetrics.Default));
+
+        _interactionController = controller;
+        _services.AddSingleton(new DockBarViewModel(
+            _logger,
+            controller,
+            controller,
+            _services.GetRequiredService<IWindowsThemeService>()));
+    }
+
+    private void AttachDocking(Window window)
     {
         var handle = new WindowInteropHelper(window).Handle;
 
@@ -167,13 +196,24 @@ internal sealed class Bootstrapper : IDisposable
             events,
             new Win32WindowGeometrySource(handle),
             new WpfDockWindowHost(window),
-            store,
-            configuration,
+            _services.GetRequiredService<IDockBarSizeSource>(),
+            _services.GetRequiredService<IConfigurationDocument>(),
             _logger);
 
+        var states = _services.GetRequiredService<IDockStateService>();
+
         _dockingCoordinator = coordinator;
+        _dockStates = states;
+
         coordinator.PlacementChanged += OnPlacementChanged;
-        viewModel.DragRequested += OnDragRequested;
+        coordinator.DragStarted += OnDragStarted;
+        coordinator.DragCompleted += OnDragCompleted;
+        states.StateChanged += OnDockStateChanged;
+
+        if (_dockBarViewModel is not null)
+        {
+            _dockBarViewModel.DragRequested += OnDragRequested;
+        }
 
         try
         {
@@ -189,6 +229,16 @@ internal sealed class Bootstrapper : IDisposable
 
     private void OnPlacementChanged(object? sender, DockPlacementChangedEventArgs e)
         => _dockBarViewModel?.ApplyPlacement(e.Edge);
+
+    /// <summary>
+    /// Grows or shrinks the bar to the footprint of the new state (ADR-003, D-09).
+    /// </summary>
+    private void OnDockStateChanged(object? sender, DockStateChangedEventArgs e)
+        => _dockingCoordinator?.NotifyBarSizeChanged();
+
+    private void OnDragStarted(object? sender, EventArgs e) => _interactionController?.BeginDrag();
+
+    private void OnDragCompleted(object? sender, EventArgs e) => _interactionController?.EndDrag();
 
     private void OnDragRequested(object? sender, EventArgs e) => _dockingCoordinator?.BeginDrag();
 
@@ -213,6 +263,14 @@ internal sealed class Bootstrapper : IDisposable
 
         _dockingCoordinator = null;
         coordinator.PlacementChanged -= OnPlacementChanged;
+        coordinator.DragStarted -= OnDragStarted;
+        coordinator.DragCompleted -= OnDragCompleted;
+
+        if (_dockStates is not null)
+        {
+            _dockStates.StateChanged -= OnDockStateChanged;
+            _dockStates = null;
+        }
 
         if (_dockBarViewModel is not null)
         {

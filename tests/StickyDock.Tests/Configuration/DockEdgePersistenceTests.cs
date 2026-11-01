@@ -99,8 +99,6 @@ public sealed class DockEdgePersistenceTests : IDisposable
         Assert.Equal(DockEdge.Top, loaded.DockEdge);
     }
 
-    private JsonConfigurationStore<StickyDockConfiguration> CreateStore()
-        => new(
-            _directory.GetFilePath("settings.json"),
-            static () => new StickyDockConfiguration());
+    private IConfigurationStore<StickyDockConfiguration> CreateStore()
+        => StickyDockSettings.CreateStore(_directory.GetFilePath("settings.json"));
 }

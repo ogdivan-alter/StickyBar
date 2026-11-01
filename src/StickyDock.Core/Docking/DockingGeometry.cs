@@ -32,6 +32,18 @@ public readonly record struct PixelRect(int X, int Y, int Width, int Height)
     /// Gets a value indicating whether the rectangle has no area.
     /// </summary>
     public bool IsEmpty => Width <= 0 || Height <= 0;
+
+    /// <summary>
+    /// Gets a value indicating whether a point falls inside the rectangle.
+    /// </summary>
+    /// <param name="x">Horizontal coordinate of the point, in device pixels.</param>
+    /// <param name="y">Vertical coordinate of the point, in device pixels.</param>
+    /// <returns><see langword="true"/> when the point is inside; otherwise, <see langword="false"/>.</returns>
+    /// <remarks>
+    /// The right and bottom edges are exclusive, so two rectangles that share an edge never both contain the point where
+    /// they meet. It expresses the same convention as <see cref="Right"/> and <see cref="Bottom"/>.
+    /// </remarks>
+    public bool Contains(int x, int y) => x >= X && x < Right && y >= Y && y < Bottom;
 }
 
 /// <summary>

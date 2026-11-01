@@ -10,9 +10,6 @@ internal sealed class FakeDockWindowHost : IDockWindowHost
 {
     private readonly List<PixelRect> _appliedBounds = [];
 
-    /// <summary>Gets or sets the size WPF would lay out for the bar.</summary>
-    public DockBarSize BarSize { get; set; } = new(120d, 36d);
-
     /// <summary>Gets or sets the rectangle the window currently occupies.</summary>
     public PixelRect Bounds { get; set; } = new(700, 400, 150, 45);
 
@@ -22,8 +19,11 @@ internal sealed class FakeDockWindowHost : IDockWindowHost
     /// <summary>Gets the number of drag requests received.</summary>
     public int BeginDragCount { get; private set; }
 
-    /// <inheritdoc />
-    public DockBarSize GetBarSize() => BarSize;
+    /// <summary>
+    /// Gets or sets an action invoked inside <see cref="ApplyBounds"/>, once the window is already at the new rectangle.
+    /// It lets a test provoke the reentry that rule R2 of ADR-003 protects against.
+    /// </summary>
+    public Action<PixelRect>? OnApplyBounds { get; set; }
 
     /// <inheritdoc />
     public PixelRect GetBounds() => Bounds;
@@ -33,6 +33,7 @@ internal sealed class FakeDockWindowHost : IDockWindowHost
     {
         _appliedBounds.Add(bounds);
         Bounds = bounds;
+        OnApplyBounds?.Invoke(bounds);
     }
 
     /// <inheritdoc />

@@ -325,6 +325,207 @@ public sealed class DockPlacementCalculatorTests
         Assert.Equal(PixelRect.Empty, clamped);
     }
 
+    [Fact]
+    public void GetNearestEdge_ReturnsTheNearestSide()
+    {
+        // Reference of ADR-003 §6.5: 400 px to the top, 595 to the bottom, 700 to the left and 1070 to the right.
+        var nearest = DockPlacementCalculator.GetNearestEdge(new PixelRect(700, 400, 150, 45), WorkArea);
+
+        Assert.Equal(DockEdge.Top, nearest);
+    }
+
+    [Theory]
+    [InlineData(0, 300, DockEdge.Left)]
+    [InlineData(1770, 300, DockEdge.Right)]
+    [InlineData(885, 995, DockEdge.Bottom)]
+    [InlineData(885, 10, DockEdge.Top)]
+    public void GetNearestEdge_FindsTheSideTheBarIsTouching(int x, int y, DockEdge expected)
+    {
+        var nearest = DockPlacementCalculator.GetNearestEdge(new PixelRect(x, y, 150, 45), WorkArea);
+
+        Assert.Equal(expected, nearest);
+    }
+
+    [Theory]
+    [InlineData(0, 0, DockEdge.Top)]
+    [InlineData(0, 995, DockEdge.Left)]
+    public void GetNearestEdge_WhenTwoSidesTie_BreaksByDeclarationOrder(int x, int y, DockEdge expected)
+    {
+        var nearest = DockPlacementCalculator.GetNearestEdge(new PixelRect(x, y, 150, 45), WorkArea);
+
+        Assert.Equal(expected, nearest);
+    }
+
+    [Fact]
+    public void GetFloatingBounds_WithTheSameSize_ReturnsTheSameRect()
+    {
+        // Rule R4: recalculating twice in a row is an exact no-op, which is what keeps the placement idempotent.
+        var current = new PixelRect(700, 400, 210, 120);
+
+        var bounds = DockPlacementCalculator.GetFloatingBounds(
+            current,
+            DockEdge.Top,
+            CreateMonitor(120),
+            DockBarMetrics.Default.GetSize(expanded: true, anchor: null));
+
+        Assert.Equal(current, bounds);
+    }
+
+    [Theory]
+    [InlineData(DockEdge.Top, 670, 400)]
+    [InlineData(DockEdge.Bottom, 670, 325)]
+    [InlineData(DockEdge.Left, 700, 362)]
+    [InlineData(DockEdge.Right, 640, 362)]
+    public void GetFloatingBounds_GrowsAwayFromTheNearestEdge(DockEdge anchor, int expectedX, int expectedY)
+    {
+        // Reference of ADR-003 §6.5: a floating 150×45 at (700,400) becomes 210×120 at 125 % keeping the anchor side.
+        var bounds = DockPlacementCalculator.GetFloatingBounds(
+            new PixelRect(700, 400, 150, 45),
+            anchor,
+            CreateMonitor(120),
+            DockBarMetrics.Default.GetSize(expanded: true, anchor: null));
+
+        Assert.Equal(new PixelRect(expectedX, expectedY, 210, 120), bounds);
+    }
+
+    [Fact]
+    public void GetFloatingBounds_KeepsTheCentreAlongTheEdge()
+    {
+        var current = new PixelRect(700, 400, 150, 45);
+
+        foreach (var anchor in Enum.GetValues<DockEdge>())
+        {
+            var bounds = DockPlacementCalculator.GetFloatingBounds(
+                current,
+                anchor,
+                CreateMonitor(120),
+                DockBarMetrics.Default.GetSize(expanded: true, anchor: null));
+
+            switch (anchor)
+            {
+                case DockEdge.Top:
+                case DockEdge.Bottom:
+                    Assert.Equal(current.X + (current.Width / 2), bounds.X + (bounds.Width / 2));
+                    break;
+
+                default:
+                    Assert.Equal(current.Y + (current.Height / 2), bounds.Y + (bounds.Height / 2));
+                    break;
+            }
+        }
+    }
+
+    [Fact]
+    public void ExpandedBounds_ContainCollapsedBounds()
+    {
+        // Invariant I1: the bar grows inward from its outer border on every edge, at every scale and on every geometry.
+        foreach (var monitor in CreateScenarios())
+        {
+            foreach (var edge in Enum.GetValues<DockEdge>())
+            {
+                var collapsed = DockPlacementCalculator.GetDockedBounds(
+                    edge,
+                    monitor,
+                    DockBarMetrics.Default.GetSize(expanded: false, edge));
+
+                var expanded = DockPlacementCalculator.GetDockedBounds(
+                    edge,
+                    monitor,
+                    DockBarMetrics.Default.GetSize(expanded: true, edge));
+
+                Assert.True(
+                    expanded.X <= collapsed.X
+                        && expanded.Y <= collapsed.Y
+                        && expanded.Right >= collapsed.Right
+                        && expanded.Bottom >= collapsed.Bottom,
+                    $"Edge {edge} at DPI {monitor.Dpi}: {expanded} does not contain {collapsed}.");
+            }
+        }
+    }
+
+    [Fact]
+    public void Growth_KeepsTheOuterBorderFixed()
+    {
+        // Invariant I2: the tab is the visual anchor, so the side touching the edge cannot move when the bar deploys.
+        foreach (var monitor in CreateScenarios())
+        {
+            var workArea = monitor.WorkArea;
+
+            foreach (var edge in Enum.GetValues<DockEdge>())
+            {
+                var collapsed = DockPlacementCalculator.GetDockedBounds(
+                    edge,
+                    monitor,
+                    DockBarMetrics.Default.GetSize(expanded: false, edge));
+
+                var expanded = DockPlacementCalculator.GetDockedBounds(
+                    edge,
+                    monitor,
+                    DockBarMetrics.Default.GetSize(expanded: true, edge));
+
+                switch (edge)
+                {
+                    case DockEdge.Top:
+                        Assert.Equal(workArea.Y, expanded.Y);
+                        Assert.Equal(collapsed.Y, expanded.Y);
+                        break;
+
+                    case DockEdge.Bottom:
+                        Assert.Equal(workArea.Bottom, expanded.Bottom);
+                        Assert.Equal(collapsed.Bottom, expanded.Bottom);
+                        break;
+
+                    case DockEdge.Left:
+                        Assert.Equal(workArea.X, expanded.X);
+                        Assert.Equal(collapsed.X, expanded.X);
+                        break;
+
+                    default:
+                        Assert.Equal(workArea.Right, expanded.Right);
+                        Assert.Equal(collapsed.Right, expanded.Right);
+                        break;
+                }
+            }
+        }
+    }
+
+    [Fact]
+    public void ExpandedBounds_StayInsideWorkArea()
+    {
+        // E2-CA3 is kept after the deploy: the deployed bar never leaves the work area, even when it does not fit.
+        foreach (var monitor in CreateScenarios())
+        {
+            var workArea = monitor.WorkArea;
+
+            foreach (var edge in Enum.GetValues<DockEdge>())
+            {
+                var expanded = DockPlacementCalculator.GetDockedBounds(
+                    edge,
+                    monitor,
+                    DockBarMetrics.Default.GetSize(expanded: true, edge));
+
+                Assert.True(
+                    expanded.X >= workArea.X && expanded.Y >= workArea.Y
+                        && expanded.Right <= workArea.Right && expanded.Bottom <= workArea.Bottom,
+                    $"Edge {edge} at DPI {monitor.Dpi} left the work area: {expanded} is not inside {workArea}.");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Monitors and scales the growth invariants are checked against, including a work area smaller than the bar.
+    /// </summary>
+    private static MonitorGeometry[] CreateScenarios() =>
+    [
+        new(new PixelRect(0, 0, 1920, 1080), new PixelRect(0, 0, 1920, 1040), 96),
+        new(new PixelRect(0, 0, 1920, 1080), new PixelRect(0, 0, 1920, 1040), 120),
+        new(new PixelRect(0, 0, 1920, 1080), new PixelRect(0, 0, 1920, 1040), 144),
+        new(new PixelRect(1920, 0, 1280, 1024), new PixelRect(1920, 0, 1280, 984), 120),
+        new(new PixelRect(0, 0, 2560, 1440), new PixelRect(0, 0, 2560, 1400), 144),
+        new(new PixelRect(0, 0, 800, 600), new PixelRect(0, 0, 800, 600), 96),
+        new(new PixelRect(0, 0, 60, 30), new PixelRect(0, 0, 60, 30), 96),
+    ];
+
     private static MonitorGeometry CreateMonitor(int dpi) => new(MonitorBounds, WorkArea, dpi);
 
     private static TaskbarPlacement TaskbarAt(DockEdge edge, bool isOnCurrentMonitor = true)

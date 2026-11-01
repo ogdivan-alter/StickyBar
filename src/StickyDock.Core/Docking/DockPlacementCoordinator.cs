@@ -11,13 +11,17 @@ namespace StickyDock.Core.Docking;
 public sealed record DockPlacementChangedEventArgs(DockEdge? Edge, PixelRect Bounds);
 
 /// <summary>
-/// Owns the docked state of one bar, decides its placement and persists the chosen edge (E2).
+/// Owns the docked state of one bar, decides its placement and persists the chosen edge (E2, E3).
 /// </summary>
 /// <remarks>
 /// <para>
 /// The coordinator is the only writer of <see cref="StickyDockConfiguration.DockEdge"/> and the only consumer of its
 /// <see cref="IDockingEventSource"/>, which it disposes. It never touches Win32 and never references WPF: the reading
 /// side is an <see cref="IWindowGeometrySource"/>, the writing side an <see cref="IDockWindowHost"/> (ADR-002).
+/// </para>
+/// <para>
+/// The size of the bar is declared by an <see cref="IDockBarSizeSource"/> and never measured, so a resize imposed from
+/// outside cannot contaminate the next calculation (ADR-003, D-01).
 /// </para>
 /// <para>
 /// Cost while idle is zero: every reaction is driven by an event of the source, and there is no timer.
@@ -28,10 +32,10 @@ public sealed class DockPlacementCoordinator : IDisposable
     private readonly IDockingEventSource _events;
     private readonly IWindowGeometrySource _geometry;
     private readonly IDockWindowHost _host;
-    private readonly IConfigurationStore<StickyDockConfiguration> _configurationStore;
+    private readonly IDockBarSizeSource _barSize;
+    private readonly IConfigurationDocument _configuration;
     private readonly ILogger _logger;
 
-    private StickyDockConfiguration _configuration;
     private PixelRect? _lastApplied;
     private bool _started;
     private bool _disposed;
@@ -42,21 +46,21 @@ public sealed class DockPlacementCoordinator : IDisposable
     /// <param name="events">Source of the environment changes. Owned: disposed with the coordinator.</param>
     /// <param name="geometry">Reader of the monitor and taskbar that surround the bar.</param>
     /// <param name="host">Window the coordinator moves. Not owned.</param>
-    /// <param name="configurationStore">Store where the docked edge is persisted.</param>
-    /// <param name="configuration">Configuration loaded at startup, with the persisted edge.</param>
+    /// <param name="barSize">Declared footprint of the bar for the state it is in.</param>
+    /// <param name="configuration">Single configuration document, where the docked edge is persisted.</param>
     /// <param name="logger">Logger of the coordinator.</param>
     public DockPlacementCoordinator(
         IDockingEventSource events,
         IWindowGeometrySource geometry,
         IDockWindowHost host,
-        IConfigurationStore<StickyDockConfiguration> configurationStore,
-        StickyDockConfiguration configuration,
+        IDockBarSizeSource barSize,
+        IConfigurationDocument configuration,
         ILogger logger)
     {
         _events = events ?? throw new ArgumentNullException(nameof(events));
         _geometry = geometry ?? throw new ArgumentNullException(nameof(geometry));
         _host = host ?? throw new ArgumentNullException(nameof(host));
-        _configurationStore = configurationStore ?? throw new ArgumentNullException(nameof(configurationStore));
+        _barSize = barSize ?? throw new ArgumentNullException(nameof(barSize));
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
@@ -70,6 +74,17 @@ public sealed class DockPlacementCoordinator : IDisposable
     /// Raised after the placement changed, so that the view model can mirror the docked state.
     /// </summary>
     public event EventHandler<DockPlacementChangedEventArgs>? PlacementChanged;
+
+    /// <summary>
+    /// Raised when the drag of the bar begins, before the native move loop takes over. The interaction controller
+    /// suppresses its automatic transitions meanwhile (ADR-003, D3).
+    /// </summary>
+    public event EventHandler? DragStarted;
+
+    /// <summary>
+    /// Raised after the drag completed and the snap was decided, so that the interaction controller reevaluates.
+    /// </summary>
+    public event EventHandler? DragCompleted;
 
     /// <summary>
     /// Subscribes to the environment events and applies the persisted edge.
@@ -86,7 +101,7 @@ public sealed class DockPlacementCoordinator : IDisposable
         }
 
         _started = true;
-        CurrentEdge = _configuration.DockEdge;
+        CurrentEdge = _configuration.Current.DockEdge;
 
         _events.Changed += OnEnvironmentChanged;
 
@@ -145,11 +160,34 @@ public sealed class DockPlacementCoordinator : IDisposable
     /// </summary>
     /// <remarks>
     /// The view model raises a command that ends here, so the gesture crosses no geometry and no Win32 code (ADR-002).
+    /// <see cref="DragStarted"/> is raised first because the move loop blocks until the user releases the bar.
     /// </remarks>
     public void BeginDrag()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+
+        DragStarted?.Invoke(this, EventArgs.Empty);
         _host.BeginDrag();
+    }
+
+    /// <summary>
+    /// Recomputes the placement with the size the bar occupies for the state it is in now (ADR-003, D-09).
+    /// </summary>
+    /// <remarks>
+    /// Called by the composition root when the dock state changes. It never resets the last applied rectangle, so
+    /// recalculating twice in a row moves nothing (rule R4).
+    /// </remarks>
+    public void NotifyBarSizeChanged()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        if (!_started)
+        {
+            // The placement has not been resolved yet; Start will apply the size that is current by then.
+            return;
+        }
+
+        ResolvePlacement();
     }
 
     /// <inheritdoc />
@@ -163,6 +201,8 @@ public sealed class DockPlacementCoordinator : IDisposable
         _disposed = true;
         _lastApplied = null;
         PlacementChanged = null;
+        DragStarted = null;
+        DragCompleted = null;
 
         _events.Changed -= OnEnvironmentChanged;
         _events.Dispose();
@@ -201,8 +241,12 @@ public sealed class DockPlacementCoordinator : IDisposable
     }
 
     /// <summary>
-    /// Keeps a floating bar on screen without docking it.
+    /// Keeps a floating bar on screen, resized to the declared footprint, without docking it.
     /// </summary>
+    /// <remarks>
+    /// A floating bar has no edge that anchors it, so it grows away from the nearest one (ADR-003, §6.3). The anchor is
+    /// read from the current rectangle, before the size changes, so the growth always goes inward.
+    /// </remarks>
     private void ResolveFloating(MonitorGeometry monitor)
     {
         var bounds = _host.GetBounds();
@@ -212,7 +256,13 @@ public sealed class DockPlacementCoordinator : IDisposable
             return;
         }
 
-        var clamped = DockPlacementCalculator.ClampIntoWorkArea(bounds, monitor.WorkArea);
+        var anchor = DockPlacementCalculator.GetNearestEdge(bounds, monitor.WorkArea);
+        var resized = DockPlacementCalculator.GetFloatingBounds(
+            bounds,
+            anchor,
+            monitor,
+            _barSize.GetCurrentSize(anchor: null));
+        var clamped = DockPlacementCalculator.ClampIntoWorkArea(resized, monitor.WorkArea);
 
         if (clamped == bounds)
         {
@@ -231,7 +281,7 @@ public sealed class DockPlacementCoordinator : IDisposable
     private void ApplyDocked(DockEdge current, MonitorGeometry monitor, TaskbarPlacement taskbar)
     {
         var edge = DockPlacementCalculator.ChooseDockEdge(current, taskbar);
-        var bounds = DockPlacementCalculator.GetDockedBounds(edge, monitor, _host.GetBarSize());
+        var bounds = DockPlacementCalculator.GetDockedBounds(edge, monitor, _barSize.GetCurrentSize(edge));
 
         var edgeChanged = CurrentEdge != edge;
         CurrentEdge = edge;
@@ -266,33 +316,40 @@ public sealed class DockPlacementCoordinator : IDisposable
     /// </summary>
     private void HandleDragCompleted()
     {
-        // The window is wherever the user dropped it, so that rectangle replaces the last one the coordinator applied.
-        // Comparing against it keeps the application idempotent: a click with no movement moves nothing.
-        var dragged = _host.GetBounds();
-        _lastApplied = dragged;
-
-        // An unreadable rectangle (a window with no size) is at distance zero from every edge, so the calculator would
-        // snap the bar to the top for the wrong reason. It is treated as a release outside the snap band instead.
-        if (dragged.IsEmpty)
+        try
         {
-            ReleaseToFloating(dragged);
-            _logger.Warning("The bar reported an empty rectangle at the end of the drag; it stays floating.");
-            return;
+            // The window is wherever the user dropped it, so that rectangle replaces the last one the coordinator
+            // applied. Comparing against it keeps the application idempotent: a click with no movement moves nothing.
+            var dragged = _host.GetBounds();
+            _lastApplied = dragged;
+
+            // An unreadable rectangle (a window with no size) is at distance zero from every edge, so the calculator
+            // would snap the bar to the top for the wrong reason. It is treated as a release outside the band instead.
+            if (dragged.IsEmpty)
+            {
+                ReleaseToFloating(dragged);
+                _logger.Warning("The bar reported an empty rectangle at the end of the drag; it stays floating.");
+                return;
+            }
+
+            var monitor = _geometry.GetMonitorGeometry();
+            var taskbar = _geometry.GetTaskbarPlacement();
+            var target = DockPlacementCalculator.ComputeSnapTarget(dragged, monitor, taskbar);
+
+            if (target is { } edge)
+            {
+                ApplyDocked(edge, monitor, taskbar);
+                return;
+            }
+
+            if (ReleaseToFloating(dragged))
+            {
+                _logger.Information($"Bar released outside the snap band; it floats at {Describe(dragged)}.");
+            }
         }
-
-        var monitor = _geometry.GetMonitorGeometry();
-        var taskbar = _geometry.GetTaskbarPlacement();
-        var target = DockPlacementCalculator.ComputeSnapTarget(dragged, monitor, taskbar);
-
-        if (target is { } edge)
+        finally
         {
-            ApplyDocked(edge, monitor, taskbar);
-            return;
-        }
-
-        if (ReleaseToFloating(dragged))
-        {
-            _logger.Information($"Bar released outside the snap band; it floats at {Describe(dragged)}.");
+            DragCompleted?.Invoke(this, EventArgs.Empty);
         }
     }
 
@@ -316,34 +373,28 @@ public sealed class DockPlacementCoordinator : IDisposable
         return true;
     }
 
+    /// <summary>
+    /// Moves the window and records the rectangle as applied.
+    /// </summary>
+    /// <remarks>
+    /// The rectangle is recorded before the window is moved (ADR-003, §6.6, rule R2), so any environment message or
+    /// reentry that arrives while <see cref="IDockWindowHost.ApplyBounds"/> is running already sees it as applied and
+    /// does not move the window a second time.
+    /// </remarks>
     private void Apply(PixelRect bounds)
     {
-        _host.ApplyBounds(bounds);
         _lastApplied = bounds;
+        _host.ApplyBounds(bounds);
     }
 
     private void PersistEdge(DockEdge? edge)
     {
-        if (_configuration.DockEdge == edge)
+        if (_configuration.Current.DockEdge == edge)
         {
             return;
         }
 
-        _configuration = _configuration with { DockEdge = edge };
-        _ = SaveAsync(_configuration);
-    }
-
-    private async Task SaveAsync(StickyDockConfiguration document)
-    {
-        try
-        {
-            await _configurationStore.SaveAsync(document).ConfigureAwait(false);
-        }
-        catch (Exception exception)
-        {
-            // The docking keeps working; only the preference is lost for the next run.
-            _logger.Error("The dock edge could not be persisted.", exception);
-        }
+        _configuration.Update(document => document with { DockEdge = edge });
     }
 
     private static string DescribeEdge(DockEdge? edge) => edge?.ToString() ?? "floating";

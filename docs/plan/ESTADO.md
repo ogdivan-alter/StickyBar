@@ -4,7 +4,7 @@ Tablero de estado del plan definido en `docs/plan/PLAN.md`. El inventario normal
 
 - **Propietario**: Director de Desarrollo
 - **Última actualización**: 2026-10-28
-- **Etapa actual**: E3 (siguiente a abrir)
+- **Etapa actual**: E3 (en curso; ADR-003 aceptada)
 
 ---
 
@@ -15,7 +15,7 @@ Tablero de estado del plan definido en `docs/plan/PLAN.md`. El inventario normal
 | E0 | Cimientos de solución y build | Completada | 100 % | 2026-10-22 | — | — |
 | E1 | Ventana base, tema y pestaña | Completada | 100 % | 2026-10-26 | E0 | — |
 | E2 | Sticky docking y barra de tareas | Completada | 100 % | 2026-10-28 | E1 | — |
-| E3 | Hover, slide-in y gracia | No iniciada | 0 % | 2026-10-22 | E2 | — |
+| E3 | Hover, slide-in y gracia | En curso | 5 % | 2026-10-28 | E2 | — |
 | E4 | Cintas y despliegue exclusivo | No iniciada | 0 % | 2026-10-22 | E2 | — |
 | E5 | Accesos directos `.lnk` | No iniciada | 0 % | 2026-10-22 | E1, E4 | — |
 | E6 | Bandeja, configuración y auto-inicio | No iniciada | 0 % | 2026-10-22 | E1 | — |
@@ -65,6 +65,10 @@ Tablero de estado del plan definido en `docs/plan/PLAN.md`. El inventario normal
 | 2026-10-28 | E2 | QA aprueba E2 | QA verifica E2-CA1..E2-CA6: builds Release/Debug con 0 advertencias, **198 pruebas** en verde, `PerMonitorV2` confirmado en vivo, sonda real del hook (`IsActive` verdadero al instalar y falso tras `Dispose`), RAM privada 36,75–37,2 MB y CPU en reposo 0,000–0,033 % de un núcleo. Veredicto **APROBADO PARA CERRAR** con 6 defectos menores (D-01..D-06) y 4 verificaciones manuales pendientes (M-01..M-04). | QA |
 | 2026-10-28 | E2 | Corrección de defectos D-03 y D-05 | D-03: el comentario XML de `BeginDrag` describe ya el mecanismo real (`WM_SYSCOMMAND` + `SC_MOVE`) y por qué difiere del texto de ADR-002. D-05: `HandleDragCompleted` trata un rectángulo vacío como liberación fuera de banda (extraído a `ReleaseToFloating`) y se añade la prueba `DragEnd_WithAnEmptyRect_DoesNotDock_AndPersistsNull`. Suite: **199** pruebas verdes. | Implementador |
 | 2026-10-28 | E2 | **Cierre de E2** | Revisión final del Director: `dotnet build` Release y Debug con 0 advertencias y 0 errores, `dotnet test` 199/199, greps de control limpios, árbol de trabajo limpio tras el commit `2aa510a`. Se cierran H-E2-01 a H-E2-04. E2 pasa a **Completada al 100 %**; el plan queda al 33 % (3 de 9 etapas). Quedan abiertas la deuda menor D-01, D-02, D-04 y D-06 y las verificaciones manuales M-01 a M-04. | Director de Desarrollo |
+| 2026-10-28 | E3 | Resolución de Q-09 | Se adopta la opción 1: **E3 entrega el valor, la validación 300–500 ms, la migración a esquema v2, la persistencia y la aplicación inmediata**; la ventana de configuración desde la bandeja es alcance de E6 (HU05 CA #1). E3-CA5 se verifica editando `settings.json` y con pruebas de migración, normalización y persistencia. Queda registrada una nota para `qa`. | Usuario |
+| 2026-10-28 | E3 | ADR-003 entregada y auditada | El `arquitecto` entrega `ADR-003-hover-despliegue-y-propiedad-de-la-configuracion.md`. La revisión del Director contra el código real encuentra **ocho defectos**, todos corregidos en tres rondas: H-1 contrato roto (`DockBarViewModel` recibía `IDockStateService`, sin `EnterRegion`/`LeaveRegion`) → puerto propio `IDockRegionSink`; H-2 `ClipToBounds` en la raíz recortaba el micro-efecto → recorte solo sobre el contenido deslizante; H-3 la etapa no era demostrable → superficie desplegada de E3 definida (panel translúcido vacío, sin interactividad inventada); H-4 `From="{Binding …}"` en un `Storyboard` de `Style` no es viable → literales por borde con `MultiDataTrigger`, retirado `ExpansionAnimation` de Core y salida por fundido; H-5 la cabecera negaba la sustitución de ADR-002 → «Sustituye parcialmente a» + §5.5.1; H-6 *bindings* muertos `ScaleX`/`ScaleY`/`TabOpacity` → añadidos al checklist y al grep de control; H-7 `TabExpansionMargin` (huella plegada 128×44) → **retirado**: no existe *hit-test* selectivo y habría roto E1-CA4, además de dejar el literal 60 sin derivación; H-8 ejemplo numérico de §6.5 con ancho/alto y centrado intercambiados en los bordes verticales → recalculado. | Director de Desarrollo |
+| 2026-10-28 | E3 | Aprobación de ADR-003 | El usuario aprueba el ADR-003, que pasa a *Aceptada* con la resolución de Q-09 incorporada. **Resuelve deuda registrada**: D-01 (tamaño medido), D-04 (persistencia *fire-and-forget*), D-07 (dos copias del documento) y D-09 (el tamaño no se re-resuelve). **Sustituye parcialmente ADR-002**: retira `IDockWindowHost.GetBarSize()` y cambia el constructor de `DockPlacementCoordinator`. Aviso N-01 (zona de arrastre de la barra desplegada) resuelto como no-cambio documentado: la pestaña es el único asa en ambos estados. | Usuario |
+| 2026-10-28 | E3 | Inicio de ejecución | Se abre E3 con el contrato de `docs/plan/PLAN.md` y la lista de verificación §10 del ADR-003: documento único de configuración, tamaños declarados, máquina de estados de cuatro fases con ranura única de temporizador, comandos de región, migración a esquema v2 y animaciones declarativas. Sin commit hasta confirmación. | Director de Desarrollo |
 
 ---
 
@@ -234,6 +238,36 @@ Estas preguntas bloquean el cierre de las etapas indicadas. El Director de Desar
   2. **Adoptar memoria privada comprometida como métrica** (36,5 MB): se declara la interpretación, se actualiza A5 y E1-CA5 pasa a verde. El *working set* queda como dato informativo, no como umbral. — **ELEGIDA**.
   3. ~~Medir antes de decidir con una herramienta dedicada~~ — **ejecutada**: es la medición contrastada de arriba.
 
+### Q-09 — ¿Quién expone la configuración del temporizador de gracia?
+
+- **Estado**: **Resuelta**
+- **Decisión**: **E3 entrega el valor, la validación 300–500 ms, la migración de esquema a la versión 2, la persistencia y la aplicación inmediata del cambio.** La ventana de configuración general —abierta desde la bandeja del sistema— es alcance de **E6** (§4.6-01, HU05 CA #1). E3-CA5 se verifica editando `settings.json` y con pruebas de migración, normalización y persistencia, no sobre un control de interfaz.
+- **Fecha**: 2026-10-28 · **Decidido por**: usuario
+- **Bloquea**: E3 (desbloqueada; ADR-003 aceptada)
+- **Hueco detectado**: E3-CA5 exige que la gracia sea «configurable por el usuario dentro del rango 300–500 ms» y que persista, pero ningún documento asigna a E3 una interfaz de usuario; §4.6-01 la sitúa en la bandeja, que es de E6.
+- **Opciones consideradas**:
+  1. **Diseño completo, interfaz en E6** — **ELEGIDA**. E3 aporta el comportamiento completo; E6 aporta el control que lo hace accesible. La lectura literal de «configurable» se satisface en el producto, y el criterio de la etapa se comprueba sobre la preferencia y su efecto.
+  2. Adelantar a E3 una ventana mínima con un solo control — descartada: duplica trabajo de E6 y adelanta alcance ya planificado.
+  3. Dejar la gracia fija en 400 ms hasta E6 — descartada: incumple E3-CA5 tal como está escrito.
+- **Efecto en la implementación**:
+  - `StickyDockConfiguration.GracePeriodMilliseconds` (400 por defecto), `GracePeriod.Normalize` para el rango 300–500 y `AddGracePeriodMigration` (1 → 2) entran en E3.
+  - El controlador de interacción lee el valor del documento **en el instante de armar el temporizador**, así que un cambio en `settings.json` surte efecto sin reiniciar.
+  - **Nota para `qa`**: E3-CA5 se valida (a) editando `settings.json` con 300, 400 y 500 ms y observando el tiempo de colapso, y (b) con las pruebas de migración, normalización y persistencia. No se exige un control de interfaz en esta etapa.
+
+### Q-10 — Al colapsar la barra, ¿se cierra la Cinta que estuviera abierta?
+
+- **Estado**: **Abierta, diferida a E4** (no bloquea E3)
+- **Origen**: §4.4 no lo dice. HU03 fija la exclusividad entre Cintas, no qué ocurre con una Cinta cuando la barra entera se oculta.
+- **Opciones**: (1) el colapso cierra la Cinta abierta — *recomendada*, coherente con A4 y con que una Cinta sin barra visible no tiene ancla; (2) la Cinta se conserva y reaparece abierta en el siguiente despliegue, lo que deja una ventana flotante visible sin la barra.
+- **Trazabilidad**: RF02, RF03, §4.2, §4.4-02. ADR-003 deja la costura preparada (`DockRegion.Ribbon` y `StateChanged`) para que E4 la implemente sin tocar la máquina de estados.
+
+### Q-11 — ¿El micro-efecto de expansión se emite en cada activación o solo la primera vez?
+
+- **Estado**: **Abierta, diferida a E4** (no bloquea E3)
+- **Origen**: §4.3-02 lo describe «durante el *hover* sostenido sobre la pestaña en reposo», sin distinguir la primera activación de la sesión de las siguientes.
+- **Opciones**: (1) en cada activación — *recomendada*, lectura literal y *feedback* coherente; (2) solo la primera vez por sesión, que añade estado sin respaldo documental.
+- **Trazabilidad**: HU02 CA #2, §4.3-02.
+
 ---
 
 ## Interpretaciones resueltas por el propio documento (Fase B)
@@ -262,6 +296,7 @@ Cambios del plan que **exceden** lo que la especificación enumera. Se registran
 | AMP-01 | Persistir el **borde acoplado** y el **temporizador de gracia** | §5.2-02 enumera solo orden, Cintas y preferencias multimonitor. Sin persistir el borde, la barra vuelve a su posición inicial en cada arranque (E2-CA5, E3-CA5) | Aceptada como preferencia de usuario |
 | AMP-02 | **SQLite no se implementa**: solo JSON versionado | §5.2-02 ofrece «JSON / SQLite liviano» como alternativa. Se elige JSON por simplicidad y menor huella de memoria (RNF-01) | Aceptada (ADR-001 ya lo asume) |
 | AMP-03 | `app.manifest` con `dpiAwareness = PerMonitorV2` | Ningún RF lo pide; lo exige R-05 (DPI mixto): sin manifiesto la aplicación es *system DPI aware*, `GetDpiForWindow` es ambiguo y `SetWindowPos` descuadra en monitores con otra escala. Afecta al escalado de toda la aplicación, incluido lo ya cerrado en E1 | Aceptada (ADR-002, 2026-10-28) |
+| AMP-04 | El esquema de persistencia sube a la **versión 2** con migración `AddGracePeriodMigration` | AMP-01 solo pide «persistir la gracia»; el cambio de esquema lo exige el hecho de que los `settings.json` de E0–E2 están en la versión 1 y E3-CA5 habla de persistencia entre ejecuciones. Sin migración, las instalaciones existentes arrancarían con valores por defecto | Aceptada (ADR-003, 2026-10-28) |
 
 ---
 
@@ -287,9 +322,9 @@ Registrada al cerrar E2. **Ninguno de estos puntos incumple un criterio de acept
 
 | ID | Descripción | Etapa que debe abordarlo |
 | --- | --- | --- |
-| D-01 | `WpfDockWindowHost.GetBarSize()` usa `ActualWidth`/`ActualHeight`, así que un redimensionado impuesto desde fuera por `SetWindowPos` deja la barra con el tamaño intruso tras el `WM_EXITSIZEMOVE`. No se manifiesta en operación normal porque `ResizeBorderThickness = 0` impide al usuario redimensionarla | Repaso de E2 o E4 (cuando el contenido cambie el tamaño por sí mismo) |
+| D-01 | `WpfDockWindowHost.GetBarSize()` usa `ActualWidth`/`ActualHeight`, así que un redimensionado impuesto desde fuera por `SetWindowPos` deja la barra con el tamaño intruso tras el `WM_EXITSIZEMOVE`. No se manifiesta en operación normal porque `ResizeBorderThickness = 0` impide al usuario redimensionarla | **En curso** — ADR-003 retira `IDockWindowHost.GetBarSize()` y declara el tamaño en `DockBarMetrics` + `IDockBarSizeSource`. Se cierra al verificar E3 |
 | D-02 | El espejo de la posición a WPF cubre `Left`/`Top` pero no `Width`/`Height`, al contrario que la lista de verificación de ADR-002. Se acepta porque `ApplyBounds` fija el tamaño real por `SetWindowPos`; el espejo existe solo para que WPF no reescriba la posición | Documentado aquí; sin acción prevista |
-| D-04 | `DockPlacementCoordinator.PersistEdge` escribe en *fire-and-forget* (`_ = SaveAsync(...)`). Acoplar y cerrar el proceso en el mismo instante podría perder la preferencia. No reproducible en las pruebas (el reinicio restauró siempre el borde) | E6 (persistencia de preferencias) o E8 (endurecimiento) |
+| D-04 | `DockPlacementCoordinator.PersistEdge` escribe en *fire-and-forget* (`_ = SaveAsync(...)`). Acoplar y cerrar el proceso en el mismo instante podría perder la preferencia. No reproducible en las pruebas (el reinicio restauró siempre el borde) | **En curso** — ADR-003 introduce `IConfigurationDocument` con escritura serializada, `FlushAsync` y `Dispose` acotado a 2 s. Se cierra al verificar E3 |
 | D-05 | **Corregido** el 2026-10-28: `HandleDragCompleted` trata un `PixelRect` vacío como liberación fuera de banda y persiste `null`, con la prueba `DragEnd_WithAnEmptyRect_DoesNotDock_AndPersistsNull` | — |
 | D-06 | `WinEventDockingEventSource` resuelve `Shell_TrayWnd` una sola vez: si `explorer.exe` se reinicia, el hook queda inerte hasta el siguiente arranque. La ruta de mensajes sigue funcionando. Deuda ya declarada en ADR-002 | E8 |
 | D-03 | **Corregido** el 2026-10-28: el comentario XML de `IDockWindowHost.BeginDrag` describe el mecanismo real (`WM_SYSCOMMAND` con `SC_MOVE`) y por qué difiere del texto de ADR-002 | — |
@@ -298,9 +333,9 @@ Registrada al cerrar E2. **Ninguno de estos puntos incumple un criterio de acept
 
 | ID | Descripción | Etapa que debe abordarlo |
 | --- | --- | --- |
-| D-07 | **Dos copias del documento de configuración**: `Bootstrapper` registra un `StickyDockConfiguration` como singleton, pero `DockPlacementCoordinator` recibe su propia instancia y persiste sobre ella. Cuando E3 o E6 guarden otras preferencias con la copia del contenedor, el `dockEdge` puede revertirse a un valor obsoleto. Debe quedar un único documento mutable compartido antes de que exista un segundo escritor | E3, E6 |
+| D-07 | **Dos copias del documento de configuración**: `Bootstrapper` registra un `StickyDockConfiguration` como singleton, pero `DockPlacementCoordinator` recibe su propia instancia y persiste sobre ella. Cuando E3 o E6 guarden otras preferencias con la copia del contenedor, el `dockEdge` puede revertirse a un valor obsoleto. Debe quedar un único documento mutable compartido antes de que exista un segundo escritor | **En curso** — ADR-003 declara `IConfigurationDocument` como único escritor y único llamador de `IConfigurationStore.SaveAsync`. Se cierra al verificar E3 |
 | D-08 | Un `settings.json` guardado con BOM UTF-8 rompe `JsonConfigurationStore` (`0xEF is an invalid start of a value`) y la aplicación arranca con valores por defecto. El archivo lo genera la propia aplicación sin BOM, así que solo ocurre si un editor externo lo añade; aun así, el lector debería tolerar el BOM | E8 (manejo de configuración corrupta) |
-| D-09 | El coordinador solo recalcula la colocación al arrancar y ante eventos del entorno. Si la barra cambia de tamaño por contenido (crece con elementos o Cintas, E4) sin que llegue `WM_EXITSIZEMOVE` ni un cambio de área de trabajo, no se re-resuelve sola. Hará falta un `NotifyBarSizeChanged()` explícito en el contrato o en el host | E3, E4 |
+| D-09 | El coordinador solo recalcula la colocación al arrancar y ante eventos del entorno. Si la barra cambia de tamaño por contenido (crece con elementos o Cintas, E4) sin que llegue `WM_EXITSIZEMOVE` ni un cambio de área de trabajo, no se re-resuelve sola. Hará falta un `NotifyBarSizeChanged()` explícito en el contrato o en el host | **En curso** — ADR-003 añade `DockPlacementCoordinator.NotifyBarSizeChanged()` y lo cablea desde `IDockStateService.StateChanged` en la raíz de composición. Se cierra al verificar E3 |
 | D-10 | `Undock()` conserva la misma cola que ahora vive en `ReleaseToFloating` (limpiar borde, persistir, elevar `PlacementChanged`). Unificarlas es un refactor sin cambio de comportamiento | Repaso de E2 |
 
 ### Verificaciones manuales pendientes (no reproducibles en este equipo)
@@ -316,11 +351,42 @@ El equipo de desarrollo es Windows 11 build 26300 con un solo monitor a 100 % de
 
 ---
 
+## Deuda y verificaciones abiertas de E3 (ADR-003)
+
+Registrada al abrir E3. **Ninguno de estos puntos bloquea la etapa**: son consecuencias asumidas del diseño aprobado, no incumplimientos.
+
+### Deuda declarada por ADR-003
+
+| ID | Descripción | Etapa que debe abordarlo |
+| --- | --- | --- |
+| D-11 | Los *storyboards* de despliegue y del micro-efecto no tienen prueba automatizada; se verifican por inspección y con medición | E8 (documentación de arquitectura) |
+| D-12 | `DockBarMetrics.Default` (120×36 plegada, 168×96 desplegada) debe mantenerse coherente con el contenido real de la vista; hoy no hay comprobación automática de esa coherencia | E4 (cuando el contenido cambie el tamaño) |
+| D-13 | Si en E4 alguna Cinta se implementa como ventana emergente, su región no llegará por `PointerRegionBehavior` y habrá que registrarla explícitamente | E4 |
+| D-14 | Los literales del XAML (±60 de desplazamiento y 0,16 s de duración) duplican `DockBarMetrics` e `InteractionTimings` y ningún compilador comprueba la coherencia. Es el precio de que `Timeline.From` y `Timeline.Duration` no admitan *binding*. Se protege con la inspección y con M-05 | E8, o la etapa que cambie `DockBarMetrics` |
+| D-15 | **La ventana no tiene *hit-test* selectivo**: `MainWindow` usa `Background="Transparent"` (hit-testeable en WPF) y no hay `WM_NCHITTEST` ni `HwndSource` filtrando. E1-CA4 se cumple porque la ventana colapsada mide exactamente la pestaña (120×36). **Cualquier ampliación futura de la huella plegada —margen, asa mayor, sombra, `Padding` en la raíz— hará que esa superficie intercepte clics y debe verificarse contra E1-CA4** | E8, y obligatoria para cualquier etapa que toque la huella plegada |
+
+### Verificaciones manuales que añade E3
+
+| ID | Verificación | CA o deuda que cubre |
+| --- | --- | --- |
+| M-05 | *Hover* sostenido y retirada: el micro-efecto se percibe antes de que la barra esté completamente desplegada, **no se recorta contra la ventana** en los cuatro bordes y el *slide* entra desde el borde correcto. Incluye comprobar que los literales del XAML (60 y 0,16 s) coinciden con `DockBarMetrics` e `InteractionTimings` | E3-CA1, D-14 |
+| M-06 | La pestaña conserva su posición en pantalla al desplegar y al colapsar, en los cuatro bordes (I3) | E3-CA1, E3-CA2 |
+| M-07 | Aspecto de la pestaña y del contenido al 125 % y 150 % tras `PerMonitorV2` (amplía M-04) | AMP-03 |
+| M-08 | Un `settings.json` real de E2 (versión 1) se migra a la versión 2 conservando `dockEdge` y añadiendo `gracePeriodMs` | E3-CA5, AMP-04 |
+
+### Avisos resueltos sin cambio de código (N-01)
+
+| ID | Aviso | Resolución |
+| --- | --- | --- |
+| N-01 | ADR-002 dejó anotado que la zona de arrastre (`WindowChrome.CaptionHeight` sobre la franja de la pestaña) debía reevaluarse cuando la barra se despliegue | **Resuelto como no-cambio documentado** (ADR-003 §3.3, opción a): la pestaña es el único asa en ambos estados. Ampliar la zona a la franja vacía no sobrevive a E5, y hacer asa de toda la barra impediría ejecutar los accesos directos por el `PreviewMouseLeftButtonDown` del contenedor. El arrastre además cancela los temporizadores y bloquea las transiciones automáticas mientras dura |
+
+---
+
 ## Resumen para reporte
 
 - **Etapas cerradas**: E0 (2026-10-22), E1 (2026-10-26, H-E1-01 cerrado con Q-08) y **E2 (2026-10-28, commit `2aa510a`, H-E2-01 a H-E2-04 cerrados)**.
 - **Etapas con hallazgo abierto**: ninguna.
-- **Etapa en curso**: ninguna. La siguiente es **E3** (hover, *slide-in* y temporizador de gracia), cuyas dependencias —E2— están completas.
+- **Etapa en curso**: **E3** (hover, *slide-in* y temporizador de gracia), abierta el 2026-10-28 contra el ADR-003 *Aceptada*.
 - **Avance del plan**: **33 %** (3 de 9 etapas; 29 de los 87 puntos estimados).
-- **Próxima acción**: abrir E3 con el contrato de `docs/plan/PLAN.md`: temporizador de activación de 200 ms, micro-efecto de expansión, animación *slide-in* / *slide-out*, temporizador de gracia configurable de 300–500 ms con 400 ms por defecto (Q-03) y persistencia del valor. Antes habrá que decidir la zona de arrastre de la barra desplegada (aviso de ADR-002) y resolver la deuda D-07 (documento de configuración compartido), porque E3 introduce el segundo escritor de preferencias.
-- **Bloqueos que requieren tu decisión**: ninguno. Quedan documentados los defectos menores D-01, D-02, D-04, D-06 y las deudas D-07 a D-10 en la sección de deuda técnica, y las verificaciones manuales M-01 a M-04 para el informe de entrega de E8.
+- **Próxima acción**: implementar E3 con la lista de verificación §10 de ADR-003 —`IConfigurationDocument` como escritor único, `DockBarMetrics` + `IDockBarSizeSource` + `NotifyBarSizeChanged()`, `DockInteractionController` con la ranura única `ISingleShotScheduler`, `DockRegion`/`IDockRegionSink`, `GracePeriod`/`InteractionTimings`, migración a esquema v2 y las animaciones declarativas—, y verificar sus cinco CA.
+- **Bloqueos que requieren tu decisión**: ninguno. Quedan documentados los defectos menores D-02, D-06 y D-08, las deudas D-10 a D-15, las verificaciones manuales M-01 a M-08 y las preguntas Q-10 y Q-11, diferidas a E4.
