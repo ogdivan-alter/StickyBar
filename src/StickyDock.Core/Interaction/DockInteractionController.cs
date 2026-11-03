@@ -70,19 +70,39 @@ public sealed class DockInteractionController : IDockStateService, IDockRegionSi
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        if (region == DockRegion.None || !_regions.Add(region))
+        if (region == DockRegion.None)
+        {
+            return;
+        }
+
+        // ADR-004 D3: a region whose element does not paint in this state cannot be entered. The rule is what makes a
+        // late or duplicated pointer event harmless, and it is the only guard that does not depend on a matching exit.
+        if (!DockRegionPresence.IsPresent(region, _state))
+        {
+            _logger.Debug($"Ignored region {region}: it is not present in state {_state}.");
+            return;
+        }
+
+        if (!_regions.Add(region))
         {
             return;
         }
 
         _logger.Debug($"Pointer entered region {region}.");
 
-        // Coming back while the slide-out runs reverses it: the bar is still deployed, so it reappears in place.
-        if (_state == DockState.Collapsing)
+        // ADR-004 D2: only the content reverses the slide-out. Coming back to the tab is not coming back to the bar:
+        // the settle completes and the hover of the tab —200 ms, E3-CA1— starts a new activation.
+        if (_state == DockState.Collapsing && DockRegionPresence.IsContent(region))
         {
             _scheduler.Cancel();
             _pending = PendingTimer.None;
             SetState(DockState.Expanded);
+            return;
+        }
+
+        if (_state == DockState.Collapsing)
+        {
+            // The tab entered while the bar slides out: nothing to decide, the settle owns the transition.
             return;
         }
 
@@ -206,18 +226,10 @@ public sealed class DockInteractionController : IDockStateService, IDockRegionSi
                 return;
             }
 
+            // ADR-004 D3: the tab is the only region that can exist in Arming, because the content is not painted yet,
+            // so its absence leaves the set empty and the activation has nothing left to deploy for (E3-CA4).
             CancelPendingTimer();
-
-            if (_regions.Count == 0)
-            {
-                SetState(DockState.Tab);
-            }
-            else
-            {
-                // The pointer was already inside the interactive area: there is nothing to hover over.
-                SetState(DockState.Expanded);
-            }
-
+            SetState(DockState.Tab);
             return;
         }
 
@@ -323,8 +335,28 @@ public sealed class DockInteractionController : IDockStateService, IDockRegionSi
         }
 
         _state = newState;
+
+        // ADR-004 D3: the content regions stop existing the moment the bar leaves the deployed footprint, whether or
+        // not their exit arrived. Purging before the event leaves every subscriber —and every reevaluation the event
+        // triggers— looking at a set that is already consistent with the new state.
+        PurgeAbsentRegions();
+
         _logger.Debug($"Dock state changed to {newState}.");
         StateChanged?.Invoke(this, new DockStateChangedEventArgs(newState));
+    }
+
+    private void PurgeAbsentRegions()
+    {
+        if (_regions.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var region in _regions.Where(region => !DockRegionPresence.IsPresent(region, _state)).ToArray())
+        {
+            _regions.Remove(region);
+            _logger.Debug($"Dropped region {region}: it is not present in state {_state}.");
+        }
     }
 
     /// <summary>

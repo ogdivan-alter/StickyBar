@@ -9,7 +9,7 @@ namespace StickyDock.Core.Timing;
 /// inconsistent states in an interaction machine of this kind (ADR-003, D4).
 /// </para>
 /// <para>
-/// Implemented by a <c>DispatcherTimer</c> in the application and by a manual clock in the tests, so no test waits for
+/// Implemented by a <c>dispatcher timer</c> in the application and by a manual clock in the tests, so no test waits for
 /// real time.
 /// </para>
 /// </remarks>

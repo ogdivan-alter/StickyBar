@@ -28,10 +28,6 @@ internal static partial class NativeMethods
     [LibraryImport(User32LibraryName, EntryPoint = "GetDpiForWindow")]
     internal static partial uint GetDpiForWindow(nint hWnd);
 
-    [LibraryImport(User32LibraryName, EntryPoint = "GetCursorPos")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    internal static partial bool GetCursorPos(out POINT lpPoint);
-
     [LibraryImport(User32LibraryName, EntryPoint = "FindWindowW", StringMarshalling = StringMarshalling.Utf16)]
     internal static partial nint FindWindowW(string? lpClassName, string? lpWindowName);
 
@@ -69,13 +65,6 @@ internal struct RECT
     public int Top;
     public int Right;
     public int Bottom;
-}
-
-[StructLayout(LayoutKind.Sequential)]
-internal struct POINT
-{
-    public int X;
-    public int Y;
 }
 
 [StructLayout(LayoutKind.Sequential)]

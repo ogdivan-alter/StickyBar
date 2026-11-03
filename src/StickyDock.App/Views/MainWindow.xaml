@@ -38,11 +38,13 @@
             Deployed surface. The slide and the fade are storyboards with literal values: Timeline.From and
             Timeline.Duration are not dependency properties, so the animation cannot receive the offset or the duration
             by binding (ADR-003, P5.b). The magnitude is the thickness gained when deploying, 96 - 36 = 60 units, and the
-            duration is InteractionTimings.SlideMilliseconds, 0.16 s (deuda D-14, verified by M-05).
+            duration is InteractionTimings.SlideMilliseconds, 0.16 s (deuda D-14, now checked by
+            MainWindowStoryboardContractTests).
 
-            FillBehavior is HoldEnd in every storyboard. With Stop, the clock of a finished animation is removed and the
-            previous fade (held at zero opacity by the collapse) would become effective again, leaving the panel
-            invisible on the next deployment.
+            ADR-004 D4: every storyboard stops its clock, and the value that remains on screen is the resting value
+            declared by the state, never the last animated one. The resting opacity is 1 here and 0 in Collapsing, so the
+            panel looks the same on the first deployment and on the hundredth (H-E3-06). Nothing is held, so nothing can
+            outrank the next animation.
         -->
         <Style TargetType="{x:Type Border}" x:Key="ContentPanelStyle">
             <Setter Property="Background" Value="{Binding TabBackground}" />
@@ -67,12 +69,12 @@
                     </MultiDataTrigger.Conditions>
                     <MultiDataTrigger.EnterActions>
                         <BeginStoryboard>
-                            <Storyboard FillBehavior="HoldEnd">
+                            <Storyboard FillBehavior="Stop">
                                 <DoubleAnimation
                                     Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)"
                                     From="-60" To="0" Duration="0:0:0.16" />
                                 <DoubleAnimation Storyboard.TargetProperty="Opacity"
-                                                 From="0.3" To="1" Duration="0:0:0.16" />
+                                                 To="1" Duration="0:0:0.16" />
                             </Storyboard>
                         </BeginStoryboard>
                     </MultiDataTrigger.EnterActions>
@@ -86,12 +88,12 @@
                     </MultiDataTrigger.Conditions>
                     <MultiDataTrigger.EnterActions>
                         <BeginStoryboard>
-                            <Storyboard FillBehavior="HoldEnd">
+                            <Storyboard FillBehavior="Stop">
                                 <DoubleAnimation
                                     Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)"
                                     From="60" To="0" Duration="0:0:0.16" />
                                 <DoubleAnimation Storyboard.TargetProperty="Opacity"
-                                                 From="0.3" To="1" Duration="0:0:0.16" />
+                                                 To="1" Duration="0:0:0.16" />
                             </Storyboard>
                         </BeginStoryboard>
                     </MultiDataTrigger.EnterActions>
@@ -105,12 +107,12 @@
                     </MultiDataTrigger.Conditions>
                     <MultiDataTrigger.EnterActions>
                         <BeginStoryboard>
-                            <Storyboard FillBehavior="HoldEnd">
+                            <Storyboard FillBehavior="Stop">
                                 <DoubleAnimation
                                     Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
                                     From="-60" To="0" Duration="0:0:0.16" />
                                 <DoubleAnimation Storyboard.TargetProperty="Opacity"
-                                                 From="0.3" To="1" Duration="0:0:0.16" />
+                                                 To="1" Duration="0:0:0.16" />
                             </Storyboard>
                         </BeginStoryboard>
                     </MultiDataTrigger.EnterActions>
@@ -124,12 +126,12 @@
                     </MultiDataTrigger.Conditions>
                     <MultiDataTrigger.EnterActions>
                         <BeginStoryboard>
-                            <Storyboard FillBehavior="HoldEnd">
+                            <Storyboard FillBehavior="Stop">
                                 <DoubleAnimation
                                     Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
                                     From="60" To="0" Duration="0:0:0.16" />
                                 <DoubleAnimation Storyboard.TargetProperty="Opacity"
-                                                 From="0.3" To="1" Duration="0:0:0.16" />
+                                                 To="1" Duration="0:0:0.16" />
                             </Storyboard>
                         </BeginStoryboard>
                     </MultiDataTrigger.EnterActions>
@@ -143,21 +145,27 @@
                     </MultiDataTrigger.Conditions>
                     <MultiDataTrigger.EnterActions>
                         <BeginStoryboard>
-                            <Storyboard FillBehavior="HoldEnd">
+                            <Storyboard FillBehavior="Stop">
                                 <DoubleAnimation Storyboard.TargetProperty="Opacity"
-                                                 From="0.3" To="1" Duration="0:0:0.16" />
+                                                 To="1" Duration="0:0:0.16" />
                             </Storyboard>
                         </BeginStoryboard>
                     </MultiDataTrigger.EnterActions>
                 </MultiDataTrigger>
 
-                <!-- Slide-out: a fade, because the specified animation is the deployment (§4.3-01, §12 #11). -->
+                <!--
+                    Slide-out: a fade, because the specified animation is the deployment (§4.3-01, §12 #11). ADR-004 D4:
+                    the value left on screen is the resting value of Collapsing, declared here as a setter, and the fade
+                    lasts as long as the settle (0.16 s = InteractionTimings.SlideMilliseconds), so the panel stays
+                    painted while the window shrinks and goes dark exactly when the window has its folded footprint.
+                -->
                 <DataTrigger Binding="{Binding DockState}" Value="{x:Static coreServices:DockState.Collapsing}">
+                    <Setter Property="Opacity" Value="0" />
                     <DataTrigger.EnterActions>
                         <BeginStoryboard>
-                            <Storyboard FillBehavior="HoldEnd">
+                            <Storyboard FillBehavior="Stop">
                                 <DoubleAnimation Storyboard.TargetProperty="Opacity"
-                                                 From="1" To="0" Duration="0:0:0.12" />
+                                                 From="1" To="0" Duration="0:0:0.16" />
                             </Storyboard>
                         </BeginStoryboard>
                     </DataTrigger.EnterActions>
@@ -209,7 +217,7 @@
                 <DataTrigger Binding="{Binding DockState}" Value="{x:Static coreServices:DockState.Arming}">
                     <DataTrigger.EnterActions>
                         <BeginStoryboard>
-                            <Storyboard FillBehavior="HoldEnd">
+                            <Storyboard FillBehavior="Stop">
                                 <DoubleAnimation
                                     Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
                                     To="1.06" Duration="0:0:0.06" AutoReverse="True" />
@@ -225,30 +233,29 @@
     </Window.Resources>
 
     <!--
-        The root does not clip: clipping here would cut the micro-expansion of the tab against the window border.
+        ADR-004 D1: an interactive region is announced by the element that paints, and only by that element. The
+        invariant is "paint => hit-test => region", and its useful converse is "no paint => no input => no region": in a
+        layered window a pixel with alpha 0 is click-through, so the system never delivers the pointer there and WPF
+        never raises an entry —or, worse, an entry without its exit— for it.
 
-        It reports the Bar region because the interactive area (A4) is the union of the deployed bar and its ribbons, and
-        the window footprint covers exactly that area in every state. Its own Background makes it hit-testable across the
-        whole client area, which ContentPanel cannot be: ContentPanel is translated and clipped while the slide runs.
-
-        The region is not bound to the entry of a child element, because there is no such entry to observe: the root is
-        the ancestor of both the panel and the tab, so the pointer is already inside it while it hovers the tab, and no
-        MouseEnter announces the move into the panel. WindowRegionReporter reaffirms the region on every pointer move and
-        reconciles it with the real cursor after a change of size or position, which covers the pointer that does not move
-        while the bar grows under it (defect D-E3-01 of E3).
-
-        Collateral, accepted and harmless: while the bar is collapsed the window measures exactly the tab footprint, so
-        entering it reports Bar as well as Tab. In Tab the machine only reads Tab, so nothing activates (E1-CA4). In
-        Arming, leaving the tab while still inside that footprint settles straight to Expanded (ADR-003, §7.2 "Leave(Tab)
-        with another active region"): the pointer is already inside the bar area, and the footprint did not grow.
+        Therefore the root neither paints nor reports. It only lays out, and it still does not clip: clipping here would
+        cut the micro-expansion of the tab against the window border. The window keeps its own Background="Transparent"
+        on purpose; that belongs to the window, not to this panel, and it is what keeps the window hit-testable (deuda
+        D-15, unchanged by this decision).
     -->
-    <Grid x:Name="RootPanel"
-          Background="Transparent"
-          input:WindowRegionReporter.Region="{x:Static interaction:DockRegion.Bar}"
-          input:WindowRegionReporter.EnterCommand="{Binding EnterRegionCommand}"
-          input:WindowRegionReporter.LeaveCommand="{Binding LeaveRegionCommand}">
+    <Grid x:Name="RootPanel">
         <Grid x:Name="ClipPanel" ClipToBounds="True">
-            <Border x:Name="ContentPanel" Style="{StaticResource ContentPanelStyle}">
+            <!--
+                ADR-004 D1: the panel reports the Bar region itself, exactly as the tab always did. Its own entry is
+                real: the panel is not an ancestor of the tab, so moving from the tab into the panel raises its own
+                MouseEnter. While the bar is collapsed the panel is Collapsed, so it cannot report anything at all, and
+                E1-CA4 keeps depending on the window measuring exactly the tab footprint.
+            -->
+            <Border x:Name="ContentPanel"
+                    Style="{StaticResource ContentPanelStyle}"
+                    input:PointerRegionBehavior.Region="{x:Static interaction:DockRegion.Bar}"
+                    input:PointerRegionBehavior.EnterCommand="{Binding EnterRegionCommand}"
+                    input:PointerRegionBehavior.LeaveCommand="{Binding LeaveRegionCommand}">
                 <Border.RenderTransform>
                     <TranslateTransform X="0" Y="0" />
                 </Border.RenderTransform>

@@ -181,10 +181,10 @@ public sealed class DockInteractionControllerTests
     }
 
     [Fact]
-    public void EnteringTheBarRepeatedly_IsIdempotent_AndKeepsTheGraceCancelled()
+    public void RepeatedEntriesOfAnActiveRegion_DoNotArmOrCancelTheSlot()
     {
-        // D-E3-01: the reporter reaffirms the region on every pointer move and after every geometry change, so the same
-        // entry arrives many times. The region set must not grow and the single slot must stay empty.
+        // E3-CA3: the same region may be reported many times —a duplicated event, a reaffirmation after a geometry
+        // change—. The region set has no duplicates, so the single slot must be left exactly as it was.
         using var fixture = new Fixture();
         Expand(fixture);
         fixture.Controller.LeaveRegion(DockRegion.Tab);
@@ -193,8 +193,11 @@ public sealed class DockInteractionControllerTests
         var cancelsBefore = fixture.Scheduler.CancelCount;
 
         fixture.Controller.EnterRegion(DockRegion.Bar);
-        fixture.Controller.EnterRegion(DockRegion.Bar);
-        fixture.Controller.EnterRegion(DockRegion.Bar);
+
+        for (var repetition = 0; repetition < 4; repetition++)
+        {
+            fixture.Controller.EnterRegion(DockRegion.Bar);
+        }
 
         Assert.Equal(DockState.Expanded, fixture.Controller.State);
         Assert.Equal(DockRegion.Bar, Assert.Single(fixture.Controller.ActiveRegions));
@@ -222,30 +225,6 @@ public sealed class DockInteractionControllerTests
         Assert.DoesNotContain(DockState.Collapsing, fixture.States);
         Assert.DoesNotContain(DockState.Tab, fixture.States);
         Assert.False(fixture.Scheduler.IsPending);
-    }
-
-    [Fact]
-    public void ReconciledReportsOfTheSameSide_DoNotArmOrCancelTheSlot()
-    {
-        // D-E3-01: the reconciliation asks the real pointer position after every geometry change and reports only the
-        // transition the tracker sees. A run of identical observations must leave the slot exactly as it was.
-        using var fixture = new Fixture();
-        Expand(fixture);
-        fixture.Controller.LeaveRegion(DockRegion.Tab);
-        fixture.Controller.EnterRegion(DockRegion.Bar);
-
-        var schedulesBefore = fixture.Scheduler.ScheduleCount;
-        var cancelsBefore = fixture.Scheduler.CancelCount;
-
-        for (var observation = 0; observation < 5; observation++)
-        {
-            fixture.Controller.EnterRegion(DockRegion.Bar);
-        }
-
-        Assert.Equal(DockState.Expanded, fixture.Controller.State);
-        Assert.False(fixture.Scheduler.IsPending);
-        Assert.Equal(schedulesBefore, fixture.Scheduler.ScheduleCount);
-        Assert.Equal(cancelsBefore, fixture.Scheduler.CancelCount);
     }
 
     [Fact]
@@ -341,17 +320,34 @@ public sealed class DockInteractionControllerTests
     }
 
     [Fact]
-    public void LeaveTab_WhenAnotherRegionIsStillActive_DeploysDirectly()
+    public void EnterBar_WhileTab_IsIgnored()
     {
-        // The pointer is already inside the interactive area, so there is nothing to hover over: no dead 200 ms wait.
+        // ADR-004 D3: the bar is not painted while the bar is collapsed, so a report of the pointer inside it cannot be
+        // real. It is dropped on entry instead of entering a set that nothing would ever empty.
         using var fixture = new Fixture();
+
         fixture.Controller.EnterRegion(DockRegion.Bar);
+
+        Assert.Equal(DockState.Tab, fixture.Controller.State);
+        Assert.Empty(fixture.Controller.ActiveRegions);
+        Assert.False(fixture.Scheduler.IsPending);
+    }
+
+    [Fact]
+    public void EnterBar_WhileArming_IsIgnored()
+    {
+        // ADR-004 D3: while the bar arms it still has the collapsed footprint, so the region does not exist either and
+        // the activation must keep running untouched.
+        using var fixture = new Fixture();
         fixture.Controller.EnterRegion(DockRegion.Tab);
 
-        fixture.Controller.LeaveRegion(DockRegion.Tab);
+        fixture.Controller.EnterRegion(DockRegion.Bar);
 
-        Assert.Equal(DockState.Expanded, fixture.Controller.State);
-        Assert.False(fixture.Scheduler.IsPending);
+        Assert.Equal(DockState.Arming, fixture.Controller.State);
+        Assert.Equal([DockRegion.Tab], fixture.Controller.ActiveRegions);
+        Assert.Equal(
+            TimeSpan.FromMilliseconds(InteractionTimings.ActivationMilliseconds),
+            fixture.Scheduler.PendingDelay);
     }
 
     [Fact]
@@ -370,16 +366,206 @@ public sealed class DockInteractionControllerTests
     }
 
     [Fact]
-    public void EnteringTheTabAfterTheCollapse_StartsANewActivation()
+    public void CollapseThenEnterBarDuringSettle_ReversesToExpanded()
     {
-        // The pointer may be back on the tab when the settle timer fires: a fresh activation covers it.
+        // ADR-004 D2: the panel is still painted while the bar slides out, so bringing the pointer back to it —partway
+        // through the settle, not at its very beginning— must reopen the bar and leave no timer behind.
         using var fixture = new Fixture();
         Expand(fixture);
         fixture.Controller.LeaveRegion(DockRegion.Tab);
         fixture.Scheduler.Advance(GracePeriod.DefaultMilliseconds);
-        fixture.Controller.EnterRegion(DockRegion.Tab);
+        fixture.Scheduler.Advance(InteractionTimings.SlideMilliseconds / 2);
+        Assert.Equal(DockState.Collapsing, fixture.Controller.State);
+
+        fixture.Controller.EnterRegion(DockRegion.Bar);
+
+        Assert.Equal(DockState.Expanded, fixture.Controller.State);
+        Assert.False(fixture.Scheduler.IsPending);
+
+        fixture.Scheduler.Advance(5_000);
+
+        Assert.Equal(DockState.Expanded, fixture.Controller.State);
+    }
+
+    [Fact]
+    public void SettleThenHover_DeploysTheBarAgain()
+    {
+        // ADR-004 §8.3: with the pointer away from the bar the settle reaches the tab, and hovering the tab again must
+        // deploy the bar a second time instead of leaving it inert.
+        using var fixture = new Fixture();
+        Expand(fixture);
+        fixture.Controller.LeaveRegion(DockRegion.Tab);
+        fixture.Scheduler.Advance(GracePeriod.DefaultMilliseconds);
 
         fixture.Scheduler.Advance(InteractionTimings.SlideMilliseconds);
+
+        Assert.Equal(DockState.Tab, fixture.Controller.State);
+        Assert.False(fixture.Scheduler.IsPending);
+
+        fixture.Controller.EnterRegion(DockRegion.Tab);
+        Assert.Equal(DockState.Arming, fixture.Controller.State);
+
+        fixture.Scheduler.Advance(InteractionTimings.ActivationMilliseconds);
+
+        Assert.Equal(DockState.Expanded, fixture.Controller.State);
+    }
+
+    [Fact]
+    public void CollapseThenEnterTabDuringSettle_DoesNotReverse_AndRedeploysAfterTheHover()
+    {
+        // ADR-004 D2: coming back to the tab is not coming back to the bar. The settle owns the transition, and once it
+        // completes the tab —already hovered— arms a fresh activation instead of reversing the collapse. Reversing it
+        // here would reopen the bar without the 200 ms hover that HU02 CA #2 requires.
+        using var fixture = new Fixture();
+        Expand(fixture);
+        fixture.Controller.LeaveRegion(DockRegion.Tab);
+        fixture.Scheduler.Advance(GracePeriod.DefaultMilliseconds);
+        Assert.Equal(DockState.Collapsing, fixture.Controller.State);
+
+        fixture.Controller.EnterRegion(DockRegion.Tab);
+
+        Assert.Equal(DockState.Collapsing, fixture.Controller.State);
+
+        fixture.Scheduler.Advance(InteractionTimings.SlideMilliseconds);
+
+        // The settle reaches the tab and, with the pointer already on it, a fresh activation starts in the same
+        // operation: the bar is in Arming —the micro-expansion— with the 200 ms timer armed, never deployed outright.
+        Assert.Equal(DockState.Arming, fixture.Controller.State);
+        Assert.Equal(
+            TimeSpan.FromMilliseconds(InteractionTimings.ActivationMilliseconds),
+            fixture.Scheduler.PendingDelay);
+
+        fixture.Scheduler.Advance(InteractionTimings.ActivationMilliseconds);
+
+        Assert.Equal(DockState.Expanded, fixture.Controller.State);
+    }
+
+    [Fact]
+    public void ThreeConsecutiveCycles_DeployAndCollapseEveryTime()
+    {
+        // H-E3-05 regression, repeated: the measured defect appeared from the second cycle onwards, so the cycle runs
+        // three times and every one of them must deploy, collapse and leave neither a timer nor a region behind.
+        using var fixture = new Fixture();
+
+        for (var cycle = 0; cycle < 3; cycle++)
+        {
+            fixture.Controller.EnterRegion(DockRegion.Tab);
+            fixture.Scheduler.Advance(InteractionTimings.ActivationMilliseconds);
+            Assert.Equal(DockState.Expanded, fixture.Controller.State);
+
+            fixture.Controller.LeaveRegion(DockRegion.Tab);
+            fixture.Scheduler.Advance(GracePeriod.DefaultMilliseconds);
+            Assert.Equal(DockState.Collapsing, fixture.Controller.State);
+
+            fixture.Scheduler.Advance(InteractionTimings.SlideMilliseconds);
+            Assert.Equal(DockState.Tab, fixture.Controller.State);
+            Assert.False(fixture.Scheduler.IsPending);
+            Assert.Empty(fixture.Controller.ActiveRegions);
+        }
+
+        Assert.Equal(
+            [
+                DockState.Arming,
+                DockState.Expanded,
+                DockState.Collapsing,
+                DockState.Tab,
+                DockState.Arming,
+                DockState.Expanded,
+                DockState.Collapsing,
+                DockState.Tab,
+                DockState.Arming,
+                DockState.Expanded,
+                DockState.Collapsing,
+                DockState.Tab,
+            ],
+            fixture.States);
+
+        Assert.Equal(3, fixture.States.Count(state => state == DockState.Expanded));
+    }
+
+    [Fact]
+    public void SettleToTab_DropsTheContentRegions()
+    {
+        // ADR-004 D3 and D-19: the purge happens inside SetState, before StateChanged is raised, so a subscriber that
+        // reacts to the Tab transition already sees a set consistent with the new state. The cycle runs through the real
+        // flow —deploy, leave, grace, slide-out, settle— and the set is inspected from inside the handler, not after it.
+        using var fixture = new Fixture();
+        var regionsWhenTabWasReported = new List<DockRegion>();
+
+        fixture.Controller.StateChanged += (_, arguments) =>
+        {
+            if (arguments.State == DockState.Tab)
+            {
+                regionsWhenTabWasReported.AddRange(fixture.Controller.ActiveRegions);
+            }
+        };
+
+        Expand(fixture);
+        fixture.Controller.LeaveRegion(DockRegion.Tab);
+        fixture.Scheduler.Advance(GracePeriod.DefaultMilliseconds);
+        fixture.Scheduler.Advance(InteractionTimings.SlideMilliseconds);
+
+        Assert.Equal(DockState.Tab, fixture.Controller.State);
+        Assert.Empty(regionsWhenTabWasReported);
+        Assert.Empty(fixture.Controller.ActiveRegions);
+    }
+
+    [Fact]
+    public void CollapseToTab_DropsTheContentRegions()
+    {
+        // ADR-004 D3: the explicit override collapses the bar with the pointer still reported inside the panel, so this is
+        // the path where a content region really has to be dropped: no exit event arrives to empty the set.
+        using var fixture = new Fixture();
+        var regionsWhenTabWasReported = new List<DockRegion>();
+
+        fixture.Controller.StateChanged += (_, arguments) =>
+        {
+            if (arguments.State == DockState.Tab)
+            {
+                regionsWhenTabWasReported.AddRange(fixture.Controller.ActiveRegions);
+            }
+        };
+
+        Expand(fixture);
+        fixture.Controller.LeaveRegion(DockRegion.Tab);
+        fixture.Controller.EnterRegion(DockRegion.Bar);
+        Assert.Equal(DockRegion.Bar, Assert.Single(fixture.Controller.ActiveRegions));
+
+        fixture.Controller.CollapseToTab();
+
+        Assert.Equal(DockState.Tab, fixture.Controller.State);
+        Assert.Empty(fixture.Controller.ActiveRegions);
+        Assert.Empty(regionsWhenTabWasReported);
+        Assert.False(fixture.Scheduler.IsPending);
+    }
+
+    [Fact]
+    public void SecondActivation_AfterACollapse_DeploysAgain()
+    {
+        // H-E3-05 regression: the full cycle (deploy -> grace -> collapse -> settle -> tab -> hover -> deploy) must be
+        // repeatable: the second activation has to arm, fire and deploy the bar again.
+        using var fixture = new Fixture();
+
+        // First activation: hover the tab, wait for the activation.
+        fixture.Controller.EnterRegion(DockRegion.Tab);
+        fixture.Scheduler.Advance(InteractionTimings.ActivationMilliseconds);
+        Assert.Equal(DockState.Expanded, fixture.Controller.State);
+
+        // Pointer leaves: grace, slide-out, settle.
+        fixture.Controller.LeaveRegion(DockRegion.Tab);
+        fixture.Scheduler.Advance(GracePeriod.DefaultMilliseconds);
+        fixture.Scheduler.Advance(InteractionTimings.SlideMilliseconds);
+        Assert.Equal(DockState.Tab, fixture.Controller.State);
+        Assert.False(fixture.Scheduler.IsPending);
+
+        // Second activation: hover the tab again and wait for the activation.
+        fixture.Controller.EnterRegion(DockRegion.Tab);
+        Assert.Equal(DockState.Arming, fixture.Controller.State);
+        Assert.Equal(
+            TimeSpan.FromMilliseconds(InteractionTimings.ActivationMilliseconds),
+            fixture.Scheduler.PendingDelay);
+
+        fixture.Scheduler.Advance(InteractionTimings.ActivationMilliseconds);
 
         Assert.Equal(DockState.Expanded, fixture.Controller.State);
     }
@@ -538,7 +724,8 @@ public sealed class DockInteractionControllerTests
     {
         using var fixture = new Fixture();
 
-        fixture.Controller.EnterRegion(DockRegion.Tab);
+        // ADR-004 D3: the bar can only be entered while it paints, so the machine has to be deployed first.
+        Expand(fixture);
         fixture.Controller.EnterRegion(DockRegion.Bar);
 
         Assert.Equal([DockRegion.Tab, DockRegion.Bar], fixture.Controller.ActiveRegions.Order());
