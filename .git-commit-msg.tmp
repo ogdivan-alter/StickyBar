@@ -1,10 +1,10 @@
-feat(shortcuts): implement .lnk COM interop, drag-and-drop and faithful execution
+feat(tray): implement Win32 tray icon, settings window and auto-start per ADR-006
 
-Implement Stage E5 (Shortcuts .lnk, drag & drop and execution integrity):
-- Encapsulate COM IShellLinkW/IPersistFile and PNG icon extraction in ShellLinkReader (StickyDock.Interop) with guaranteed DestroyIcon and COM release in finally blocks.
-- Add ShortcutLauncher for read-only faithful execution preserving TargetPath, Arguments and WorkingDirectory (Q-06), plus error alerts via IUserAlertService.
-- Enforce strict .lnk-only external drag & drop (Q-01, HU04 CA #2) and internal reordering via ShortcutDragDropBehavior without code-behind logic.
-- Add context menu actions (move to bar/ribbon, remove) without target/argument editing (Q-06), v3->v4 schema migration (AddBarItemsMigration), and connect BarItemCount.
-- Update docs/plan/ESTADO.md to close E5 (442/442 tests passing, Release/Debug clean).
+Implement Stage E6 (System tray, settings window and auto-start):
+- Add Win32TrayIconService (ADR-006) using Shell_NotifyIconW, HWND_MESSAGE window, GetMessagePos and native CreatePopupMenu/TrackPopupMenuEx (Settings / Exit) without loading WinForms, keeping PrivateMemorySize64 at ~33.7 MB.
+- Configure System.GC.ConserveMemory=5, RetainVMGarbageCollection=false and RenderMode.SoftwareOnly in App.xaml.cs to meet RNF-01 (< 50 MB) and Q-12 (< 46 MB).
+- Add SettingsViewModel and SettingsWindow (MVVM) with immediate 300-500 ms grace period updates, auto-start toggle and ShutdownMode=OnExplicitShutdown for background operation.
+- Add WindowsAutoStartService managing HKCU\Software\Microsoft\Windows\CurrentVersion\Run.
+- Update docs/plan/ESTADO.md to close E6 (464/464 tests passing, 33.71 MB avg RAM, 0.000% CPU).
 
-Refs: RF04, HU04 (CA #1, CA #2), E5-CA1..E5-CA6, Q-01, Q-06, R-03
+Refs: RF02, HU05 (CA #1), §4.6-01, §4.6-03, E6-CA1..E6-CA5, RNF-01, RNF-02, ADR-006

@@ -1,4 +1,6 @@
 using System.Windows;
+using System.Windows.Interop;
+using System.Windows.Media;
 
 namespace StickyDock.App;
 
@@ -14,6 +16,9 @@ public partial class App : Application
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+
+        // Force software rendering to avoid loading Direct3D driver modules (~26 MB) and keep private memory within budget (RNF-01, Q-12).
+        RenderOptions.ProcessRenderMode = RenderMode.SoftwareOnly;
 
         try
         {

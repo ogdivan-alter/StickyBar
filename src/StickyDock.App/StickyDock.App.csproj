@@ -12,7 +12,15 @@
 
     <!-- AMP-03 (ADR-002): per-monitor DPI awareness for mixed-scale desktops (R-05). -->
     <ApplicationManifest>app.manifest</ApplicationManifest>
+
+    <!-- RNF-01 / Q-12: prioritize low committed private memory footprint. -->
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+    <RetainVMGarbageCollection>false</RetainVMGarbageCollection>
   </PropertyGroup>
+
+  <ItemGroup>
+    <RuntimeHostConfigurationOption Include="System.GC.ConserveMemory" Value="5" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\StickyDock.Core\StickyDock.Core.csproj" />

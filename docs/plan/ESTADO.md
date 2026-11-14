@@ -4,7 +4,7 @@ Tablero de estado del plan definido en `docs/plan/PLAN.md`. El inventario normal
 
 - **Propietario**: Director de Desarrollo
 - **Última actualización**: 2026-11-14
-- **Etapa actual**: E6 (Bandeja, configuración y auto-inicio) lista para iniciar. **E5 cerrada el 2026-11-14**.
+- **Etapa actual**: E7 (Multimonitor y réplica) lista para iniciar. **E6 cerrada el 2026-11-14** (con `ADR-006`).
 
 ---
 
@@ -18,7 +18,7 @@ Tablero de estado del plan definido en `docs/plan/PLAN.md`. El inventario normal
 | E3 | Hover, slide-in y gracia | Completada | 100 % | 2026-11-03 | E2 | — |
 | E4 | Cintas y despliegue exclusivo | Completada | 100 % | 2026-11-14 | E2 | — |
 | E5 | Accesos directos `.lnk` | Completada | 100 % | 2026-11-14 | E1, E4 | — |
-| E6 | Bandeja, configuración y auto-inicio | No iniciada | 0 % | 2026-10-22 | E1 | — |
+| E6 | Bandeja, configuración y auto-inicio | Completada | 100 % | 2026-11-14 | E1 | — |
 | E7 | Multimonitor y réplica | No iniciada | 0 % | 2026-10-22 | E2, E5, E6 | — |
 | E8 | Rendimiento, endurecimiento y entrega | No iniciada | 0 % | 2026-10-22 | E0–E7 | — |
 
@@ -102,6 +102,10 @@ Tablero de estado del plan definido en `docs/plan/PLAN.md`. El inventario normal
 | 2026-11-14 | E5 | Implementación de E5 entregada | El `implementador` implementa `ShellLinkReader` (`IShellLinkW`/`IPersistFile` + extracción PNG y `DestroyIcon`/`FinalReleaseComObject` en `finally` en `StickyDock.Interop`), `ShortcutLauncher` (lectura fiel de destino/argumentos/workingDirectory, Q-06), `IUserAlertService`, migración v3→v4 (`AddBarItemsMigration`), `ShortcutDragDropBehavior` (drop externo `.lnk` estricto per Q-01 y reordenamiento interno), menú contextual sin edición y conexión de `BarItemCount`. Suite: **442/442** (+20 pruebas). Sin commit. | Implementador |
 | 2026-11-14 | E5 | Verificación de `qa`: veredicto **APROBADA** | Builds Release y Debug con `--no-incremental`: **0 errores y 0 advertencias**. `dotnet test`: **442/442** en verde. 6/6 criterios (`E5-CA1..E5-CA6`) en **Cumple**. Interop aislado en `StickyDock.Interop`, `MainWindow.xaml.cs` limpio, greps ADR-004 §9.4 y ADR-005 §6.2 en verde. Medición RNF en Release (30 muestras a 1 s): RAM privada comprometida **40,79 MB** promedio (máx 40,93 MB, < 46 MB Q-12 y < 50 MB RNF); CPU en reposo **0,032 %** (< 1 %). | QA |
 | 2026-11-14 | E5 | **Cierre de E5** | E5 pasa a **Completada al 100 %**; R-03 pasa a **Mitigado**; el plan avanza al **67 %** (6 de 9 etapas, 58 de 87 puntos). Quedan registradas las verificaciones manuales visuales `M-15`..`M-17`. | Director de Desarrollo |
+| 2026-11-14 | E6 | Implementación inicial de E6 y rechazo por RNF-01 | El `implementador` entrega `WinFormsTrayIconService` (`NotifyIcon`), `WindowsAutoStartService`, `SettingsViewModel`, `SettingsWindow` y `ShutdownMode="OnExplicitShutdown"` (464/464 pruebas). `qa` verifica los 5 criterios (`E6-CA1..E6-CA5`) pero **rechaza** E6 por RNF-01: `System.Windows.Forms.dll` eleva la memoria privada comprometida a **61,20 MB** promedio (máx. 62,76 MB > 50 MB). | Implementador / QA |
+| 2026-11-14 | E6 | `ADR-006` + `Win32TrayIconService` y ajuste RNF-01 | Se registra `ADR-006` (`Shell_NotifyIconW` + `CreatePopupMenu`/`TrackPopupMenuEx` nativo en `StickyDock.Interop` con `GetMessagePos()` y `HWND_MESSAGE`), `System.GC.ConserveMemory=5` / `RetainVMGarbageCollection=false` en `StickyDock.App.csproj`, y `RenderOptions.ProcessRenderMode = RenderMode.SoftwareOnly` en `App.xaml.cs` (elimina ~26 MB del driver Direct3D en una barra minimalista). Suite: **464/464** en verde. | Director / Implementador |
+| 2026-11-14 | E6 | Verificación final de `qa`: veredicto **APROBADA** | Builds Release y Debug con `--no-incremental`: **0 errores y 0 advertencias**. `dotnet test`: **464/464** en verde. Greps ADR-004 §9.4 y ADR-005 §6.2 limpios. 5/5 criterios (`E6-CA1..E6-CA5`) en **Cumple**, 0 defectos. Medición RNF en Release (30 muestras a 1 s): `PrivateMemorySize64` **33,71 MB** promedio (rango 33,61–33,79 MB, `PrivateBytes` 33,70 MB, < 46 MB Q-12 y < 50 MB RNF-01); CPU en reposo **0,000 %** (< 1 %). | QA |
+| 2026-11-14 | E6 | **Cierre de E6** | E6 pasa a **Completada al 100 %**; el plan avanza al **78 %** (7 de 9 etapas, 66 de 87 puntos). Quedan registradas las verificaciones manuales visuales `M-18`..`M-20` y `ADR-006` en estado *Propuesta* para ratificación del usuario. | Director de Desarrollo |
 
 ---
 
@@ -513,18 +517,20 @@ Registradas al cerrar E4 con veredicto **APROBADA CON OBSERVACIONES** del 2026-1
 | M-15 | Arrastrar desde el Explorador un `.lnk` real (ej. `wsl.exe` o `cmd.exe` con argumentos) sobre la barra y sobre una Cinta; comprobar icono, ejecución con argumentos y rechazo de `.exe`/carpeta con alerta | E5-CA1, E5-CA2, E5-CA3 |
 | M-16 | Reordenar accesos directos por drag & drop interno en barra y Cinta y verificar persistencia tras reiniciar | E5-CA5, E5-CA6 |
 | M-17 | Abrir menú contextual de un acceso directo y comprobar visualmente `Move to Main Bar`, `Move to Ribbon` y `Remove` (sin edición) | E5-CA4, Q-06 |
+| M-18 | Hacer clic izquierdo en el icono de bandeja y comprobar apertura/activación de `SettingsWindow`; clic derecho y probar `Settings` y `Exit` verificando que el icono desaparece sin quedar fantasma | E6-CA1, E6-CA2, ADR-006 |
+| M-19 | Cambiar el temporizador de gracia en `SettingsWindow` (300–500 ms), comprobar efecto inmediato y persistencia tras reiniciar; cerrar `SettingsWindow` y verificar ejecución en segundo plano y fluidez visual con `RenderMode.SoftwareOnly` | E6-CA3, E6-CA5 |
+| M-20 | Activar/desactivar `"Start automatically with Windows"` y verificar entrada `"StickyDock"` en `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` | E6-CA4 |
 
 ---
 
 ## Resumen para reporte
 
-- **Etapas cerradas**: E0 (2026-10-22), E1 (2026-10-26), E2 (2026-10-28, `2aa510a`), E3 (2026-11-03, `98f3387`), E4 (2026-11-14, `5577dbc`) y **E5 (2026-11-14)**.
-- **Etapa cerrada — E5 (Accesos directos `.lnk`) al 100 %**:
-  - `ShellLinkReader` en `StickyDock.Interop` (`IShellLinkW`/`IPersistFile`, extracción PNG y liberación de `HICON`/COM en `finally`).
-  - `ShortcutLauncher` (ejecución fiel solo lectura, Q-06) + `IUserAlertService` (rechazo estricto no-`.lnk`, Q-01).
-  - `ShortcutDragDropBehavior`, menú contextual (mover/eliminar, sin edición), migración v3→v4 (`AddBarItemsMigration`) y conexión de `BarItemCount`.
-- **Veredicto de `qa`: APROBADA** — 6/6 criterios (`E5-CA1..E5-CA6`) en **Cumple**, sin defectos.
-- **RNF medidos por `qa` en Release**: CPU en reposo **0,032 %** (< 1 %); memoria privada comprometida **40,79 MB** promedio (máx 40,93 MB, < 46 MB Q-12 y < 50 MB RNF).
-- **Estado del código**: builds Release y Debug `--no-incremental` con **0 errores y 0 advertencias**; `dotnet test` **442/442** en verde.
-- **Avance del plan**: **67 %** (6 de 9 etapas cerradas; 58 de 87 puntos estimados).
-- **Próxima acción**: iniciar **E6 — Bandeja del sistema, ventana de configuración y auto-inicio** (depende de E1, ya completada).
+- **Etapas cerradas**: E0 (2026-10-22), E1 (2026-10-26), E2 (2026-10-28, `2aa510a`), E3 (2026-11-03, `98f3387`), E4 (2026-11-14, `5577dbc`), E5 (2026-11-14, `7aa22a4`) y **E6 (2026-11-14)**.
+- **Etapa cerrada — E6 (Bandeja, configuración y auto-inicio) al 100 %**:
+  - `Win32TrayIconService` (`ADR-006`: `Shell_NotifyIconW`, `HWND_MESSAGE`, menú nativo `CreatePopupMenu`/`TrackPopupMenuEx`, `GetMessagePos()`), `System.GC.ConserveMemory=5` y `RenderMode.SoftwareOnly` en `App.xaml.cs` para cumplir RNF-01.
+  - `SettingsViewModel` + `SettingsWindow` (gracia 300–500 ms inmediata y persistida, auto-inicio, `ShutdownMode="OnExplicitShutdown"`).
+  - `WindowsAutoStartService` en `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`.
+- **Veredicto de `qa`: APROBADA** — 5/5 criterios (`E6-CA1..E6-CA5`) en **Cumple**, 0 defectos, builds Release/Debug limpios, **464/464** pruebas en verde.
+- **RNF medidos por `qa` en Release** (30 muestras a 1 s): CPU en reposo **0,000 %** (< 1 %); memoria privada comprometida (`PrivateMemorySize64`) **33,71 MB** promedio (máx. **33,79 MB**, < 46 MB Q-12 y < 50 MB RNF-01).
+- **Avance del plan**: **78 %** (7 de 9 etapas cerradas; 66 de 87 puntos estimados).
+- **Próxima acción**: iniciar **E7 — Multimonitor y réplica espejada** (depende de E2, E5 y E6, ya completadas). Ratificar `ADR-006` si corresponde.

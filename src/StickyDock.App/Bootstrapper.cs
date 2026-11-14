@@ -40,6 +40,10 @@ internal sealed class Bootstrapper : IDisposable
     private DockInteractionController? _interactionController;
     private IDockStateService? _dockStates;
     private DockBarViewModel? _dockBarViewModel;
+    private MainWindow? _mainWindow;
+    private ITrayIconService? _trayIconService;
+    private SettingsWindow? _settingsWindow;
+    private SettingsViewModel? _settingsViewModel;
     private bool _disposed;
 
     private Bootstrapper(ServiceContainer services, RotatingFileLogger logger)
@@ -86,6 +90,9 @@ internal sealed class Bootstrapper : IDisposable
             var themeService = new WindowsThemeService();
             services.AddSingleton<IWindowsThemeService>(themeService);
 
+            // E6: Windows auto-start service.
+            services.AddSingleton<IAutoStartService>(new WindowsAutoStartService());
+
             var primaryScreen = DisplayMetrics.GetPrimaryScreenSize();
             logger.Information(
                 string.Create(
@@ -121,11 +128,13 @@ internal sealed class Bootstrapper : IDisposable
         };
 
         _dockBarViewModel = dockBarViewModel;
+        _mainWindow = window;
 
         window.SourceInitialized += (_, _) => AttachDocking(window);
         window.Closed += OnMainWindowClosed;
 
         window.Show();
+        InitializeTrayIcon();
     }
 
     /// <inheritdoc />
@@ -138,6 +147,8 @@ internal sealed class Bootstrapper : IDisposable
 
         _disposed = true;
 
+        DisposeTrayIcon();
+        DisposeSettingsWindow();
         DetachDocking();
         _services.Dispose();
         _logger.Dispose();
@@ -271,7 +282,102 @@ internal sealed class Bootstrapper : IDisposable
             window.Closed -= OnMainWindowClosed;
         }
 
+        _mainWindow = null;
         DetachDocking();
+    }
+
+    private void InitializeTrayIcon()
+    {
+        if (_trayIconService is not null)
+        {
+            return;
+        }
+
+        var trayIcon = new Win32TrayIconService();
+        _services.AddSingleton<ITrayIconService>(trayIcon);
+        _trayIconService = trayIcon;
+
+        trayIcon.SettingsRequested += OnTraySettingsRequested;
+        trayIcon.ExitRequested += OnTrayExitRequested;
+        trayIcon.Show();
+    }
+
+    private void DisposeTrayIcon()
+    {
+        var trayIcon = _trayIconService;
+
+        if (trayIcon is null)
+        {
+            return;
+        }
+
+        _trayIconService = null;
+        trayIcon.SettingsRequested -= OnTraySettingsRequested;
+        trayIcon.ExitRequested -= OnTrayExitRequested;
+        trayIcon.Dispose();
+    }
+
+    private void OnTraySettingsRequested(object? sender, EventArgs e) => OpenOrActivateSettings();
+
+    private void OnTrayExitRequested(object? sender, EventArgs e)
+    {
+        _logger.Information("Exit requested from system tray.");
+        _settingsWindow?.Close();
+        _mainWindow?.Close();
+        Application.Current?.Shutdown();
+    }
+
+    private void OpenOrActivateSettings()
+    {
+        if (_settingsWindow is not null)
+        {
+            if (_settingsWindow.WindowState == WindowState.Minimized)
+            {
+                _settingsWindow.WindowState = WindowState.Normal;
+            }
+
+            _settingsWindow.Activate();
+            return;
+        }
+
+        var viewModel = new SettingsViewModel(
+            _services.GetRequiredService<IConfigurationDocument>(),
+            _services.GetRequiredService<IAutoStartService>(),
+            _logger);
+
+        var window = new SettingsWindow
+        {
+            DataContext = viewModel,
+        };
+
+        viewModel.CloseRequested += OnSettingsCloseRequested;
+        window.Closed += OnSettingsWindowClosed;
+
+        _settingsViewModel = viewModel;
+        _settingsWindow = window;
+
+        window.Show();
+        window.Activate();
+    }
+
+    private void OnSettingsCloseRequested(object? sender, EventArgs e) => _settingsWindow?.Close();
+
+    private void OnSettingsWindowClosed(object? sender, EventArgs e) => DisposeSettingsWindow();
+
+    private void DisposeSettingsWindow()
+    {
+        if (_settingsWindow is not null)
+        {
+            _settingsWindow.Closed -= OnSettingsWindowClosed;
+            _settingsWindow = null;
+        }
+
+        if (_settingsViewModel is not null)
+        {
+            _settingsViewModel.CloseRequested -= OnSettingsCloseRequested;
+            _settingsViewModel.Dispose();
+            _settingsViewModel = null;
+        }
     }
 
     private void DetachDocking()
