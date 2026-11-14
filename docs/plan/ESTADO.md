@@ -4,7 +4,7 @@ Tablero de estado del plan definido en `docs/plan/PLAN.md`. El inventario normal
 
 - **Propietario**: Director de Desarrollo
 - **Última actualización**: 2026-11-14
-- **Etapa actual**: E5 (Accesos directos `.lnk`) lista para iniciar. **E4 cerrada el 2026-11-14** (junto con la corrección de H-E3-07 por `ADR-005`).
+- **Etapa actual**: E6 (Bandeja, configuración y auto-inicio) lista para iniciar. **E5 cerrada el 2026-11-14**.
 
 ---
 
@@ -17,7 +17,7 @@ Tablero de estado del plan definido en `docs/plan/PLAN.md`. El inventario normal
 | E2 | Sticky docking y barra de tareas | Completada | 100 % | 2026-10-28 | E1 | — |
 | E3 | Hover, slide-in y gracia | Completada | 100 % | 2026-11-03 | E2 | — |
 | E4 | Cintas y despliegue exclusivo | Completada | 100 % | 2026-11-14 | E2 | — |
-| E5 | Accesos directos `.lnk` | No iniciada | 0 % | 2026-10-22 | E1, E4 | — |
+| E5 | Accesos directos `.lnk` | Completada | 100 % | 2026-11-14 | E1, E4 | — |
 | E6 | Bandeja, configuración y auto-inicio | No iniciada | 0 % | 2026-10-22 | E1 | — |
 | E7 | Multimonitor y réplica | No iniciada | 0 % | 2026-10-22 | E2, E5, E6 | — |
 | E8 | Rendimiento, endurecimiento y entrega | No iniciada | 0 % | 2026-10-22 | E0–E7 | — |
@@ -99,6 +99,9 @@ Tablero de estado del plan definido en `docs/plan/PLAN.md`. El inventario normal
 | 2026-11-14 | E4 | Implementación de ADR-005 y E4 entregada | El `implementador` ejecuta `ADR-005` (`_anchor` por instancia en `DockPlacementCoordinator`, `SetFloatingAnchor`, derivación única y limpieza al acoplar) y E4 (modelo plano `Ribbon`/`RibbonItem`, migración v2→v3 `AddRibbonsMigration`, CRUD en `DockBarViewModel`/`RibbonViewModel` con `IRibbonDeletionConfirmer`, acordeón exclusivo, cierre de Cinta al abandonar `Expanded`, cálculo dinámico en `DockBarMetrics.GetDynamicSize` y `RibbonPanel` perpendicular en `MainWindow.xaml`). Suite: **422/422** (+32 pruebas). Sin commit. | Implementador |
 | 2026-11-14 | E4 | Verificación de `qa`: veredicto **APROBADA CON OBSERVACIONES** | Builds Release y Debug con `--no-incremental`: **0 errores y 0 advertencias**. `dotnet test`: **422/422** en verde. Greps de ADR-005 §6.2 y ADR-004 §9.4 limpios. 12/12 criterios en **Cumple** (ADR-005, ADR-004, E4-CA1..E4-CA7, Q-10, Q-11). Medición RNF en Release (30 muestras a 1 s): RAM privada comprometida **40,38 MB** promedio (máx 40,76 MB, < 46 MB Q-12 y < 50 MB RNF); CPU en reposo **0,0065 %** promedio (< 1 %). Registra 3 observaciones menores de UX (`OBS-01`..`OBS-03`) y verificaciones manuales visuales (`M-12`..`M-14`). | QA |
 | 2026-11-14 | E4 | **Cierre de H-E3-07 y E4** | Se cierra **H-E3-07** con ADR-005 verificado por `qa`. E4 pasa a **Completada al 100 %**; el plan avanza al **56 %** (5 de 9 etapas, 45 de 87 puntos). Quedan registradas `OBS-01`..`OBS-03` y `M-12`..`M-14` para seguimiento en E5/E8. | Director de Desarrollo |
+| 2026-11-14 | E5 | Implementación de E5 entregada | El `implementador` implementa `ShellLinkReader` (`IShellLinkW`/`IPersistFile` + extracción PNG y `DestroyIcon`/`FinalReleaseComObject` en `finally` en `StickyDock.Interop`), `ShortcutLauncher` (lectura fiel de destino/argumentos/workingDirectory, Q-06), `IUserAlertService`, migración v3→v4 (`AddBarItemsMigration`), `ShortcutDragDropBehavior` (drop externo `.lnk` estricto per Q-01 y reordenamiento interno), menú contextual sin edición y conexión de `BarItemCount`. Suite: **442/442** (+20 pruebas). Sin commit. | Implementador |
+| 2026-11-14 | E5 | Verificación de `qa`: veredicto **APROBADA** | Builds Release y Debug con `--no-incremental`: **0 errores y 0 advertencias**. `dotnet test`: **442/442** en verde. 6/6 criterios (`E5-CA1..E5-CA6`) en **Cumple**. Interop aislado en `StickyDock.Interop`, `MainWindow.xaml.cs` limpio, greps ADR-004 §9.4 y ADR-005 §6.2 en verde. Medición RNF en Release (30 muestras a 1 s): RAM privada comprometida **40,79 MB** promedio (máx 40,93 MB, < 46 MB Q-12 y < 50 MB RNF); CPU en reposo **0,032 %** (< 1 %). | QA |
+| 2026-11-14 | E5 | **Cierre de E5** | E5 pasa a **Completada al 100 %**; R-03 pasa a **Mitigado**; el plan avanza al **67 %** (6 de 9 etapas, 58 de 87 puntos). Quedan registradas las verificaciones manuales visuales `M-15`..`M-17`. | Director de Desarrollo |
 
 ---
 
@@ -108,7 +111,7 @@ Tablero de estado del plan definido en `docs/plan/PLAN.md`. El inventario normal
 | --- | --- | --- | --- | --- | --- | --- |
 | R-01 | El runtime de Windows App SDK complica el empaquetado en Windows 10 | E0, E8 | — | — | Cerrado por Q-02: con WPF no hay dependencia de runtime externo | **Cerrado** |
 | R-02 | `AllowsTransparency` encarece el coste en reposo y pone en riesgo el RNF de RAM | E1, E3 | Media | Medio | Medición contrastada (Q-08): 36,5 MB de memoria privada frente a 50 MB. Medición de cierre de E3 en Release publicado: **44,02 MB** (43,93–44,17), con **5,98 MB** de margen frente al límite. El crecimiento de 7,5 MB respecto de E1 corresponde a E2+E3 (docking, interacción y animaciones declarativas). El riesgo sigue **mitigado pero con menos holgura**: la medición cumple el presupuesto interno vigente de **46 MB** (recalibrado en **Q-12**) con **1,98 MB** de margen. Se vigila en E4, E5, E7 y E8 | **Mitigado** (2026-11-03; margen de 5,98 MB frente al RNF de 50 MB y de 1,98 MB frente al presupuesto de 46 MB) |
-| R-03 | Interop COM de `IShellLink` con *marshaling* de iconos | E5 | Media | Alto | Etapa aislada y con prueba dedicada de un `.lnk` con argumentos | Abierto |
+| R-03 | Interop COM de `IShellLink` con *marshaling* de iconos | E5 | Media | Alto | Etapa aislada y con prueba dedicada de un `.lnk` con argumentos | **Mitigado** (2026-11-14; `ShellLinkReader` aislado en Interop con `DestroyIcon`/`FinalReleaseComObject` en `finally` y prueba real end-to-end) |
 | R-04 | Sincronización de estado entre las réplicas multimonitor | E7 | Media | Medio | Un único origen de verdad en el proyecto de núcleo | Abierto |
 | R-05 | *Work area* y DPI mixto con varias escalas de pantalla | E2, E7 | Alta | Medio | ADR-002: geometría en píxeles de dispositivo (`GetMonitorInfoW` + `GetDpiForWindow`), `PerMonitorV2` (AMP-03) y pruebas de matriz de `GetDockedBounds`; verificación manual con dos escalas | **Mitigado** (2026-10-28; queda la verificación manual M-03 con dos escalas) |
 
@@ -507,17 +510,21 @@ Registradas al cerrar E4 con veredicto **APROBADA CON OBSERVACIONES** del 2026-1
 | M-12 | En Release, arrastrar la barra a modo flotante (`104,104 120x36`), desplegar por *hover* y colapsar: comprobar que regresa exactamente al mismo rectángulo sin deriva | ADR-005, H-E3-07 |
 | M-13 | En los cuatro bordes y en modo flotante, abrir una Cinta y verificar visualmente que la animación *slide* avanza perpendicularmente hacia el interior de la pantalla | E4-CA1 |
 | M-14 | Crear 2 Cintas (`+`), alternar apertura exclusiva (acordeón), renombrar, reordenar, reiniciar y verificar persistencia en `settings.json` (v3) con todas las Cintas cerradas al arranque | E4-CA2, E4-CA4, Q-10 |
+| M-15 | Arrastrar desde el Explorador un `.lnk` real (ej. `wsl.exe` o `cmd.exe` con argumentos) sobre la barra y sobre una Cinta; comprobar icono, ejecución con argumentos y rechazo de `.exe`/carpeta con alerta | E5-CA1, E5-CA2, E5-CA3 |
+| M-16 | Reordenar accesos directos por drag & drop interno en barra y Cinta y verificar persistencia tras reiniciar | E5-CA5, E5-CA6 |
+| M-17 | Abrir menú contextual de un acceso directo y comprobar visualmente `Move to Main Bar`, `Move to Ribbon` y `Remove` (sin edición) | E5-CA4, Q-06 |
 
 ---
 
 ## Resumen para reporte
 
-- **Etapas cerradas**: E0 (2026-10-22), E1 (2026-10-26), E2 (2026-10-28, `2aa510a`), E3 (2026-11-03, `98f3387`) y **E4 (2026-11-14, cierre de H-E3-07 con ADR-005)**.
-- **Etapa cerrada — E4 (Cintas y despliegue exclusivo) al 100 %**:
-  - **ADR-005 (H-E3-07)**: `_anchor` por instancia en `DockPlacementCoordinator`, fijado al soltar/desacoplar, derivado una sola vez al arrancar flotante y borrado al acoplar. 5 pruebas nuevas + 3 greps §6.2 limpios.
-  - **Cintas**: modelo plano `Ribbon`/`RibbonItem`, persistencia atómica v3 (`AddRibbonsMigration`), CRUD completo en `DockBarViewModel`/`RibbonViewModel`, confirmación explícita con conteo de elementos (`IRibbonDeletionConfirmer`), acordeón exclusivo, cierre automático al colapsar (`Q-10`), tamaño dinámico (`DockBarMetrics.GetDynamicSize`) y despliegue perpendicular en `MainWindow.xaml`.
-- **Veredicto de `qa`: APROBADA CON OBSERVACIONES** — 12/12 criterios en **Cumple**; 3 observaciones menores (`OBS-01`..`OBS-03`) y 3 verificaciones manuales (`M-12`..`M-14`).
-- **RNF medidos por `qa` en Release**: CPU en reposo **0,0065 %** promedio (máx 0,1946 %, < 1 %); memoria privada comprometida **40,38 MB** promedio (máx 40,76 MB, < 46 MB Q-12 y < 50 MB RNF).
-- **Estado del código**: builds Release y Debug `--no-incremental` con **0 errores y 0 advertencias**; `dotnet test` **422/422** en verde.
-- **Avance del plan**: **56 %** (5 de 9 etapas cerradas; 45 de 87 puntos estimados).
-- **Próxima acción**: iniciar **E5 — Accesos directos `.lnk`, drag & drop e integridad de ejecución** (depende de E1 y E4, ya completadas).
+- **Etapas cerradas**: E0 (2026-10-22), E1 (2026-10-26), E2 (2026-10-28, `2aa510a`), E3 (2026-11-03, `98f3387`), E4 (2026-11-14, `5577dbc`) y **E5 (2026-11-14)**.
+- **Etapa cerrada — E5 (Accesos directos `.lnk`) al 100 %**:
+  - `ShellLinkReader` en `StickyDock.Interop` (`IShellLinkW`/`IPersistFile`, extracción PNG y liberación de `HICON`/COM en `finally`).
+  - `ShortcutLauncher` (ejecución fiel solo lectura, Q-06) + `IUserAlertService` (rechazo estricto no-`.lnk`, Q-01).
+  - `ShortcutDragDropBehavior`, menú contextual (mover/eliminar, sin edición), migración v3→v4 (`AddBarItemsMigration`) y conexión de `BarItemCount`.
+- **Veredicto de `qa`: APROBADA** — 6/6 criterios (`E5-CA1..E5-CA6`) en **Cumple**, sin defectos.
+- **RNF medidos por `qa` en Release**: CPU en reposo **0,032 %** (< 1 %); memoria privada comprometida **40,79 MB** promedio (máx 40,93 MB, < 46 MB Q-12 y < 50 MB RNF).
+- **Estado del código**: builds Release y Debug `--no-incremental` con **0 errores y 0 advertencias**; `dotnet test` **442/442** en verde.
+- **Avance del plan**: **67 %** (6 de 9 etapas cerradas; 58 de 87 puntos estimados).
+- **Próxima acción**: iniciar **E6 — Bandeja del sistema, ventana de configuración y auto-inicio** (depende de E1, ya completada).

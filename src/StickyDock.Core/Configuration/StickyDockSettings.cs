@@ -21,6 +21,6 @@ public static class StickyDockSettings
         => new JsonConfigurationStore<StickyDockConfiguration>(
             filePath,
             static () => new StickyDockConfiguration(),
-            [new AddGracePeriodMigration(), new AddRibbonsMigration()],
+            [new AddGracePeriodMigration(), new AddRibbonsMigration(), new AddBarItemsMigration()],
             logger: logger);
 }

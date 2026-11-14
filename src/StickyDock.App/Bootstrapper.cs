@@ -11,6 +11,7 @@ using StickyDock.Core.Diagnostics;
 using StickyDock.Core.Docking;
 using StickyDock.Core.Interaction;
 using StickyDock.Core.Services;
+using StickyDock.Core.Shortcuts;
 using StickyDock.Core.ViewModels;
 using StickyDock.Interop.Theme;
 using StickyDock.Interop.Win32;
@@ -160,13 +161,24 @@ internal sealed class Bootstrapper : IDisposable
         _services.AddSingleton<IDockRegionSink>(controller);
 
         _interactionController = controller;
+        var shellLinkReader = new ShellLinkReader();
+        var shortcutLauncher = new ShortcutLauncher(shellLinkReader, _logger);
+        var userAlertService = new WpfUserAlertService();
+
+        _services.AddSingleton<IShellLinkReader>(shellLinkReader);
+        _services.AddSingleton<IShortcutLauncher>(shortcutLauncher);
+        _services.AddSingleton<IUserAlertService>(userAlertService);
+
         var dockBarViewModel = new DockBarViewModel(
             _logger,
             controller,
             controller,
             _services.GetRequiredService<IWindowsThemeService>(),
             configuration,
-            new WpfRibbonDeletionConfirmer());
+            new WpfRibbonDeletionConfirmer(),
+            shellLinkReader,
+            shortcutLauncher,
+            userAlertService);
 
         _services.AddSingleton(dockBarViewModel);
 

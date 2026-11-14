@@ -18,17 +18,16 @@ public sealed class RibbonPersistenceTests : IDisposable
     public void Dispose() => _directory.Dispose();
 
     [Fact]
-    public void TheDefaultDocument_IsSchemaThreeWithEmptyRibbons()
+    public void TheDefaultDocument_HasEmptyRibbons()
     {
         var configuration = new StickyDockConfiguration();
 
-        Assert.Equal(3, StickyDockConfiguration.CurrentSchemaVersion);
-        Assert.Equal(3, configuration.SchemaVersion);
+        Assert.Equal(StickyDockConfiguration.CurrentSchemaVersion, configuration.SchemaVersion);
         Assert.Empty(configuration.Ribbons);
     }
 
     [Fact]
-    public async Task SaveAsync_WritesSchemaVersionThreeAndRibbons()
+    public async Task SaveAsync_WritesCurrentSchemaVersionAndRibbons()
     {
         var store = CreateStore();
         var config = new StickyDockConfiguration
@@ -42,14 +41,14 @@ public sealed class RibbonPersistenceTests : IDisposable
         await store.SaveAsync(config);
 
         var content = await File.ReadAllTextAsync(store.FilePath);
-        Assert.Contains("\"schemaVersion\": 3", content, StringComparison.Ordinal);
+        Assert.Contains($"\"schemaVersion\": {StickyDockConfiguration.CurrentSchemaVersion}", content, StringComparison.Ordinal);
         Assert.Contains("\"ribbons\"", content, StringComparison.Ordinal);
         Assert.Contains("\"Dev\"", content, StringComparison.Ordinal);
         Assert.DoesNotContain("\"isOpen\"", content, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
-    public async Task LoadAsync_FromSchemaTwoDocument_MigratesToThreeWithEmptyRibbons()
+    public async Task LoadAsync_FromSchemaTwoDocument_MigratesToCurrentWithEmptyRibbons()
     {
         var store = CreateStore();
         await File.WriteAllTextAsync(
@@ -58,21 +57,21 @@ public sealed class RibbonPersistenceTests : IDisposable
 
         var loaded = await store.LoadAsync();
 
-        Assert.Equal(3, loaded.SchemaVersion);
+        Assert.Equal(StickyDockConfiguration.CurrentSchemaVersion, loaded.SchemaVersion);
         Assert.Equal(DockEdge.Left, loaded.DockEdge);
         Assert.Equal(450, loaded.GracePeriodMilliseconds);
         Assert.Empty(loaded.Ribbons);
     }
 
     [Fact]
-    public async Task LoadAsync_FromSchemaOneDocument_MigratesThroughTwoToThree()
+    public async Task LoadAsync_FromSchemaOneDocument_MigratesToCurrent()
     {
         var store = CreateStore();
         await File.WriteAllTextAsync(store.FilePath, "{ \"schemaVersion\": 1, \"dockEdge\": 3 }");
 
         var loaded = await store.LoadAsync();
 
-        Assert.Equal(3, loaded.SchemaVersion);
+        Assert.Equal(StickyDockConfiguration.CurrentSchemaVersion, loaded.SchemaVersion);
         Assert.Equal(DockEdge.Bottom, loaded.DockEdge);
         Assert.Equal(GracePeriod.DefaultMilliseconds, loaded.GracePeriodMilliseconds);
         Assert.Empty(loaded.Ribbons);

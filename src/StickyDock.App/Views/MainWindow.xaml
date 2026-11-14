@@ -2,6 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:behaviors="clr-namespace:StickyDock.App.Docking"
+        xmlns:converters="clr-namespace:StickyDock.App.Converters"
         xmlns:input="clr-namespace:StickyDock.App.Input"
         xmlns:coreDocking="clr-namespace:StickyDock.Core.Docking;assembly=StickyDock.Core"
         xmlns:coreServices="clr-namespace:StickyDock.Core.Services;assembly=StickyDock.Core"
@@ -34,6 +35,69 @@
     </WindowChrome.WindowChrome>
 
     <Window.Resources>
+        <converters:PngBytesToImageSourceConverter x:Key="PngBytesToImageSourceConverter" />
+        <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+
+        <Style TargetType="{x:Type Button}" x:Key="ShortcutButtonStyle">
+            <Setter Property="Margin" Value="2" />
+            <Setter Property="Padding" Value="4" />
+            <Setter Property="Width" Value="40" />
+            <Setter Property="Height" Value="40" />
+            <Setter Property="Background" Value="#22FFFFFF" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="BorderBrush" Value="#44FFFFFF" />
+            <Setter Property="ToolTip" Value="{Binding ToolTipText}" />
+            <Setter Property="Command" Value="{Binding LaunchCommand}" />
+            <Setter Property="input:ShortcutDragDropBehavior.DragSourceItem" Value="{Binding}" />
+            <Setter Property="input:ShortcutDragDropBehavior.ReorderCommand"
+                    Value="{Binding DataContext.ReorderBarItemsCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsInRibbon}" Value="True">
+                    <Setter Property="input:ShortcutDragDropBehavior.ReorderCommand"
+                            Value="{Binding DataContext.OpenRibbon.ReorderItemsCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <DataTemplate x:Key="ShortcutItemTemplate">
+            <Button Style="{StaticResource ShortcutButtonStyle}">
+                <Button.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Header="Move to Main Bar"
+                                  Command="{Binding MoveToBarCommand}"
+                                  Visibility="{Binding IsInRibbon, Converter={StaticResource BoolToVisibilityConverter}}" />
+                        <MenuItem Header="Move to Ribbon"
+                                  ItemsSource="{Binding AllRibbons}">
+                            <MenuItem.ItemContainerStyle>
+                                <Style TargetType="{x:Type MenuItem}">
+                                    <Setter Property="Header" Value="{Binding Name}" />
+                                    <Setter Property="Command"
+                                            Value="{Binding DataContext.MoveToRibbonCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                    <Setter Property="CommandParameter" Value="{Binding Id}" />
+                                </Style>
+                            </MenuItem.ItemContainerStyle>
+                        </MenuItem>
+                        <Separator />
+                        <MenuItem Header="Move Earlier" Command="{Binding MoveEarlierCommand}" />
+                        <MenuItem Header="Move Later" Command="{Binding MoveLaterCommand}" />
+                        <Separator />
+                        <MenuItem Header="Remove" Command="{Binding RemoveCommand}" />
+                    </ContextMenu>
+                </Button.ContextMenu>
+
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <Image Width="20"
+                           Height="20"
+                           Source="{Binding IconPngBytes, Converter={StaticResource PngBytesToImageSourceConverter}}" />
+                    <TextBlock Text="{Binding Name}"
+                               FontSize="8"
+                               TextTrimming="CharacterEllipsis"
+                               MaxWidth="34"
+                               HorizontalAlignment="Center"
+                               Foreground="{Binding DataContext.TabForeground, RelativeSource={RelativeSource AncestorType=Window}}" />
+                </StackPanel>
+            </Button>
+        </DataTemplate>
         <!--
             Deployed surface. The slide and the fade are storyboards with literal values: Timeline.From and
             Timeline.Duration are not dependency properties, so the animation cannot receive the offset or the duration
@@ -417,7 +481,8 @@
                         Padding="6"
                         input:PointerRegionBehavior.Region="{x:Static interaction:DockRegion.Bar}"
                         input:PointerRegionBehavior.EnterCommand="{Binding EnterRegionCommand}"
-                        input:PointerRegionBehavior.LeaveCommand="{Binding LeaveRegionCommand}">
+                        input:PointerRegionBehavior.LeaveCommand="{Binding LeaveRegionCommand}"
+                        input:ShortcutDragDropBehavior.ExternalDropCommand="{Binding DropFilesOnBarCommand}">
                     <Border.RenderTransform>
                         <TranslateTransform X="0" Y="0" />
                     </Border.RenderTransform>
@@ -425,6 +490,15 @@
                     <StackPanel Style="{StaticResource RibbonStripOrientationStyle}"
                                 VerticalAlignment="Center"
                                 HorizontalAlignment="Center">
+                        <ItemsControl ItemsSource="{Binding BarItems}"
+                                      ItemTemplate="{StaticResource ShortcutItemTemplate}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Style="{StaticResource RibbonStripOrientationStyle}" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                        </ItemsControl>
+
                         <ItemsControl ItemsSource="{Binding Ribbons}">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
@@ -442,7 +516,8 @@
                                             Foreground="{Binding DataContext.TabForeground, RelativeSource={RelativeSource AncestorType=Window}}"
                                             Background="#33FFFFFF"
                                             BorderThickness="1"
-                                            BorderBrush="#55FFFFFF">
+                                            BorderBrush="#55FFFFFF"
+                                            input:ShortcutDragDropBehavior.ExternalDropCommand="{Binding DropFilesCommand}">
                                         <Button.ContextMenu>
                                             <ContextMenu>
                                                 <MenuItem Header="Rename" Command="{Binding BeginRenameCommand}" />
@@ -480,7 +555,8 @@
                         Style="{StaticResource RibbonPanelStyle}"
                         input:PointerRegionBehavior.Region="{x:Static interaction:DockRegion.Ribbon}"
                         input:PointerRegionBehavior.EnterCommand="{Binding EnterRegionCommand}"
-                        input:PointerRegionBehavior.LeaveCommand="{Binding LeaveRegionCommand}">
+                        input:PointerRegionBehavior.LeaveCommand="{Binding LeaveRegionCommand}"
+                        input:ShortcutDragDropBehavior.ExternalDropCommand="{Binding OpenRibbon.DropFilesCommand}">
                     <Border.RenderTransform>
                         <TranslateTransform X="0" Y="0" />
                     </Border.RenderTransform>
@@ -536,15 +612,14 @@
                             </Grid>
                         </DockPanel>
 
-                        <ItemsControl Grid.Row="1" ItemsSource="{Binding Items}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <TextBlock Text="{Binding Name}"
-                                               FontSize="11"
-                                               Margin="2"
-                                               Foreground="{Binding DataContext.TabForeground, RelativeSource={RelativeSource AncestorType=Window}}" />
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
+                        <ItemsControl Grid.Row="1"
+                                      ItemsSource="{Binding ShortcutItems}"
+                                      ItemTemplate="{StaticResource ShortcutItemTemplate}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel Orientation="Horizontal" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
                         </ItemsControl>
                     </Grid>
                 </Border>

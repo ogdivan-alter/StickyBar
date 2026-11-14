@@ -30,9 +30,14 @@ public sealed record StickyDockConfiguration : IVersionedDocument
     public const string RibbonsPropertyName = "ribbons";
 
     /// <summary>
+    /// Serialized name of <see cref="BarItems"/>.
+    /// </summary>
+    public const string BarItemsPropertyName = "barItems";
+
+    /// <summary>
     /// Schema version written and understood by this build.
     /// </summary>
-    public const int CurrentSchemaVersion = 3;
+    public const int CurrentSchemaVersion = 4;
 
     /// <inheritdoc />
     public int SchemaVersion { get; init; } = CurrentSchemaVersion;
@@ -65,4 +70,10 @@ public sealed record StickyDockConfiguration : IVersionedDocument
     /// </summary>
     [JsonPropertyName(RibbonsPropertyName)]
     public IReadOnlyList<Ribbon> Ribbons { get; init; } = [];
+
+    /// <summary>
+    /// Gets the persisted shortcut items on the main dock bar in display order (E5, §5.2-02).
+    /// </summary>
+    [JsonPropertyName(BarItemsPropertyName)]
+    public IReadOnlyList<RibbonItem> BarItems { get; init; } = [];
 }

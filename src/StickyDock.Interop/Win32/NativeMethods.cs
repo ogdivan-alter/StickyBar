@@ -54,6 +54,26 @@ internal static partial class NativeMethods
 
     [LibraryImport(Shell32LibraryName, EntryPoint = "SHAppBarMessage")]
     internal static partial nint SHAppBarMessage(uint dwMessage, ref APPBARDATA pData);
+
+    [LibraryImport(Shell32LibraryName, EntryPoint = "ExtractIconExW", StringMarshalling = StringMarshalling.Utf16)]
+    internal static unsafe partial uint ExtractIconExW(
+        string lpszFile,
+        int nIconIndex,
+        nint* phiconLarge,
+        nint* phiconSmall,
+        uint nIcons);
+
+    [LibraryImport(Shell32LibraryName, EntryPoint = "SHGetFileInfoW", StringMarshalling = StringMarshalling.Utf16)]
+    internal static partial nint SHGetFileInfoW(
+        string pszPath,
+        uint dwFileAttributes,
+        ref SHFILEINFOW psfi,
+        uint cbFileInfo,
+        uint uFlags);
+
+    [LibraryImport(User32LibraryName, EntryPoint = "DestroyIcon")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool DestroyIcon(nint hIcon);
 }
 
 internal delegate void WinEventDelegate(nint hWinEventHook, uint eventType, nint hwnd, int idObject, int idChild, uint dwEventThread, uint dwmsEventTime);
@@ -85,4 +105,14 @@ internal struct APPBARDATA
     public uint uEdge;
     public RECT rc;
     public nint lParam;
+}
+
+[StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+internal unsafe struct SHFILEINFOW
+{
+    public nint hIcon;
+    public int iIcon;
+    public uint dwAttributes;
+    public fixed char szDisplayName[260];
+    public fixed char szTypeName[80];
 }

@@ -8,6 +8,7 @@ using StickyDock.Core.Interaction;
 using StickyDock.Core.Mvvm;
 using StickyDock.Core.Ribbons;
 using StickyDock.Core.Services;
+using StickyDock.Core.Shortcuts;
 
 namespace StickyDock.Core.ViewModels;
 
@@ -34,6 +35,11 @@ public sealed class DockBarViewModel : ViewModelBase, IRibbonLayoutState
     private readonly IThemeService? _themeService;
     private readonly IConfigurationDocument? _configuration;
     private readonly IRibbonDeletionConfirmer? _deletionConfirmer;
+    private readonly IShellLinkReader? _shellLinkReader;
+    private readonly IShortcutLauncher? _shortcutLauncher;
+    private readonly IUserAlertService? _userAlertService;
+    private readonly Dictionary<string, (byte[]? IconPngBytes, string TargetPath)> _metadataCache =
+        new(StringComparer.OrdinalIgnoreCase);
 
     private bool _isLightTheme;
     private DockState _dockState = DockState.Tab;
@@ -73,6 +79,33 @@ public sealed class DockBarViewModel : ViewModelBase, IRibbonLayoutState
         IThemeService? themeService,
         IConfigurationDocument? configuration,
         IRibbonDeletionConfirmer? deletionConfirmer)
+        : this(
+            logger,
+            dockStateService,
+            regions,
+            themeService,
+            configuration,
+            deletionConfirmer,
+            shellLinkReader: null,
+            shortcutLauncher: null,
+            userAlertService: null)
+    {
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="DockBarViewModel"/> class with full ribbon and shortcut
+    /// persistence, resolution, launching and user alert support (E4, E5).
+    /// </summary>
+    public DockBarViewModel(
+        ILogger logger,
+        IDockStateService dockStateService,
+        IDockRegionSink regions,
+        IThemeService? themeService,
+        IConfigurationDocument? configuration,
+        IRibbonDeletionConfirmer? deletionConfirmer,
+        IShellLinkReader? shellLinkReader,
+        IShortcutLauncher? shortcutLauncher,
+        IUserAlertService? userAlertService)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _dockStateService = dockStateService ?? throw new ArgumentNullException(nameof(dockStateService));
@@ -80,6 +113,9 @@ public sealed class DockBarViewModel : ViewModelBase, IRibbonLayoutState
         _themeService = themeService;
         _configuration = configuration;
         _deletionConfirmer = deletionConfirmer;
+        _shellLinkReader = shellLinkReader;
+        _shortcutLauncher = shortcutLauncher;
+        _userAlertService = userAlertService;
 
         _isLightTheme = _themeService?.IsLightTheme ?? true;
         _dockState = _dockStateService.State;
@@ -88,8 +124,24 @@ public sealed class DockBarViewModel : ViewModelBase, IRibbonLayoutState
         EnterRegionCommand = new RelayCommand<DockRegion>(region => _regions.EnterRegion(region));
         LeaveRegionCommand = new RelayCommand<DockRegion>(region => _regions.LeaveRegion(region));
         CreateRibbonCommand = new RelayCommand(() => CreateRibbon());
+        DropFilesOnBarCommand = new RelayCommand<IEnumerable<string>>(
+            files =>
+            {
+                if (files is not null)
+                {
+                    DropFilesOnBar(files);
+                }
+            });
+        ReorderBarItemsCommand = new RelayCommand<ShortcutReorderRequest>(
+            request =>
+            {
+                if (request is not null)
+                {
+                    ReorderBarItems(request.SourceItemId, request.TargetItemId);
+                }
+            });
 
-        LoadRibbons();
+        LoadConfiguration();
 
         if (_themeService != null)
         {
@@ -136,8 +188,17 @@ public sealed class DockBarViewModel : ViewModelBase, IRibbonLayoutState
     /// <summary>Gets the command that creates a new ribbon on the dock bar (E4-CA4).</summary>
     public ICommand CreateRibbonCommand { get; }
 
+    /// <summary>Gets the command invoked when files are dropped onto the main dock bar (E5-CA1, E5-CA3).</summary>
+    public ICommand DropFilesOnBarCommand { get; }
+
+    /// <summary>Gets the command invoked when a shortcut is reordered on the main dock bar (E5-CA5).</summary>
+    public ICommand ReorderBarItemsCommand { get; }
+
     /// <summary>Gets the flat ribbons defined on the dock bar in display order.</summary>
     public ObservableCollection<RibbonViewModel> Ribbons { get; } = [];
+
+    /// <summary>Gets the shortcut items pinned directly on the main dock bar in display order (E5).</summary>
+    public ObservableCollection<ShortcutItemViewModel> BarItems { get; } = [];
 
     /// <summary>Gets the currently open ribbon, or <see langword="null"/> when all ribbons are closed.</summary>
     public RibbonViewModel? OpenRibbon
@@ -159,7 +220,7 @@ public sealed class DockBarViewModel : ViewModelBase, IRibbonLayoutState
     public int RibbonCount => Ribbons.Count;
 
     /// <inheritdoc />
-    public int BarItemCount => 0;
+    public int BarItemCount => BarItems.Count;
 
     /// <summary>Gets whether Windows is using the light theme.</summary>
     public bool IsLightTheme
@@ -390,6 +451,206 @@ public sealed class DockBarViewModel : ViewModelBase, IRibbonLayoutState
         NotifyLayoutChanged();
     }
 
+    /// <summary>
+    /// Accepts dropped <c>.lnk</c> files onto the main dock bar and rejects any other file or folder (E5-CA1, E5-CA3, Q-01).
+    /// </summary>
+    public bool DropFilesOnBar(IEnumerable<string> paths)
+    {
+        ArgumentNullException.ThrowIfNull(paths);
+
+        var added = AddDroppedShortcuts(paths, BarItems, containerRibbonId: null);
+
+        if (added == 0)
+        {
+            return false;
+        }
+
+        ReindexItems(BarItems);
+        PersistBarItems();
+        NotifyLayoutChanged();
+        return true;
+    }
+
+    /// <summary>
+    /// Accepts dropped <c>.lnk</c> files onto the specified ribbon and rejects any other file or folder (E5-CA1, E5-CA3, Q-01).
+    /// </summary>
+    public bool DropFilesOnRibbon(string ribbonId, IEnumerable<string> paths)
+    {
+        ArgumentNullException.ThrowIfNull(paths);
+
+        var ribbon = FindRibbon(ribbonId);
+
+        if (ribbon is null)
+        {
+            return false;
+        }
+
+        var added = AddDroppedShortcuts(paths, ribbon.ShortcutItems, containerRibbonId: ribbon.Id);
+
+        if (added == 0)
+        {
+            return false;
+        }
+
+        ReindexItems(ribbon.ShortcutItems);
+        PersistRibbons();
+        return true;
+    }
+
+    /// <summary>
+    /// Launches a shortcut while preserving its <c>.lnk</c> target, arguments and working directory (E5-CA2, §4.5-03).
+    /// </summary>
+    public void LaunchShortcut(ShortcutItemViewModel item)
+    {
+        ArgumentNullException.ThrowIfNull(item);
+
+        if (_shortcutLauncher is null)
+        {
+            return;
+        }
+
+        var result = _shortcutLauncher.Launch(item.ShortcutPath);
+
+        if (!result.Succeeded)
+        {
+            _userAlertService?.ShowError(
+                "Cannot Launch Shortcut",
+                result.ErrorMessage ?? $"Could not launch '{item.Name}'.");
+        }
+    }
+
+    /// <summary>
+    /// Moves a shortcut from the main bar or another ribbon into <paramref name="targetRibbonId"/> (E5-CA4, §4.5-04).
+    /// </summary>
+    public bool MoveShortcutToRibbon(string itemId, string targetRibbonId)
+    {
+        var targetRibbon = FindRibbon(targetRibbonId);
+
+        if (targetRibbon is null)
+        {
+            return false;
+        }
+
+        var found = FindShortcut(itemId);
+
+        if (found is null || string.Equals(found.Value.Item.ContainerRibbonId, targetRibbonId, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var (item, sourceCollection, sourceRibbon) = found.Value;
+        sourceCollection.Remove(item);
+        ReindexItems(sourceCollection);
+
+        item.ContainerRibbonId = targetRibbonId;
+        targetRibbon.ShortcutItems.Add(item);
+        ReindexItems(targetRibbon.ShortcutItems);
+
+        PersistAllShortcuts(sourceRibbon is null);
+
+        if (sourceRibbon is null)
+        {
+            NotifyLayoutChanged();
+        }
+
+        _logger.Information($"Shortcut '{item.Name}' moved to ribbon '{targetRibbon.Name}'.");
+        return true;
+    }
+
+    /// <summary>
+    /// Moves a shortcut from its containing ribbon back to the main dock bar (E5-CA4, §4.5-04).
+    /// </summary>
+    public bool MoveShortcutToBar(string itemId)
+    {
+        var found = FindShortcut(itemId);
+
+        if (found is null || found.Value.SourceRibbon is null)
+        {
+            return false;
+        }
+
+        var (item, sourceCollection, _) = found.Value;
+        sourceCollection.Remove(item);
+        ReindexItems(sourceCollection);
+
+        item.ContainerRibbonId = null;
+        BarItems.Add(item);
+        ReindexItems(BarItems);
+
+        PersistAllShortcuts(includeBarItems: true);
+        NotifyLayoutChanged();
+        _logger.Information($"Shortcut '{item.Name}' moved to main bar.");
+        return true;
+    }
+
+    /// <summary>
+    /// Removes a shortcut from the main bar or from its containing ribbon (E5-CA4, §4.5-04).
+    /// </summary>
+    public bool RemoveShortcut(string itemId)
+    {
+        var found = FindShortcut(itemId);
+
+        if (found is null)
+        {
+            return false;
+        }
+
+        var (item, sourceCollection, sourceRibbon) = found.Value;
+        sourceCollection.Remove(item);
+        ReindexItems(sourceCollection);
+
+        if (sourceRibbon is null)
+        {
+            PersistBarItems();
+            NotifyLayoutChanged();
+        }
+        else
+        {
+            PersistRibbons();
+        }
+
+        _logger.Information($"Shortcut '{item.Name}' removed.");
+        return true;
+    }
+
+    /// <summary>
+    /// Reorders a shortcut on the main bar to <paramref name="newIndex"/> and persists the order (E5-CA5).
+    /// </summary>
+    public bool ReorderBarItem(string itemId, int newIndex)
+        => ReorderInCollection(BarItems, itemId, newIndex, PersistBarItems);
+
+    /// <summary>
+    /// Moves <paramref name="sourceItemId"/> to the slot currently occupied by <paramref name="targetItemId"/> on the
+    /// main bar (E5-CA5).
+    /// </summary>
+    public bool ReorderBarItems(string sourceItemId, string targetItemId)
+        => ReorderByIds(BarItems, sourceItemId, targetItemId, PersistBarItems);
+
+    /// <summary>
+    /// Reorders a shortcut inside a ribbon to <paramref name="newIndex"/> and persists the order (E5-CA5).
+    /// </summary>
+    public bool ReorderRibbonItem(string ribbonId, string itemId, int newIndex)
+    {
+        var ribbon = FindRibbon(ribbonId);
+        return ribbon is not null && ReorderInCollection(ribbon.ShortcutItems, itemId, newIndex, PersistRibbons);
+    }
+
+    /// <summary>
+    /// Moves <paramref name="sourceItemId"/> to the slot currently occupied by <paramref name="targetItemId"/> inside
+    /// <paramref name="ribbonId"/> (E5-CA5).
+    /// </summary>
+    public bool ReorderRibbonItems(string ribbonId, string sourceItemId, string targetItemId)
+    {
+        var ribbon = FindRibbon(ribbonId);
+        return ribbon is not null && ReorderByIds(ribbon.ShortcutItems, sourceItemId, targetItemId, PersistRibbons);
+    }
+
+    /// <summary>Moves a shortcut one slot earlier within its container (E5-CA5).</summary>
+    public bool MoveShortcutEarlier(string itemId) => ShiftShortcut(itemId, delta: -1);
+
+    /// <summary>Moves a shortcut one slot later within its container (E5-CA5).</summary>
+    public bool MoveShortcutLater(string itemId) => ShiftShortcut(itemId, delta: 1);
+
     private void OnThemeChanged(object? sender, ThemeChangedEventArgs e)
     {
         IsLightTheme = e.IsLightTheme;
@@ -409,16 +670,28 @@ public sealed class DockBarViewModel : ViewModelBase, IRibbonLayoutState
         }
     }
 
-    private void LoadRibbons()
+    private void LoadConfiguration()
     {
         if (_configuration is null)
         {
             return;
         }
 
+        foreach (var item in _configuration.Current.BarItems.OrderBy(i => i.Order))
+        {
+            BarItems.Add(CreateShortcutViewModel(item, containerRibbonId: null));
+        }
+
         foreach (var ribbon in _configuration.Current.Ribbons.OrderBy(r => r.Order))
         {
-            Ribbons.Add(CreateRibbonViewModel(ribbon));
+            var ribbonVm = CreateRibbonViewModel(ribbon);
+
+            foreach (var item in ribbon.Items.OrderBy(i => i.Order))
+            {
+                ribbonVm.ShortcutItems.Add(CreateShortcutViewModel(item, containerRibbonId: ribbon.Id));
+            }
+
+            Ribbons.Add(ribbonVm);
         }
     }
 
@@ -429,7 +702,220 @@ public sealed class DockBarViewModel : ViewModelBase, IRibbonLayoutState
             RenameRibbon,
             DeleteRibbon,
             MoveRibbonEarlier,
-            MoveRibbonLater);
+            MoveRibbonLater,
+            DropFilesOnRibbon,
+            ReorderRibbonItems);
+
+    private ShortcutItemViewModel CreateShortcutViewModel(RibbonItem model, string? containerRibbonId)
+    {
+        var (iconBytes, targetPath) = ResolveMetadataCached(model.ShortcutPath);
+
+        return new ShortcutItemViewModel(
+            model,
+            containerRibbonId,
+            iconBytes,
+            targetPath,
+            () => Ribbons,
+            LaunchShortcut,
+            itemId => RemoveShortcut(itemId),
+            itemId => MoveShortcutToBar(itemId),
+            MoveShortcutToRibbon,
+            itemId => MoveShortcutEarlier(itemId),
+            itemId => MoveShortcutLater(itemId));
+    }
+
+    private int AddDroppedShortcuts(
+        IEnumerable<string> paths,
+        ObservableCollection<ShortcutItemViewModel> targetCollection,
+        string? containerRibbonId)
+    {
+        var added = 0;
+
+        foreach (var path in paths)
+        {
+            if (!IsValidShortcutFile(path))
+            {
+                _logger.Warning($"Rejected non-.lnk drop item '{path}'.");
+                _userAlertService?.ShowWarning(
+                    "Unsupported Item",
+                    $"'{Path.GetFileName(path)}' cannot be added directly. Only .lnk shortcut files are supported; please package executables, folders or scripts as a Windows shortcut (.lnk) first.");
+                continue;
+            }
+
+            var resolved = TryReadShortcut(path);
+            var displayName = resolved?.DisplayName;
+
+            if (string.IsNullOrWhiteSpace(displayName))
+            {
+                displayName = Path.GetFileNameWithoutExtension(path);
+            }
+
+            var model = new RibbonItem(
+                Guid.NewGuid().ToString("N"),
+                displayName,
+                path,
+                targetCollection.Count);
+
+            var itemVm = new ShortcutItemViewModel(
+                model,
+                containerRibbonId,
+                resolved?.IconPngBytes,
+                resolved?.TargetPath ?? string.Empty,
+                () => Ribbons,
+                LaunchShortcut,
+                itemId => RemoveShortcut(itemId),
+                itemId => MoveShortcutToBar(itemId),
+                MoveShortcutToRibbon,
+                itemId => MoveShortcutEarlier(itemId),
+                itemId => MoveShortcutLater(itemId));
+
+            targetCollection.Add(itemVm);
+            added++;
+        }
+
+        return added;
+    }
+
+    private static bool IsValidShortcutFile(string? path)
+        => !string.IsNullOrWhiteSpace(path)
+            && string.Equals(Path.GetExtension(path), ".lnk", StringComparison.OrdinalIgnoreCase)
+            && !Directory.Exists(path)
+            && File.Exists(path);
+
+    private ResolvedShortcut? TryReadShortcut(string shortcutPath)
+    {
+        if (_shellLinkReader is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            var resolved = _shellLinkReader.Read(shortcutPath);
+            _metadataCache[shortcutPath] = (resolved.IconPngBytes, resolved.TargetPath);
+            return resolved;
+        }
+        catch (Exception exception)
+        {
+            _logger.Warning($"Could not resolve shortcut '{shortcutPath}': {exception.Message}");
+            return null;
+        }
+    }
+
+    private (byte[]? IconPngBytes, string TargetPath) ResolveMetadataCached(string shortcutPath)
+    {
+        if (_metadataCache.TryGetValue(shortcutPath, out var cached))
+        {
+            return cached;
+        }
+
+        if (_shellLinkReader is null || !File.Exists(shortcutPath))
+        {
+            return (null, string.Empty);
+        }
+
+        var resolved = TryReadShortcut(shortcutPath);
+        return resolved is null ? (null, string.Empty) : (resolved.IconPngBytes, resolved.TargetPath);
+    }
+
+    private (ShortcutItemViewModel Item, ObservableCollection<ShortcutItemViewModel> Collection, RibbonViewModel? SourceRibbon)? FindShortcut(string itemId)
+    {
+        foreach (var item in BarItems)
+        {
+            if (string.Equals(item.Id, itemId, StringComparison.Ordinal))
+            {
+                return (item, BarItems, null);
+            }
+        }
+
+        foreach (var ribbon in Ribbons)
+        {
+            foreach (var item in ribbon.ShortcutItems)
+            {
+                if (string.Equals(item.Id, itemId, StringComparison.Ordinal))
+                {
+                    return (item, ribbon.ShortcutItems, ribbon);
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private bool ShiftShortcut(string itemId, int delta)
+    {
+        var found = FindShortcut(itemId);
+
+        if (found is null)
+        {
+            return false;
+        }
+
+        var (_, collection, sourceRibbon) = found.Value;
+        var currentIndex = IndexOfItem(collection, itemId);
+        var newIndex = currentIndex + delta;
+
+        if (currentIndex < 0 || newIndex < 0 || newIndex >= collection.Count)
+        {
+            return false;
+        }
+
+        return ReorderInCollection(
+            collection,
+            itemId,
+            newIndex,
+            sourceRibbon is null ? PersistBarItems : PersistRibbons);
+    }
+
+    private static bool ReorderByIds(
+        ObservableCollection<ShortcutItemViewModel> collection,
+        string sourceItemId,
+        string targetItemId,
+        Action persist)
+    {
+        var targetIndex = IndexOfItem(collection, targetItemId);
+        return targetIndex >= 0 && ReorderInCollection(collection, sourceItemId, targetIndex, persist);
+    }
+
+    private static bool ReorderInCollection(
+        ObservableCollection<ShortcutItemViewModel> collection,
+        string itemId,
+        int newIndex,
+        Action persist)
+    {
+        var currentIndex = IndexOfItem(collection, itemId);
+
+        if (currentIndex < 0 || newIndex < 0 || newIndex >= collection.Count || currentIndex == newIndex)
+        {
+            return false;
+        }
+
+        collection.Move(currentIndex, newIndex);
+        ReindexItems(collection);
+        persist();
+        return true;
+    }
+
+    private static int IndexOfItem(ObservableCollection<ShortcutItemViewModel> collection, string itemId)
+    {
+        for (var i = 0; i < collection.Count; i++)
+        {
+            if (string.Equals(collection[i].Id, itemId, StringComparison.Ordinal))
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    private static void ReindexItems(ObservableCollection<ShortcutItemViewModel> collection)
+    {
+        for (var i = 0; i < collection.Count; i++)
+        {
+            collection[i].Order = i;
+        }
+    }
 
     private RibbonViewModel? FindRibbon(string id)
         => Ribbons.FirstOrDefault(r => string.Equals(r.Id, id, StringComparison.Ordinal));
@@ -466,9 +952,41 @@ public sealed class DockBarViewModel : ViewModelBase, IRibbonLayoutState
         _configuration.Update(doc => doc with { Ribbons = snapshot });
     }
 
+    private void PersistBarItems()
+    {
+        if (_configuration is null)
+        {
+            return;
+        }
+
+        var snapshot = BarItems.Select(i => i.ToModel()).ToArray();
+        _configuration.Update(doc => doc with { BarItems = snapshot });
+    }
+
+    private void PersistAllShortcuts(bool includeBarItems)
+    {
+        if (_configuration is null)
+        {
+            return;
+        }
+
+        var ribbonsSnapshot = Ribbons.Select(r => r.ToModel()).ToArray();
+
+        if (includeBarItems)
+        {
+            var barSnapshot = BarItems.Select(i => i.ToModel()).ToArray();
+            _configuration.Update(doc => doc with { Ribbons = ribbonsSnapshot, BarItems = barSnapshot });
+        }
+        else
+        {
+            _configuration.Update(doc => doc with { Ribbons = ribbonsSnapshot });
+        }
+    }
+
     private void NotifyLayoutChanged()
     {
         OnPropertyChanged(nameof(RibbonCount));
+        OnPropertyChanged(nameof(BarItemCount));
         LayoutChanged?.Invoke(this, EventArgs.Empty);
     }
 }
