@@ -29,6 +29,18 @@ public readonly record struct DockBarMetrics(
     /// </summary>
     public static DockBarMetrics Default { get; } = new(120d, 36d, 168d, 96d);
 
+    /// <summary>Reserved length along the deployed bar for the create-ribbon button and margins (E4-CA6).</summary>
+    public const double BarActionPadding = 44d;
+
+    /// <summary>Length occupied by each ribbon indicator slot along the bar (E4-CA6).</summary>
+    public const double RibbonIndicatorExtent = 84d;
+
+    /// <summary>Length occupied by each shortcut slot on the main bar (E4-CA6).</summary>
+    public const double BarItemExtent = 44d;
+
+    /// <summary>Additional perpendicular thickness added when a ribbon is open (E4-CA1, E4-CA6).</summary>
+    public const double OpenRibbonThickness = 144d;
+
     /// <summary>
     /// Gets the footprint of a state in the orientation of an edge.
     /// </summary>
@@ -44,6 +56,45 @@ public readonly record struct DockBarMetrics(
 
         var length = expanded ? ExpandedLength : CollapsedLength;
         var thickness = expanded ? ExpandedThickness : CollapsedThickness;
+
+        return vertical ? new DockBarSize(thickness, length) : new DockBarSize(length, thickness);
+    }
+
+    /// <summary>
+    /// Gets the dynamic footprint of the bar considering its ribbons, items and open-ribbon state (E4-CA6).
+    /// </summary>
+    /// <param name="expanded">Whether the deployed footprint applies.</param>
+    /// <param name="anchor">Edge the bar is docked to, or <see langword="null"/> while it floats.</param>
+    /// <param name="ribbonCount">Number of ribbons currently defined on the bar.</param>
+    /// <param name="barItemCount">Number of shortcut items directly on the bar.</param>
+    /// <param name="hasOpenRibbon">Whether a ribbon is currently open.</param>
+    /// <returns>
+    /// The dynamic footprint. When collapsed, returns the idle tab size. When expanded with zero ribbons and zero items,
+    /// preserves <see cref="CollapsedLength"/> as the minimum length.
+    /// </returns>
+    public DockBarSize GetDynamicSize(
+        bool expanded,
+        DockEdge? anchor,
+        int ribbonCount,
+        int barItemCount,
+        bool hasOpenRibbon)
+    {
+        if (!expanded)
+        {
+            return GetSize(expanded: false, anchor);
+        }
+
+        var vertical = anchor is DockEdge.Left or DockEdge.Right;
+        var ribbons = Math.Max(0, ribbonCount);
+        var items = Math.Max(0, barItemCount);
+
+        var length = ribbons == 0 && items == 0
+            ? CollapsedLength
+            : Math.Max(
+                CollapsedLength,
+                BarActionPadding + ribbons * RibbonIndicatorExtent + items * BarItemExtent);
+
+        var thickness = ExpandedThickness + (hasOpenRibbon ? OpenRibbonThickness : 0d);
 
         return vertical ? new DockBarSize(thickness, length) : new DockBarSize(length, thickness);
     }

@@ -230,6 +230,166 @@
                 </DataTrigger>
             </Style.Triggers>
         </Style>
+
+        <!--
+            Ribbon flyout panel (E4-CA1, E4-CA2, Q-10): visible only while the bar is Expanded and a ribbon is open.
+            Slides perpendicularly from the ribbon indicator into the interior of the screen with FillBehavior="Stop"
+            (ADR-004 D4).
+        -->
+        <Style TargetType="{x:Type Border}" x:Key="RibbonPanelStyle">
+            <Setter Property="Background" Value="{Binding TabBackground}" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Margin" Value="2" />
+            <Setter Property="Padding" Value="8" />
+            <Setter Property="Visibility" Value="Collapsed" />
+            <Setter Property="Opacity" Value="1" />
+            <Style.Triggers>
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding DockState}" Value="{x:Static coreServices:DockState.Expanded}" />
+                        <Condition Binding="{Binding HasOpenRibbon}" Value="True" />
+                    </MultiDataTrigger.Conditions>
+                    <Setter Property="Visibility" Value="Visible" />
+                </MultiDataTrigger>
+
+                <!-- Horizontal bar at Top or Floating: ribbon slides down into the screen. -->
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding DockState}" Value="{x:Static coreServices:DockState.Expanded}" />
+                        <Condition Binding="{Binding HasOpenRibbon}" Value="True" />
+                        <Condition Binding="{Binding DockEdge}" Value="{x:Static coreDocking:DockEdge.Top}" />
+                    </MultiDataTrigger.Conditions>
+                    <MultiDataTrigger.EnterActions>
+                        <BeginStoryboard>
+                            <Storyboard FillBehavior="Stop">
+                                <DoubleAnimation
+                                    Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)"
+                                    From="-24" To="0" Duration="0:0:0.16" />
+                                <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                 From="0" To="1" Duration="0:0:0.16" />
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </MultiDataTrigger.EnterActions>
+                </MultiDataTrigger>
+
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding DockState}" Value="{x:Static coreServices:DockState.Expanded}" />
+                        <Condition Binding="{Binding HasOpenRibbon}" Value="True" />
+                        <Condition Binding="{Binding DockEdge}" Value="{x:Null}" />
+                    </MultiDataTrigger.Conditions>
+                    <MultiDataTrigger.EnterActions>
+                        <BeginStoryboard>
+                            <Storyboard FillBehavior="Stop">
+                                <DoubleAnimation
+                                    Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)"
+                                    From="-24" To="0" Duration="0:0:0.16" />
+                                <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                 From="0" To="1" Duration="0:0:0.16" />
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </MultiDataTrigger.EnterActions>
+                </MultiDataTrigger>
+
+                <!-- Horizontal bar at Bottom: ribbon slides up into the screen. -->
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding DockState}" Value="{x:Static coreServices:DockState.Expanded}" />
+                        <Condition Binding="{Binding HasOpenRibbon}" Value="True" />
+                        <Condition Binding="{Binding DockEdge}" Value="{x:Static coreDocking:DockEdge.Bottom}" />
+                    </MultiDataTrigger.Conditions>
+                    <MultiDataTrigger.EnterActions>
+                        <BeginStoryboard>
+                            <Storyboard FillBehavior="Stop">
+                                <DoubleAnimation
+                                    Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)"
+                                    From="24" To="0" Duration="0:0:0.16" />
+                                <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                 From="0" To="1" Duration="0:0:0.16" />
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </MultiDataTrigger.EnterActions>
+                </MultiDataTrigger>
+
+                <!-- Vertical bar at Left: ribbon slides right into the screen. -->
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding DockState}" Value="{x:Static coreServices:DockState.Expanded}" />
+                        <Condition Binding="{Binding HasOpenRibbon}" Value="True" />
+                        <Condition Binding="{Binding DockEdge}" Value="{x:Static coreDocking:DockEdge.Left}" />
+                    </MultiDataTrigger.Conditions>
+                    <MultiDataTrigger.EnterActions>
+                        <BeginStoryboard>
+                            <Storyboard FillBehavior="Stop">
+                                <DoubleAnimation
+                                    Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
+                                    From="-24" To="0" Duration="0:0:0.16" />
+                                <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                 From="0" To="1" Duration="0:0:0.16" />
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </MultiDataTrigger.EnterActions>
+                </MultiDataTrigger>
+
+                <!-- Vertical bar at Right: ribbon slides left into the screen. -->
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding DockState}" Value="{x:Static coreServices:DockState.Expanded}" />
+                        <Condition Binding="{Binding HasOpenRibbon}" Value="True" />
+                        <Condition Binding="{Binding DockEdge}" Value="{x:Static coreDocking:DockEdge.Right}" />
+                    </MultiDataTrigger.Conditions>
+                    <MultiDataTrigger.EnterActions>
+                        <BeginStoryboard>
+                            <Storyboard FillBehavior="Stop">
+                                <DoubleAnimation
+                                    Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
+                                    From="24" To="0" Duration="0:0:0.16" />
+                                <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                 From="0" To="1" Duration="0:0:0.16" />
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </MultiDataTrigger.EnterActions>
+                </MultiDataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Places the main bar at the docked edge so the open ribbon always expands inward (E4-CA1, E4-CA7). -->
+        <Style TargetType="{x:Type Border}" x:Key="BarSlotStyle" BasedOn="{StaticResource ContentPanelStyle}">
+            <Setter Property="DockPanel.Dock" Value="Top" />
+            <Setter Property="Height" Value="96" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding HasOpenRibbon}" Value="False">
+                    <Setter Property="Height" Value="Auto" />
+                    <Setter Property="Width" Value="Auto" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding DockEdge}" Value="{x:Static coreDocking:DockEdge.Bottom}">
+                    <Setter Property="DockPanel.Dock" Value="Bottom" />
+                    <Setter Property="Height" Value="96" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding DockEdge}" Value="{x:Static coreDocking:DockEdge.Left}">
+                    <Setter Property="DockPanel.Dock" Value="Left" />
+                    <Setter Property="Height" Value="Auto" />
+                    <Setter Property="Width" Value="96" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding DockEdge}" Value="{x:Static coreDocking:DockEdge.Right}">
+                    <Setter Property="DockPanel.Dock" Value="Right" />
+                    <Setter Property="Height" Value="Auto" />
+                    <Setter Property="Width" Value="96" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style TargetType="{x:Type StackPanel}" x:Key="RibbonStripOrientationStyle">
+            <Setter Property="Orientation" Value="Horizontal" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding DockEdge}" Value="{x:Static coreDocking:DockEdge.Left}">
+                    <Setter Property="Orientation" Value="Vertical" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding DockEdge}" Value="{x:Static coreDocking:DockEdge.Right}">
+                    <Setter Property="Orientation" Value="Vertical" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
     </Window.Resources>
 
     <!--
@@ -245,21 +405,150 @@
     -->
     <Grid x:Name="RootPanel">
         <Grid x:Name="ClipPanel" ClipToBounds="True">
-            <!--
-                ADR-004 D1: the panel reports the Bar region itself, exactly as the tab always did. Its own entry is
-                real: the panel is not an ancestor of the tab, so moving from the tab into the panel raises its own
-                MouseEnter. While the bar is collapsed the panel is Collapsed, so it cannot report anything at all, and
-                E1-CA4 keeps depending on the window measuring exactly the tab footprint.
-            -->
-            <Border x:Name="ContentPanel"
-                    Style="{StaticResource ContentPanelStyle}"
-                    input:PointerRegionBehavior.Region="{x:Static interaction:DockRegion.Bar}"
-                    input:PointerRegionBehavior.EnterCommand="{Binding EnterRegionCommand}"
-                    input:PointerRegionBehavior.LeaveCommand="{Binding LeaveRegionCommand}">
-                <Border.RenderTransform>
-                    <TranslateTransform X="0" Y="0" />
-                </Border.RenderTransform>
-            </Border>
+            <DockPanel LastChildFill="True">
+                <!--
+                    ADR-004 D1: the panel reports the Bar region itself, exactly as the tab always did. Its own entry is
+                    real: the panel is not an ancestor of the tab, so moving from the tab into the panel raises its own
+                    MouseEnter. While the bar is collapsed the panel is Collapsed, so it cannot report anything at all, and
+                    E1-CA4 keeps depending on the window measuring exactly the tab footprint.
+                -->
+                <Border x:Name="ContentPanel"
+                        Style="{StaticResource BarSlotStyle}"
+                        Padding="6"
+                        input:PointerRegionBehavior.Region="{x:Static interaction:DockRegion.Bar}"
+                        input:PointerRegionBehavior.EnterCommand="{Binding EnterRegionCommand}"
+                        input:PointerRegionBehavior.LeaveCommand="{Binding LeaveRegionCommand}">
+                    <Border.RenderTransform>
+                        <TranslateTransform X="0" Y="0" />
+                    </Border.RenderTransform>
+
+                    <StackPanel Style="{StaticResource RibbonStripOrientationStyle}"
+                                VerticalAlignment="Center"
+                                HorizontalAlignment="Center">
+                        <ItemsControl ItemsSource="{Binding Ribbons}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Style="{StaticResource RibbonStripOrientationStyle}" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Button Command="{Binding ToggleCommand}"
+                                            Content="{Binding Name}"
+                                            Margin="2"
+                                            Padding="8,4"
+                                            MinWidth="68"
+                                            FontSize="11"
+                                            Foreground="{Binding DataContext.TabForeground, RelativeSource={RelativeSource AncestorType=Window}}"
+                                            Background="#33FFFFFF"
+                                            BorderThickness="1"
+                                            BorderBrush="#55FFFFFF">
+                                        <Button.ContextMenu>
+                                            <ContextMenu>
+                                                <MenuItem Header="Rename" Command="{Binding BeginRenameCommand}" />
+                                                <MenuItem Header="Move Earlier" Command="{Binding MoveEarlierCommand}" />
+                                                <MenuItem Header="Move Later" Command="{Binding MoveLaterCommand}" />
+                                                <Separator />
+                                                <MenuItem Header="Delete" Command="{Binding DeleteCommand}" />
+                                            </ContextMenu>
+                                        </Button.ContextMenu>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <Button Content="+"
+                                Command="{Binding CreateRibbonCommand}"
+                                ToolTip="Create Ribbon"
+                                Width="28"
+                                Height="28"
+                                Margin="2"
+                                FontSize="13"
+                                FontWeight="Bold"
+                                Foreground="{Binding TabForeground}"
+                                Background="#33FFFFFF"
+                                BorderThickness="1"
+                                BorderBrush="#55FFFFFF" />
+                    </StackPanel>
+                </Border>
+
+                <!--
+                    ADR-004 D1 / E3-CA3: the open ribbon reports DockRegion.Ribbon only while painted, preventing
+                    accidental collapse when moving the pointer between the bar and the open ribbon.
+                -->
+                <Border x:Name="RibbonPanel"
+                        Style="{StaticResource RibbonPanelStyle}"
+                        input:PointerRegionBehavior.Region="{x:Static interaction:DockRegion.Ribbon}"
+                        input:PointerRegionBehavior.EnterCommand="{Binding EnterRegionCommand}"
+                        input:PointerRegionBehavior.LeaveCommand="{Binding LeaveRegionCommand}">
+                    <Border.RenderTransform>
+                        <TranslateTransform X="0" Y="0" />
+                    </Border.RenderTransform>
+
+                    <Grid DataContext="{Binding OpenRibbon}">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+                        <DockPanel Grid.Row="0" Margin="0,0,0,6">
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                                <Button Content="◀" Command="{Binding MoveEarlierCommand}" Padding="4,1" Margin="1,0" FontSize="10" ToolTip="Move Earlier" />
+                                <Button Content="▶" Command="{Binding MoveLaterCommand}" Padding="4,1" Margin="1,0" FontSize="10" ToolTip="Move Later" />
+                                <Button Content="✎" Command="{Binding BeginRenameCommand}" Padding="4,1" Margin="1,0" FontSize="10" ToolTip="Rename" />
+                                <Button Content="✕" Command="{Binding DeleteCommand}" Padding="4,1" Margin="1,0" FontSize="10" ToolTip="Delete Ribbon" />
+                            </StackPanel>
+
+                            <Grid>
+                                <TextBlock Text="{Binding Name}"
+                                           FontWeight="SemiBold"
+                                           FontSize="12"
+                                           VerticalAlignment="Center"
+                                           Foreground="{Binding DataContext.TabForeground, RelativeSource={RelativeSource AncestorType=Window}}">
+                                    <TextBlock.Style>
+                                        <Style TargetType="{x:Type TextBlock}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsRenaming}" Value="True">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+
+                                <StackPanel Orientation="Horizontal">
+                                    <StackPanel.Style>
+                                        <Style TargetType="{x:Type StackPanel}">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsRenaming}" Value="True">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </StackPanel.Style>
+                                    <TextBox Text="{Binding DraftName, UpdateSourceTrigger=PropertyChanged}"
+                                             MinWidth="72"
+                                             FontSize="11" />
+                                    <Button Content="✓" Command="{Binding CommitRenameCommand}" Padding="4,1" Margin="2,0,0,0" FontSize="10" />
+                                    <Button Content="✕" Command="{Binding CancelRenameCommand}" Padding="4,1" Margin="2,0,0,0" FontSize="10" />
+                                </StackPanel>
+                            </Grid>
+                        </DockPanel>
+
+                        <ItemsControl Grid.Row="1" ItemsSource="{Binding Items}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Name}"
+                                               FontSize="11"
+                                               Margin="2"
+                                               Foreground="{Binding DataContext.TabForeground, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Grid>
+                </Border>
+            </DockPanel>
         </Grid>
 
         <Border x:Name="TabBorder"

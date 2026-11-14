@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using StickyDock.Core.Interaction;
+using StickyDock.Core.Ribbons;
 using DockEdgeKind = StickyDock.Core.Docking.DockEdge;
 
 namespace StickyDock.Core.Configuration;
@@ -9,8 +10,8 @@ namespace StickyDock.Core.Configuration;
 /// </summary>
 /// <remarks>
 /// E0 defines the versioned envelope and the atomic read/write contract; E2 adds the docked edge, E3 the grace period of
-/// the collapse timer (schema version 2) and later stages the ribbons, the shortcuts and the monitor selection, each as a
-/// new schema version with its own <see cref="IConfigurationMigration"/>.
+/// the collapse timer (schema version 2), E4 the flat ribbons (schema version 3), and later stages the shortcuts and the
+/// monitor selection, each as a new schema version with its own <see cref="IConfigurationMigration"/>.
 /// </remarks>
 public sealed record StickyDockConfiguration : IVersionedDocument
 {
@@ -24,9 +25,14 @@ public sealed record StickyDockConfiguration : IVersionedDocument
     public const string GracePeriodPropertyName = "gracePeriodMs";
 
     /// <summary>
+    /// Serialized name of <see cref="Ribbons"/>.
+    /// </summary>
+    public const string RibbonsPropertyName = "ribbons";
+
+    /// <summary>
     /// Schema version written and understood by this build.
     /// </summary>
-    public const int CurrentSchemaVersion = 2;
+    public const int CurrentSchemaVersion = 3;
 
     /// <inheritdoc />
     public int SchemaVersion { get; init; } = CurrentSchemaVersion;
@@ -52,4 +58,11 @@ public sealed record StickyDockConfiguration : IVersionedDocument
     /// </remarks>
     [JsonPropertyName(GracePeriodPropertyName)]
     public int GracePeriodMilliseconds { get; init; } = GracePeriod.DefaultMilliseconds;
+
+    /// <summary>
+    /// Gets the persisted ribbons in display order (E4, §5.2-02). Open/closed state is transient and never persisted
+    /// (Q-10).
+    /// </summary>
+    [JsonPropertyName(RibbonsPropertyName)]
+    public IReadOnlyList<Ribbon> Ribbons { get; init; } = [];
 }

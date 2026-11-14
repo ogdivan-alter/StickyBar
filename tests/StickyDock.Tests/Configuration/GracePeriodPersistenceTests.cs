@@ -22,21 +22,20 @@ public sealed class GracePeriodPersistenceTests : IDisposable
     {
         var configuration = new StickyDockConfiguration();
 
-        Assert.Equal(2, StickyDockConfiguration.CurrentSchemaVersion);
-        Assert.Equal(2, configuration.SchemaVersion);
+        Assert.Equal(StickyDockConfiguration.CurrentSchemaVersion, configuration.SchemaVersion);
         Assert.Equal(GracePeriod.DefaultMilliseconds, configuration.GracePeriodMilliseconds);
         Assert.Equal(400, configuration.GracePeriodMilliseconds);
     }
 
     [Fact]
-    public async Task SaveAsync_WritesTheSchemaVersionTwo()
+    public async Task SaveAsync_WritesTheCurrentSchemaVersion()
     {
         var store = CreateStore();
 
         await store.SaveAsync(new StickyDockConfiguration());
 
         var content = await File.ReadAllTextAsync(store.FilePath);
-        Assert.Contains("\"schemaVersion\": 2", content, StringComparison.Ordinal);
+        Assert.Contains($"\"schemaVersion\": {StickyDockConfiguration.CurrentSchemaVersion}", content, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -60,7 +59,7 @@ public sealed class GracePeriodPersistenceTests : IDisposable
 
         var loaded = await store.LoadAsync();
 
-        Assert.Equal(2, loaded.SchemaVersion);
+        Assert.Equal(StickyDockConfiguration.CurrentSchemaVersion, loaded.SchemaVersion);
         Assert.Equal(GracePeriod.DefaultMilliseconds, loaded.GracePeriodMilliseconds);
         Assert.Equal(DockEdge.Right, loaded.DockEdge);
     }
@@ -73,7 +72,7 @@ public sealed class GracePeriodPersistenceTests : IDisposable
 
         var loaded = await store.LoadAsync();
 
-        Assert.Equal(2, loaded.SchemaVersion);
+        Assert.Equal(StickyDockConfiguration.CurrentSchemaVersion, loaded.SchemaVersion);
         Assert.Equal(350, loaded.GracePeriodMilliseconds);
     }
 

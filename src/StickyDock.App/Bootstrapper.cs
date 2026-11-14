@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Windows;
 using System.Windows.Interop;
 using StickyDock.App.Docking;
+using StickyDock.App.Services;
 using StickyDock.App.Timing;
 using StickyDock.App.Views;
 using StickyDock.Core.Configuration;
@@ -158,15 +159,20 @@ internal sealed class Bootstrapper : IDisposable
         _services.AddSingleton<IDockStateService>(controller);
         _services.AddSingleton<IDockRegionSink>(controller);
 
-        // The footprint is declared in Core, so the size the coordinator applies is verifiable without the window (D2).
-        _services.AddSingleton<IDockBarSizeSource>(new DockBarSizeSource(controller, DockBarMetrics.Default));
-
         _interactionController = controller;
-        _services.AddSingleton(new DockBarViewModel(
+        var dockBarViewModel = new DockBarViewModel(
             _logger,
             controller,
             controller,
-            _services.GetRequiredService<IWindowsThemeService>()));
+            _services.GetRequiredService<IWindowsThemeService>(),
+            configuration,
+            new WpfRibbonDeletionConfirmer());
+
+        _services.AddSingleton(dockBarViewModel);
+
+        // The footprint is declared in Core, so the size the coordinator applies is verifiable without the window (D2).
+        _services.AddSingleton<IDockBarSizeSource>(
+            new DockBarSizeSource(controller, DockBarMetrics.Default, dockBarViewModel));
     }
 
     private void AttachDocking(Window window)
@@ -213,6 +219,7 @@ internal sealed class Bootstrapper : IDisposable
         if (_dockBarViewModel is not null)
         {
             _dockBarViewModel.DragRequested += OnDragRequested;
+            _dockBarViewModel.LayoutChanged += OnLayoutChanged;
         }
 
         try
@@ -234,6 +241,9 @@ internal sealed class Bootstrapper : IDisposable
     /// Grows or shrinks the bar to the footprint of the new state (ADR-003, D-09).
     /// </summary>
     private void OnDockStateChanged(object? sender, DockStateChangedEventArgs e)
+        => _dockingCoordinator?.NotifyBarSizeChanged();
+
+    private void OnLayoutChanged(object? sender, EventArgs e)
         => _dockingCoordinator?.NotifyBarSizeChanged();
 
     private void OnDragStarted(object? sender, EventArgs e) => _interactionController?.BeginDrag();
@@ -275,6 +285,7 @@ internal sealed class Bootstrapper : IDisposable
         if (_dockBarViewModel is not null)
         {
             _dockBarViewModel.DragRequested -= OnDragRequested;
+            _dockBarViewModel.LayoutChanged -= OnLayoutChanged;
         }
 
         coordinator.Dispose();

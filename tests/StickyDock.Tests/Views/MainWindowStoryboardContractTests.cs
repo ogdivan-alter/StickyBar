@@ -249,7 +249,7 @@ public sealed class MainWindowStoryboardContractTests
 
     /// <summary>Deployments of the bar: one per edge plus the floating one, all keyed on <c>DockState.Expanded</c>.</summary>
     private static IEnumerable<XElement> DeploymentTriggers()
-        => Descendants().Where(
+        => StyleWithKey(ContentPanelStyleKey).Descendants().Where(
             element => element.Name.LocalName == "MultiDataTrigger"
                 && element.Descendants().Any(
                     condition => condition.Name.LocalName == "Condition"

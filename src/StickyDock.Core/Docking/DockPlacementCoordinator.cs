@@ -37,6 +37,7 @@ public sealed class DockPlacementCoordinator : IDisposable
     private readonly ILogger _logger;
 
     private PixelRect? _lastApplied;
+    private DockEdge? _anchor;
     private bool _started;
     private bool _disposed;
 
@@ -128,6 +129,7 @@ public sealed class DockPlacementCoordinator : IDisposable
         }
 
         // Whatever the window shows is what it occupies now: comparing against it keeps the move idempotent.
+        _anchor = null;
         _lastApplied = _host.GetBounds();
         ApplyDocked(edge, _geometry.GetMonitorGeometry(), taskbar);
     }
@@ -144,6 +146,7 @@ public sealed class DockPlacementCoordinator : IDisposable
 
         var bounds = _host.GetBounds();
         _lastApplied = bounds;
+        SetFloatingAnchor(bounds);
 
         if (previousEdge is null)
         {
@@ -256,13 +259,19 @@ public sealed class DockPlacementCoordinator : IDisposable
             return;
         }
 
-        var anchor = DockPlacementCalculator.GetNearestEdge(bounds, monitor.WorkArea);
+        _anchor ??= DockPlacementCalculator.GetNearestEdge(bounds, monitor.WorkArea);
+
         var resized = DockPlacementCalculator.GetFloatingBounds(
             bounds,
-            anchor,
+            _anchor.Value,
             monitor,
             _barSize.GetCurrentSize(anchor: null));
         var clamped = DockPlacementCalculator.ClampIntoWorkArea(resized, monitor.WorkArea);
+
+        if (clamped != resized)
+        {
+            SetFloatingAnchor(clamped);
+        }
 
         if (clamped == bounds)
         {
@@ -280,6 +289,7 @@ public sealed class DockPlacementCoordinator : IDisposable
     /// </summary>
     private void ApplyDocked(DockEdge current, MonitorGeometry monitor, TaskbarPlacement taskbar)
     {
+        _anchor = null;
         var edge = DockPlacementCalculator.ChooseDockEdge(current, taskbar);
         var bounds = DockPlacementCalculator.GetDockedBounds(edge, monitor, _barSize.GetCurrentSize(edge));
 
@@ -362,6 +372,7 @@ public sealed class DockPlacementCoordinator : IDisposable
     {
         var previousEdge = CurrentEdge;
         CurrentEdge = null;
+        SetFloatingAnchor(bounds);
 
         if (previousEdge is null)
         {
@@ -372,6 +383,9 @@ public sealed class DockPlacementCoordinator : IDisposable
         PlacementChanged?.Invoke(this, new DockPlacementChangedEventArgs(null, bounds));
         return true;
     }
+
+    private void SetFloatingAnchor(PixelRect bounds)
+        => _anchor = DockPlacementCalculator.GetNearestEdge(bounds, _geometry.GetMonitorGeometry().WorkArea);
 
     /// <summary>
     /// Moves the window and records the rectangle as applied.

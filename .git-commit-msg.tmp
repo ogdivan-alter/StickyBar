@@ -1,0 +1,10 @@
+feat(ribbons): implement ribbons accordion, dynamic sizing and floating anchor per ADR-005
+
+Implement Stage E4 (Ribbons and exclusive deployment) and close H-E3-07 per ADR-005:
+- Fix floating bar anchor drift in DockPlacementCoordinator (D1-D8 of ADR-005) with 5 regression tests.
+- Add flat Ribbon/RibbonItem domain model and atomic v2->v3 schema migration (AddRibbonsMigration).
+- Add ribbon CRUD (create, rename, reorder, delete with item-count confirmation per Q-07), exclusive accordion toggle, and auto-close on collapse (Q-10) in DockBarViewModel/RibbonViewModel.
+- Add dynamic bar sizing (DockBarMetrics.GetDynamicSize) and perpendicular slide-in ribbon panel in MainWindow.xaml.
+- Update docs/plan/ESTADO.md to close H-E3-07 and E4 (422/422 tests passing, Release/Debug clean).
+
+Refs: RF01, RF02, RF03, HU03 (CA #1, CA #2), E4-CA1..E4-CA7, Q-07, Q-10, Q-11, Q-13, H-E3-07, ADR-005
