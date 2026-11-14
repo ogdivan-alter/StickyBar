@@ -3,8 +3,8 @@
 Tablero de estado del plan definido en `docs/plan/PLAN.md`. El inventario normalizado de requisitos y las matrices de trazabilidad viven en `docs/plan/TRAZABILIDAD.md`.
 
 - **Propietario**: Director de Desarrollo
-- **Última actualización**: 2026-11-03
-- **Etapa actual**: E3 **cerrada** (2026-11-03, commit `98f3387`). Siguiente: E4 (Cintas y despliegue exclusivo), pendiente de apertura.
+- **Última actualización**: 2026-11-08
+- **Etapa actual**: E4 (Cintas y despliegue exclusivo) **en curso**, abierta por la aprobación de `ADR-005` (corrección de H-E3-07). E3 cerrada el 2026-11-03 con el commit `98f3387`.
 
 ---
 
@@ -16,7 +16,7 @@ Tablero de estado del plan definido en `docs/plan/PLAN.md`. El inventario normal
 | E1 | Ventana base, tema y pestaña | Completada | 100 % | 2026-10-26 | E0 | — |
 | E2 | Sticky docking y barra de tareas | Completada | 100 % | 2026-10-28 | E1 | — |
 | E3 | Hover, slide-in y gracia | Completada | 100 % | 2026-11-03 | E2 | — |
-| E4 | Cintas y despliegue exclusivo | No iniciada | 0 % | 2026-10-22 | E2 | — |
+| E4 | Cintas y despliegue exclusivo | En curso | 0 % | 2026-11-08 | E2 | — |
 | E5 | Accesos directos `.lnk` | No iniciada | 0 % | 2026-10-22 | E1, E4 | — |
 | E6 | Bandeja, configuración y auto-inicio | No iniciada | 0 % | 2026-10-22 | E1 | — |
 | E7 | Multimonitor y réplica | No iniciada | 0 % | 2026-10-22 | E2, E5, E6 | — |
