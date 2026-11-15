@@ -35,9 +35,14 @@ public sealed record StickyDockConfiguration : IVersionedDocument
     public const string BarItemsPropertyName = "barItems";
 
     /// <summary>
+    /// Serialized name of <see cref="EnabledReplicaMonitors"/>.
+    /// </summary>
+    public const string EnabledReplicaMonitorsPropertyName = "enabledReplicaMonitors";
+
+    /// <summary>
     /// Schema version written and understood by this build.
     /// </summary>
-    public const int CurrentSchemaVersion = 4;
+    public const int CurrentSchemaVersion = 5;
 
     /// <inheritdoc />
     public int SchemaVersion { get; init; } = CurrentSchemaVersion;
@@ -76,4 +81,10 @@ public sealed record StickyDockConfiguration : IVersionedDocument
     /// </summary>
     [JsonPropertyName(BarItemsPropertyName)]
     public IReadOnlyList<RibbonItem> BarItems { get; init; } = [];
+
+    /// <summary>
+    /// Gets the device names of secondary monitors enabled for mirrored replica bars (E7, Q-04, §4.6-02).
+    /// </summary>
+    [JsonPropertyName(EnabledReplicaMonitorsPropertyName)]
+    public IReadOnlyList<string> EnabledReplicaMonitors { get; init; } = [];
 }

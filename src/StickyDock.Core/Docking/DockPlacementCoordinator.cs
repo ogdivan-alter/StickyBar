@@ -35,6 +35,7 @@ public sealed class DockPlacementCoordinator : IDisposable
     private readonly IDockBarSizeSource _barSize;
     private readonly IConfigurationDocument _configuration;
     private readonly ILogger _logger;
+    private readonly bool _persistEdge;
 
     private PixelRect? _lastApplied;
     private DockEdge? _anchor;
@@ -56,7 +57,8 @@ public sealed class DockPlacementCoordinator : IDisposable
         IDockWindowHost host,
         IDockBarSizeSource barSize,
         IConfigurationDocument configuration,
-        ILogger logger)
+        ILogger logger,
+        bool persistEdge = true)
     {
         _events = events ?? throw new ArgumentNullException(nameof(events));
         _geometry = geometry ?? throw new ArgumentNullException(nameof(geometry));
@@ -64,6 +66,7 @@ public sealed class DockPlacementCoordinator : IDisposable
         _barSize = barSize ?? throw new ArgumentNullException(nameof(barSize));
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _persistEdge = persistEdge;
     }
 
     /// <summary>
@@ -403,7 +406,7 @@ public sealed class DockPlacementCoordinator : IDisposable
 
     private void PersistEdge(DockEdge? edge)
     {
-        if (_configuration.Current.DockEdge == edge)
+        if (!_persistEdge || _configuration.Current.DockEdge == edge)
         {
             return;
         }

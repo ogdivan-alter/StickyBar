@@ -1,10 +1,10 @@
-feat(tray): implement Win32 tray icon, settings window and auto-start per ADR-006
+feat(multimonitor): implement mirrored monitor replicas and Win32 monitor catalog
 
-Implement Stage E6 (System tray, settings window and auto-start):
-- Add Win32TrayIconService (ADR-006) using Shell_NotifyIconW, HWND_MESSAGE window, GetMessagePos and native CreatePopupMenu/TrackPopupMenuEx (Settings / Exit) without loading WinForms, keeping PrivateMemorySize64 at ~33.7 MB.
-- Configure System.GC.ConserveMemory=5, RetainVMGarbageCollection=false and RenderMode.SoftwareOnly in App.xaml.cs to meet RNF-01 (< 50 MB) and Q-12 (< 46 MB).
-- Add SettingsViewModel and SettingsWindow (MVVM) with immediate 300-500 ms grace period updates, auto-start toggle and ShutdownMode=OnExplicitShutdown for background operation.
-- Add WindowsAutoStartService managing HKCU\Software\Microsoft\Windows\CurrentVersion\Run.
-- Update docs/plan/ESTADO.md to close E6 (464/464 tests passing, 33.71 MB avg RAM, 0.000% CPU).
+Implement Stage E7 (Multimonitor and mirrored replica):
+- Add Win32MonitorCatalog (EnumDisplayMonitors, GetMonitorInfoExW, GetDpiForMonitor) without WinForms, plus per-monitor taskbar/geometry resolution in TaskbarMonitor and Win32WindowGeometrySource.
+- Add v4->v5 schema migration (AddMonitorReplicaMigration) for enabledReplicaMonitors and secondary monitor toggles in SettingsViewModel/SettingsWindow (mirror-only mode per Q-04).
+- Subscribe DockBarViewModel (IDisposable) to IConfigurationDocument.Changed with anti-loop guards so ribbons and shortcuts stay mirrored in exact order across all active bars.
+- Add MultiMonitorCoordinator and WpfBarHostFactory to spawn, dock per monitor, close on disconnect and restore on reconnect (E7-CA3..E7-CA5).
+- Update docs/plan/ESTADO.md to close E7 (477/477 tests passing, 0.0064% CPU, 47.02 MB avg RAM).
 
-Refs: RF02, HU05 (CA #1), §4.6-01, §4.6-03, E6-CA1..E6-CA5, RNF-01, RNF-02, ADR-006
+Refs: RF05, HU05 (CA #2), §4.6-02, E7-CA1..E7-CA5, Q-04, R-04, R-05

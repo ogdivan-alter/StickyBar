@@ -17,17 +17,16 @@ public sealed class BarItemsPersistenceTests : IDisposable
     public void Dispose() => _directory.Dispose();
 
     [Fact]
-    public void TheDefaultDocument_IsSchemaFourWithEmptyBarItems()
+    public void TheDefaultDocument_IsSchemaFiveWithEmptyBarItems()
     {
         var configuration = new StickyDockConfiguration();
 
-        Assert.Equal(4, StickyDockConfiguration.CurrentSchemaVersion);
-        Assert.Equal(4, configuration.SchemaVersion);
+        Assert.Equal(StickyDockConfiguration.CurrentSchemaVersion, configuration.SchemaVersion);
         Assert.Empty(configuration.BarItems);
     }
 
     [Fact]
-    public async Task SaveAsync_WritesSchemaVersionFourAndBarItems()
+    public async Task SaveAsync_WritesCurrentSchemaVersionAndBarItems()
     {
         var store = CreateStore();
         var config = new StickyDockConfiguration
@@ -41,13 +40,13 @@ public sealed class BarItemsPersistenceTests : IDisposable
         await store.SaveAsync(config);
 
         var content = await File.ReadAllTextAsync(store.FilePath);
-        Assert.Contains("\"schemaVersion\": 4", content, StringComparison.Ordinal);
+        Assert.Contains($"\"schemaVersion\": {StickyDockConfiguration.CurrentSchemaVersion}", content, StringComparison.Ordinal);
         Assert.Contains("\"barItems\"", content, StringComparison.Ordinal);
         Assert.Contains("\"Terminal\"", content, StringComparison.Ordinal);
     }
 
     [Fact]
-    public async Task LoadAsync_FromSchemaThreeDocument_MigratesToFourPreservingRibbons()
+    public async Task LoadAsync_FromSchemaThreeDocument_MigratesToCurrentPreservingRibbons()
     {
         var store = CreateStore();
         await File.WriteAllTextAsync(
@@ -72,7 +71,7 @@ public sealed class BarItemsPersistenceTests : IDisposable
 
         var loaded = await store.LoadAsync();
 
-        Assert.Equal(4, loaded.SchemaVersion);
+        Assert.Equal(StickyDockConfiguration.CurrentSchemaVersion, loaded.SchemaVersion);
         Assert.Equal(DockEdge.Right, loaded.DockEdge);
         Assert.Equal(380, loaded.GracePeriodMilliseconds);
         Assert.Empty(loaded.BarItems);

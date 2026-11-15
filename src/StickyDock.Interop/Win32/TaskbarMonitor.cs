@@ -32,21 +32,92 @@ public static class TaskbarMonitor
         var state = QueryState();
         var monitor = GetMonitorBounds(windowHandle);
 
-        if (TryQueryFromShell(out var shellBounds, out var shellEdge))
+        return GetTaskbarPlacementCore(state, monitor, workArea: PixelRect.Empty);
+    }
+
+    /// <summary>
+    /// Probes the taskbar for a specific monitor using its bounds and work area (E7-CA3, R-05).
+    /// </summary>
+    public static TaskbarPlacement GetTaskbarPlacementForMonitor(PixelRect monitorBounds, PixelRect workArea)
+    {
+        var state = QueryState();
+
+        return GetTaskbarPlacementCore(state, monitorBounds, workArea);
+    }
+
+    private static TaskbarPlacement GetTaskbarPlacementCore(TaskbarState state, PixelRect monitor, PixelRect workArea)
+    {
+        if (TryQueryFromShell(out var shellBounds, out var shellEdge) && Intersects(shellBounds, monitor))
         {
-            return new TaskbarPlacement(state, shellEdge, shellBounds, Intersects(shellBounds, monitor));
+            return new TaskbarPlacement(state, shellEdge, shellBounds, IsOnCurrentMonitor: true);
         }
 
         var taskbarWindow = NativeMethods.FindWindowW(TaskbarWindowClass, null);
 
-        if (taskbarWindow == nint.Zero || !NativeMethods.GetWindowRect(taskbarWindow, out var rect))
+        if (taskbarWindow != nint.Zero && NativeMethods.GetWindowRect(taskbarWindow, out var rect))
         {
-            return new TaskbarPlacement(state, DockEdge.Bottom, PixelRect.Empty, IsOnCurrentMonitor: false);
+            var bounds = ToPixelRect(rect);
+
+            if (Intersects(bounds, monitor))
+            {
+                return new TaskbarPlacement(state, DeriveEdge(bounds, monitor), bounds, IsOnCurrentMonitor: true);
+            }
         }
 
-        var bounds = ToPixelRect(rect);
+        // Secondary monitors host Shell_SecondaryTrayWnd, which SHAppBarMessage does not report. When the monitor's
+        // work area is inset from its full bounds, that inset marks the edge occupied by the secondary taskbar.
+        if (!workArea.IsEmpty && !monitor.IsEmpty && TryDeriveSecondaryTaskbar(monitor, workArea, out var secondaryEdge, out var secondaryBounds))
+        {
+            return new TaskbarPlacement(TaskbarState.Visible, secondaryEdge, secondaryBounds, IsOnCurrentMonitor: true);
+        }
 
-        return new TaskbarPlacement(state, DeriveEdge(bounds, monitor), bounds, Intersects(bounds, monitor));
+        return new TaskbarPlacement(state, DockEdge.Bottom, PixelRect.Empty, IsOnCurrentMonitor: false);
+    }
+
+    private static bool TryDeriveSecondaryTaskbar(
+        PixelRect monitor,
+        PixelRect workArea,
+        out DockEdge edge,
+        out PixelRect taskbarBounds)
+    {
+        var topGap = workArea.Y - monitor.Y;
+        var bottomGap = monitor.Bottom - workArea.Bottom;
+        var leftGap = workArea.X - monitor.X;
+        var rightGap = monitor.Right - workArea.Right;
+
+        var maxGap = 0;
+        edge = DockEdge.Bottom;
+        taskbarBounds = PixelRect.Empty;
+
+        if (bottomGap > maxGap)
+        {
+            maxGap = bottomGap;
+            edge = DockEdge.Bottom;
+            taskbarBounds = new PixelRect(monitor.X, workArea.Bottom, monitor.Width, bottomGap);
+        }
+
+        if (topGap > maxGap)
+        {
+            maxGap = topGap;
+            edge = DockEdge.Top;
+            taskbarBounds = new PixelRect(monitor.X, monitor.Y, monitor.Width, topGap);
+        }
+
+        if (leftGap > maxGap)
+        {
+            maxGap = leftGap;
+            edge = DockEdge.Left;
+            taskbarBounds = new PixelRect(monitor.X, monitor.Y, leftGap, monitor.Height);
+        }
+
+        if (rightGap > maxGap)
+        {
+            maxGap = rightGap;
+            edge = DockEdge.Right;
+            taskbarBounds = new PixelRect(workArea.Right, monitor.Y, rightGap, monitor.Height);
+        }
+
+        return maxGap > 0;
     }
 
     private static bool TryQueryFromShell(out PixelRect bounds, out DockEdge edge)

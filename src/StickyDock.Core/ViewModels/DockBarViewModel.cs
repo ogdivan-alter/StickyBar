@@ -27,7 +27,7 @@ namespace StickyDock.Core.ViewModels;
 /// duration and no offset crosses this class, because the animation timelines cannot receive them by binding (ADR-003, D5).
 /// </para>
 /// </remarks>
-public sealed class DockBarViewModel : ViewModelBase, IRibbonLayoutState
+public sealed class DockBarViewModel : ViewModelBase, IRibbonLayoutState, IDisposable
 {
     private readonly ILogger _logger;
     private readonly IDockStateService _dockStateService;
@@ -45,6 +45,9 @@ public sealed class DockBarViewModel : ViewModelBase, IRibbonLayoutState
     private DockState _dockState = DockState.Tab;
     private DockEdge? _dockEdge;
     private RibbonViewModel? _openRibbon;
+    private bool _isUpdatingConfiguration;
+    private bool _isSynchronizing;
+    private bool _disposed;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="DockBarViewModel"/> class.
@@ -146,6 +149,11 @@ public sealed class DockBarViewModel : ViewModelBase, IRibbonLayoutState
         if (_themeService != null)
         {
             _themeService.ThemeChanged += OnThemeChanged;
+        }
+
+        if (_configuration != null)
+        {
+            _configuration.Changed += OnConfigurationChanged;
         }
 
         _dockStateService.StateChanged += OnDockStateChanged;
@@ -677,12 +685,17 @@ public sealed class DockBarViewModel : ViewModelBase, IRibbonLayoutState
             return;
         }
 
-        foreach (var item in _configuration.Current.BarItems.OrderBy(i => i.Order))
+        LoadFromConfiguration(_configuration.Current);
+    }
+
+    private void LoadFromConfiguration(StickyDockConfiguration document)
+    {
+        foreach (var item in document.BarItems.OrderBy(i => i.Order))
         {
             BarItems.Add(CreateShortcutViewModel(item, containerRibbonId: null));
         }
 
-        foreach (var ribbon in _configuration.Current.Ribbons.OrderBy(r => r.Order))
+        foreach (var ribbon in document.Ribbons.OrderBy(r => r.Order))
         {
             var ribbonVm = CreateRibbonViewModel(ribbon);
 
@@ -941,31 +954,157 @@ public sealed class DockBarViewModel : ViewModelBase, IRibbonLayoutState
         }
     }
 
+    /// <inheritdoc />
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+
+        if (_themeService != null)
+        {
+            _themeService.ThemeChanged -= OnThemeChanged;
+        }
+
+        _dockStateService.StateChanged -= OnDockStateChanged;
+
+        if (_configuration != null)
+        {
+            _configuration.Changed -= OnConfigurationChanged;
+        }
+
+        DragRequested = null;
+        LayoutChanged = null;
+    }
+
+    private void OnConfigurationChanged(object? sender, ConfigurationChangedEventArgs e)
+    {
+        if (_disposed || _isUpdatingConfiguration || _isSynchronizing)
+        {
+            return;
+        }
+
+        if (ContentMatchesConfiguration(e.Document))
+        {
+            return;
+        }
+
+        _isSynchronizing = true;
+
+        try
+        {
+            var openRibbonId = _openRibbon?.Id;
+
+            BarItems.Clear();
+            Ribbons.Clear();
+            LoadFromConfiguration(e.Document);
+
+            if (openRibbonId is not null && _dockState == DockState.Expanded)
+            {
+                OpenRibbon = Ribbons.FirstOrDefault(r => string.Equals(r.Id, openRibbonId, StringComparison.Ordinal));
+            }
+            else
+            {
+                OpenRibbon = null;
+            }
+
+            NotifyLayoutChanged();
+        }
+        finally
+        {
+            _isSynchronizing = false;
+        }
+    }
+
+    private bool ContentMatchesConfiguration(StickyDockConfiguration document)
+    {
+        var expectedBarItems = document.BarItems.OrderBy(static i => i.Order).ToArray();
+
+        if (BarItems.Count != expectedBarItems.Length)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < BarItems.Count; i++)
+        {
+            if (!ItemMatches(BarItems[i], expectedBarItems[i]))
+            {
+                return false;
+            }
+        }
+
+        var expectedRibbons = document.Ribbons.OrderBy(static r => r.Order).ToArray();
+
+        if (Ribbons.Count != expectedRibbons.Length)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < Ribbons.Count; i++)
+        {
+            var vm = Ribbons[i];
+            var model = expectedRibbons[i];
+
+            if (!string.Equals(vm.Id, model.Id, StringComparison.Ordinal)
+                || !string.Equals(vm.Name, model.Name, StringComparison.Ordinal)
+                || vm.Order != model.Order)
+            {
+                return false;
+            }
+
+            var expectedItems = model.Items.OrderBy(static item => item.Order).ToArray();
+
+            if (vm.ShortcutItems.Count != expectedItems.Length)
+            {
+                return false;
+            }
+
+            for (var j = 0; j < vm.ShortcutItems.Count; j++)
+            {
+                if (!ItemMatches(vm.ShortcutItems[j], expectedItems[j]))
+                {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    private static bool ItemMatches(ShortcutItemViewModel vm, RibbonItem model)
+        => string.Equals(vm.Id, model.Id, StringComparison.Ordinal)
+        && string.Equals(vm.Name, model.Name, StringComparison.Ordinal)
+        && string.Equals(vm.ShortcutPath, model.ShortcutPath, StringComparison.Ordinal)
+        && vm.Order == model.Order;
+
     private void PersistRibbons()
     {
-        if (_configuration is null)
+        if (_configuration is null || _isSynchronizing)
         {
             return;
         }
 
         var snapshot = Ribbons.Select(r => r.ToModel()).ToArray();
-        _configuration.Update(doc => doc with { Ribbons = snapshot });
+        UpdateConfiguration(doc => doc with { Ribbons = snapshot });
     }
 
     private void PersistBarItems()
     {
-        if (_configuration is null)
+        if (_configuration is null || _isSynchronizing)
         {
             return;
         }
 
         var snapshot = BarItems.Select(i => i.ToModel()).ToArray();
-        _configuration.Update(doc => doc with { BarItems = snapshot });
+        UpdateConfiguration(doc => doc with { BarItems = snapshot });
     }
 
     private void PersistAllShortcuts(bool includeBarItems)
     {
-        if (_configuration is null)
+        if (_configuration is null || _isSynchronizing)
         {
             return;
         }
@@ -975,11 +1114,30 @@ public sealed class DockBarViewModel : ViewModelBase, IRibbonLayoutState
         if (includeBarItems)
         {
             var barSnapshot = BarItems.Select(i => i.ToModel()).ToArray();
-            _configuration.Update(doc => doc with { Ribbons = ribbonsSnapshot, BarItems = barSnapshot });
+            UpdateConfiguration(doc => doc with { Ribbons = ribbonsSnapshot, BarItems = barSnapshot });
         }
         else
         {
-            _configuration.Update(doc => doc with { Ribbons = ribbonsSnapshot });
+            UpdateConfiguration(doc => doc with { Ribbons = ribbonsSnapshot });
+        }
+    }
+
+    private void UpdateConfiguration(Func<StickyDockConfiguration, StickyDockConfiguration> transform)
+    {
+        if (_configuration is null)
+        {
+            return;
+        }
+
+        _isUpdatingConfiguration = true;
+
+        try
+        {
+            _configuration.Update(transform);
+        }
+        finally
+        {
+            _isUpdatingConfiguration = false;
         }
     }
 

@@ -165,6 +165,68 @@ public sealed class SettingsViewModelTests
         Assert.Equal("Right", viewModel.DockedEdgeLabel);
     }
 
+    [Fact]
+    public void SecondaryMonitors_WithSinglePrimaryDisplay_ReportsHasNoSecondaryMonitors()
+    {
+        using var directory = new TemporaryDirectory();
+        var logger = new RecordingLogger();
+        var store = StickyDockSettings.CreateStore(directory.GetFilePath("settings.json"), logger);
+        using var document = new ConfigurationDocument(store, new StickyDockConfiguration(), logger);
+        var autoStart = new FakeAutoStartService(initialEnabled: false);
+        var catalog = new FakeMonitorCatalog(
+            new DisplayMonitorInfo(@"\\.\DISPLAY1", true, new PixelRect(0, 0, 1920, 1080), new PixelRect(0, 0, 1920, 1040), 96));
+
+        using var viewModel = new SettingsViewModel(document, autoStart, logger, catalog);
+
+        Assert.Empty(viewModel.SecondaryMonitors);
+        Assert.False(viewModel.HasSecondaryMonitors);
+        Assert.True(viewModel.HasNoSecondaryMonitors);
+    }
+
+    [Fact]
+    public async Task SecondaryMonitors_WhenToggled_UpdatesDocumentImmediatelyAndPersists()
+    {
+        using var directory = new TemporaryDirectory();
+        var logger = new RecordingLogger();
+        var filePath = directory.GetFilePath("settings.json");
+        var store = StickyDockSettings.CreateStore(filePath, logger);
+        using var document = new ConfigurationDocument(
+            store,
+            new StickyDockConfiguration { EnabledReplicaMonitors = [@"\\.\DISPLAY3"] },
+            logger);
+        var autoStart = new FakeAutoStartService(initialEnabled: false);
+        var catalog = new FakeMonitorCatalog(
+            new DisplayMonitorInfo(@"\\.\DISPLAY1", true, new PixelRect(0, 0, 1920, 1080), new PixelRect(0, 0, 1920, 1040), 96),
+            new DisplayMonitorInfo(@"\\.\DISPLAY2", false, new PixelRect(1920, 0, 1920, 1080), new PixelRect(1920, 0, 1920, 1040), 96),
+            new DisplayMonitorInfo(@"\\.\DISPLAY3", false, new PixelRect(3840, 0, 1920, 1080), new PixelRect(3840, 0, 1920, 1040), 120));
+
+        using var viewModel = new SettingsViewModel(document, autoStart, logger, catalog);
+
+        Assert.True(viewModel.HasSecondaryMonitors);
+        Assert.False(viewModel.HasNoSecondaryMonitors);
+        Assert.Equal(2, viewModel.SecondaryMonitors.Count);
+        Assert.False(viewModel.SecondaryMonitors[0].IsEnabled);
+        Assert.True(viewModel.SecondaryMonitors[1].IsEnabled);
+
+        viewModel.SecondaryMonitors[0].IsEnabled = true;
+        await document.FlushAsync();
+
+        Assert.Contains(@"\\.\DISPLAY2", document.Current.EnabledReplicaMonitors);
+        Assert.Contains(@"\\.\DISPLAY3", document.Current.EnabledReplicaMonitors);
+
+        var reloaded = await store.LoadAsync();
+        Assert.Contains(@"\\.\DISPLAY2", reloaded.EnabledReplicaMonitors);
+    }
+
+    private sealed class FakeMonitorCatalog : IMonitorCatalog
+    {
+        private readonly DisplayMonitorInfo[] _monitors;
+
+        public FakeMonitorCatalog(params DisplayMonitorInfo[] monitors) => _monitors = monitors;
+
+        public IReadOnlyList<DisplayMonitorInfo> GetMonitors() => _monitors;
+    }
+
     private sealed class FakeAutoStartService : IAutoStartService
     {
         private bool _enabled;

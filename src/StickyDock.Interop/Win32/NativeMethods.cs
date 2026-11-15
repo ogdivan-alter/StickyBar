@@ -11,6 +11,7 @@ internal static partial class NativeMethods
     private const string User32LibraryName = "user32.dll";
     private const string Shell32LibraryName = "shell32.dll";
     private const string Kernel32LibraryName = "kernel32.dll";
+    private const string ShcoreLibraryName = "shcore.dll";
 
     [LibraryImport(User32LibraryName, EntryPoint = "GetSystemMetrics")]
     internal static partial int GetSystemMetrics(int index);
@@ -25,6 +26,17 @@ internal static partial class NativeMethods
     [LibraryImport(User32LibraryName, EntryPoint = "GetMonitorInfoW")]
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static partial bool GetMonitorInfoW(nint hMonitor, ref MONITORINFO lpmi);
+
+    [LibraryImport(User32LibraryName, EntryPoint = "GetMonitorInfoW")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool GetMonitorInfoExW(nint hMonitor, ref MONITORINFOEXW lpmi);
+
+    [LibraryImport(User32LibraryName, EntryPoint = "EnumDisplayMonitors")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool EnumDisplayMonitors(nint hdc, nint lprcClip, MonitorEnumProc lpfnEnum, nint dwData);
+
+    [LibraryImport(ShcoreLibraryName, EntryPoint = "GetDpiForMonitor")]
+    internal static partial int GetDpiForMonitor(nint hMonitor, int dpiType, out uint dpiX, out uint dpiY);
 
     [LibraryImport(User32LibraryName, EntryPoint = "GetDpiForWindow")]
     internal static partial uint GetDpiForWindow(nint hWnd);
@@ -145,6 +157,9 @@ internal delegate void WinEventDelegate(nint hWinEventHook, uint eventType, nint
 
 internal delegate nint WndProcDelegate(nint hWnd, uint msg, nint wParam, nint lParam);
 
+[return: MarshalAs(UnmanagedType.Bool)]
+internal delegate bool MonitorEnumProc(nint hMonitor, nint hdcMonitor, nint lprcMonitor, nint dwData);
+
 [StructLayout(LayoutKind.Sequential)]
 internal struct RECT
 {
@@ -199,6 +214,16 @@ internal struct WNDCLASSEXW
     public nint lpszMenuName;
     public nint lpszClassName;
     public nint hIconSm;
+}
+
+[StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+internal unsafe struct MONITORINFOEXW
+{
+    public int cbSize;
+    public RECT rcMonitor;
+    public RECT rcWork;
+    public uint dwFlags;
+    public fixed char szDevice[32];
 }
 
 [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]

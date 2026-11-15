@@ -37,9 +37,12 @@ internal sealed class Bootstrapper : IDisposable
     private readonly RotatingFileLogger _logger;
 
     private DockPlacementCoordinator? _dockingCoordinator;
+    private IDockingEventSource? _primaryDockingEvents;
+    private MultiMonitorCoordinator? _multiMonitorCoordinator;
     private DockInteractionController? _interactionController;
     private IDockStateService? _dockStates;
     private DockBarViewModel? _dockBarViewModel;
+    private IRibbonDeletionConfirmer? _deletionConfirmer;
     private MainWindow? _mainWindow;
     private ITrayIconService? _trayIconService;
     private SettingsWindow? _settingsWindow;
@@ -92,6 +95,9 @@ internal sealed class Bootstrapper : IDisposable
 
             // E6: Windows auto-start service.
             services.AddSingleton<IAutoStartService>(new WindowsAutoStartService());
+
+            // E7: pure Win32 display monitor catalog.
+            services.AddSingleton<IMonitorCatalog>(new Win32MonitorCatalog());
 
             var primaryScreen = DisplayMetrics.GetPrimaryScreenSize();
             logger.Information(
@@ -175,6 +181,8 @@ internal sealed class Bootstrapper : IDisposable
         var shellLinkReader = new ShellLinkReader();
         var shortcutLauncher = new ShortcutLauncher(shellLinkReader, _logger);
         var userAlertService = new WpfUserAlertService();
+        var deletionConfirmer = new WpfRibbonDeletionConfirmer();
+        _deletionConfirmer = deletionConfirmer;
 
         _services.AddSingleton<IShellLinkReader>(shellLinkReader);
         _services.AddSingleton<IShortcutLauncher>(shortcutLauncher);
@@ -186,7 +194,7 @@ internal sealed class Bootstrapper : IDisposable
             controller,
             _services.GetRequiredService<IWindowsThemeService>(),
             configuration,
-            new WpfRibbonDeletionConfirmer(),
+            deletionConfirmer,
             shellLinkReader,
             shortcutLauncher,
             userAlertService);
@@ -232,8 +240,10 @@ internal sealed class Bootstrapper : IDisposable
         var states = _services.GetRequiredService<IDockStateService>();
 
         _dockingCoordinator = coordinator;
+        _primaryDockingEvents = events;
         _dockStates = states;
 
+        events.Changed += OnPrimaryDockingEvent;
         coordinator.PlacementChanged += OnPlacementChanged;
         coordinator.DragStarted += OnDragStarted;
         coordinator.DragCompleted += OnDragCompleted;
@@ -248,6 +258,7 @@ internal sealed class Bootstrapper : IDisposable
         try
         {
             coordinator.Start();
+            StartMultiMonitorCoordinator();
         }
         catch (Exception exception)
         {
@@ -343,7 +354,8 @@ internal sealed class Bootstrapper : IDisposable
         var viewModel = new SettingsViewModel(
             _services.GetRequiredService<IConfigurationDocument>(),
             _services.GetRequiredService<IAutoStartService>(),
-            _logger);
+            _logger,
+            _services.GetRequiredService<IMonitorCatalog>());
 
         var window = new SettingsWindow
         {
@@ -380,8 +392,58 @@ internal sealed class Bootstrapper : IDisposable
         }
     }
 
+    private void StartMultiMonitorCoordinator()
+    {
+        if (_multiMonitorCoordinator is not null)
+        {
+            return;
+        }
+
+        var hostFactory = new WpfBarHostFactory(
+            _services.GetRequiredService<IConfigurationDocument>(),
+            _services.GetRequiredService<IMonitorCatalog>(),
+            _services.GetRequiredService<MainViewModel>(),
+            _services.GetRequiredService<IWindowsThemeService>(),
+            _services.GetRequiredService<IShellLinkReader>(),
+            _services.GetRequiredService<IShortcutLauncher>(),
+            _services.GetRequiredService<IUserAlertService>(),
+            _deletionConfirmer ?? new WpfRibbonDeletionConfirmer(),
+            _logger);
+
+        _multiMonitorCoordinator = new MultiMonitorCoordinator(
+            _services.GetRequiredService<IMonitorCatalog>(),
+            _services.GetRequiredService<IConfigurationDocument>(),
+            hostFactory,
+            _logger);
+
+        _multiMonitorCoordinator.Start();
+    }
+
+    private void OnPrimaryDockingEvent(object? sender, DockingEventArgs e)
+    {
+        if (e.Kind != DockingEventKind.DisplayChanged)
+        {
+            return;
+        }
+
+        _multiMonitorCoordinator?.NotifyDisplayChanged();
+        _settingsViewModel?.RefreshMonitors();
+    }
+
     private void DetachDocking()
     {
+        if (_multiMonitorCoordinator is not null)
+        {
+            _multiMonitorCoordinator.Dispose();
+            _multiMonitorCoordinator = null;
+        }
+
+        if (_primaryDockingEvents is not null)
+        {
+            _primaryDockingEvents.Changed -= OnPrimaryDockingEvent;
+            _primaryDockingEvents = null;
+        }
+
         var coordinator = _dockingCoordinator;
 
         if (coordinator is null)

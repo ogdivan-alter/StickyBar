@@ -16,6 +16,8 @@ public sealed class Win32WindowGeometrySource : IWindowGeometrySource
     private const int DefaultDpi = 96;
 
     private readonly nint _windowHandle;
+    private readonly IMonitorCatalog? _monitorCatalog;
+    private readonly string? _targetDeviceName;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="Win32WindowGeometrySource"/> class.
@@ -23,6 +25,18 @@ public sealed class Win32WindowGeometrySource : IWindowGeometrySource
     /// <param name="windowHandle">Handle of the bar window, already created.</param>
     /// <exception cref="ArgumentException">The handle is zero.</exception>
     public Win32WindowGeometrySource(nint windowHandle)
+        : this(windowHandle, monitorCatalog: null, targetDeviceName: null)
+    {
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="Win32WindowGeometrySource"/> class pinned to a specific monitor
+    /// device name when <paramref name="targetDeviceName"/> is provided (E7-CA3).
+    /// </summary>
+    public Win32WindowGeometrySource(
+        nint windowHandle,
+        IMonitorCatalog? monitorCatalog,
+        string? targetDeviceName)
     {
         if (windowHandle == nint.Zero)
         {
@@ -30,11 +44,18 @@ public sealed class Win32WindowGeometrySource : IWindowGeometrySource
         }
 
         _windowHandle = windowHandle;
+        _monitorCatalog = monitorCatalog;
+        _targetDeviceName = targetDeviceName;
     }
 
     /// <inheritdoc />
     public MonitorGeometry GetMonitorGeometry()
     {
+        if (TryFindTargetMonitor(out var target))
+        {
+            return new MonitorGeometry(target.Bounds, target.WorkArea, target.Dpi);
+        }
+
         var monitor = NativeMethods.MonitorFromWindow(_windowHandle, MonitorDefaultToNearest);
         var info = new MONITORINFO
         {
@@ -54,7 +75,33 @@ public sealed class Win32WindowGeometrySource : IWindowGeometrySource
     }
 
     /// <inheritdoc />
-    public TaskbarPlacement GetTaskbarPlacement() => TaskbarMonitor.GetTaskbarPlacement(_windowHandle);
+    public TaskbarPlacement GetTaskbarPlacement()
+    {
+        if (TryFindTargetMonitor(out var target))
+        {
+            return TaskbarMonitor.GetTaskbarPlacementForMonitor(target.Bounds, target.WorkArea);
+        }
+
+        return TaskbarMonitor.GetTaskbarPlacement(_windowHandle);
+    }
+
+    private bool TryFindTargetMonitor(out DisplayMonitorInfo target)
+    {
+        if (_monitorCatalog is not null && !string.IsNullOrWhiteSpace(_targetDeviceName))
+        {
+            foreach (var monitor in _monitorCatalog.GetMonitors())
+            {
+                if (string.Equals(monitor.DeviceName, _targetDeviceName, StringComparison.OrdinalIgnoreCase))
+                {
+                    target = monitor;
+                    return true;
+                }
+            }
+        }
+
+        target = null!;
+        return false;
+    }
 
     private int GetDpi()
     {

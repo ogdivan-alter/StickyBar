@@ -3,8 +3,8 @@
 Tablero de estado del plan definido en `docs/plan/PLAN.md`. El inventario normalizado de requisitos y las matrices de trazabilidad viven en `docs/plan/TRAZABILIDAD.md`.
 
 - **Propietario**: Director de Desarrollo
-- **Última actualización**: 2026-11-14
-- **Etapa actual**: E7 (Multimonitor y réplica) lista para iniciar. **E6 cerrada el 2026-11-14** (con `ADR-006`).
+- **Última actualización**: 2026-11-15
+- **Etapa actual**: E8 (Rendimiento, endurecimiento y entrega) lista para iniciar. **E7 cerrada el 2026-11-15**.
 
 ---
 
@@ -19,7 +19,7 @@ Tablero de estado del plan definido en `docs/plan/PLAN.md`. El inventario normal
 | E4 | Cintas y despliegue exclusivo | Completada | 100 % | 2026-11-14 | E2 | — |
 | E5 | Accesos directos `.lnk` | Completada | 100 % | 2026-11-14 | E1, E4 | — |
 | E6 | Bandeja, configuración y auto-inicio | Completada | 100 % | 2026-11-14 | E1 | — |
-| E7 | Multimonitor y réplica | No iniciada | 0 % | 2026-10-22 | E2, E5, E6 | — |
+| E7 | Multimonitor y réplica | Completada | 100 % | 2026-11-15 | E2, E5, E6 | — |
 | E8 | Rendimiento, endurecimiento y entrega | No iniciada | 0 % | 2026-10-22 | E0–E7 | — |
 
 **Estados válidos**: `No iniciada` · `En curso` · `En revisión` · `Bloqueada` · `Completada`
@@ -106,6 +106,9 @@ Tablero de estado del plan definido en `docs/plan/PLAN.md`. El inventario normal
 | 2026-11-14 | E6 | `ADR-006` + `Win32TrayIconService` y ajuste RNF-01 | Se registra `ADR-006` (`Shell_NotifyIconW` + `CreatePopupMenu`/`TrackPopupMenuEx` nativo en `StickyDock.Interop` con `GetMessagePos()` y `HWND_MESSAGE`), `System.GC.ConserveMemory=5` / `RetainVMGarbageCollection=false` en `StickyDock.App.csproj`, y `RenderOptions.ProcessRenderMode = RenderMode.SoftwareOnly` en `App.xaml.cs` (elimina ~26 MB del driver Direct3D en una barra minimalista). Suite: **464/464** en verde. | Director / Implementador |
 | 2026-11-14 | E6 | Verificación final de `qa`: veredicto **APROBADA** | Builds Release y Debug con `--no-incremental`: **0 errores y 0 advertencias**. `dotnet test`: **464/464** en verde. Greps ADR-004 §9.4 y ADR-005 §6.2 limpios. 5/5 criterios (`E6-CA1..E6-CA5`) en **Cumple**, 0 defectos. Medición RNF en Release (30 muestras a 1 s): `PrivateMemorySize64` **33,71 MB** promedio (rango 33,61–33,79 MB, `PrivateBytes` 33,70 MB, < 46 MB Q-12 y < 50 MB RNF-01); CPU en reposo **0,000 %** (< 1 %). | QA |
 | 2026-11-14 | E6 | **Cierre de E6** | E6 pasa a **Completada al 100 %**; el plan avanza al **78 %** (7 de 9 etapas, 66 de 87 puntos). Quedan registradas las verificaciones manuales visuales `M-18`..`M-20` y `ADR-006` en estado *Propuesta* para ratificación del usuario. | Director de Desarrollo |
+| 2026-11-15 | E7 | Implementación de E7 entregada | El `implementador` entrega `Win32MonitorCatalog` (`EnumDisplayMonitors`/`GetMonitorInfoExW`/`GetDpiForMonitor` sin WinForms), `TaskbarMonitor.GetTaskbarPlacementForMonitor`, `AddMonitorReplicaMigration` (esquema v4→v5), selección de monitores secundarios en `SettingsViewModel`/`SettingsWindow`, sincronización espejada vía `IConfigurationDocument.Changed` en `DockBarViewModel` (`IDisposable`), y `MultiMonitorCoordinator`/`WpfBarHostFactory` para desconexión y reconexión. Suite: **477/477** (+13 pruebas). Sin commit. | Implementador |
+| 2026-11-15 | E7 | Verificación de `qa`: veredicto **APROBADA CON OBSERVACIONES** | Builds Release y Debug con `--no-incremental`: **0 errores y 0 advertencias**. `dotnet test`: **477/477** en verde. 6/6 criterios (`E7-CA1..E7-CA5`, `Q-04`) en **Cumple**; greps ADR-004 §9.4 y ADR-005 §6.2 limpios; `WinFormsModulesLoaded: 0`. RNF en Release (30 muestras a 1 s): CPU **0,0064 %** (< 1 %); RAM privada `PrivateMemorySize64` **47,02 MB** promedio (máx. 47,14 MB — cumple RNF-01 `< 50 MB`, supera en ~1,02 MB el presupuesto interno Q-12 `< 46 MB`, asignado a perfilado de E8). | QA |
+| 2026-11-15 | E7 | **Cierre de E7** | E7 pasa a **Completada al 100 %**; R-04 pasa a **Mitigado**; el plan avanza al **89 %** (8 de 9 etapas, 74 de 87 puntos). Quedan registradas `OBS-E7-01` (presupuesto Q-12 para E8) y `M-21` (verificación física multimonitor). | Director de Desarrollo |
 
 ---
 
@@ -116,7 +119,7 @@ Tablero de estado del plan definido en `docs/plan/PLAN.md`. El inventario normal
 | R-01 | El runtime de Windows App SDK complica el empaquetado en Windows 10 | E0, E8 | — | — | Cerrado por Q-02: con WPF no hay dependencia de runtime externo | **Cerrado** |
 | R-02 | `AllowsTransparency` encarece el coste en reposo y pone en riesgo el RNF de RAM | E1, E3 | Media | Medio | Medición contrastada (Q-08): 36,5 MB de memoria privada frente a 50 MB. Medición de cierre de E3 en Release publicado: **44,02 MB** (43,93–44,17), con **5,98 MB** de margen frente al límite. El crecimiento de 7,5 MB respecto de E1 corresponde a E2+E3 (docking, interacción y animaciones declarativas). El riesgo sigue **mitigado pero con menos holgura**: la medición cumple el presupuesto interno vigente de **46 MB** (recalibrado en **Q-12**) con **1,98 MB** de margen. Se vigila en E4, E5, E7 y E8 | **Mitigado** (2026-11-03; margen de 5,98 MB frente al RNF de 50 MB y de 1,98 MB frente al presupuesto de 46 MB) |
 | R-03 | Interop COM de `IShellLink` con *marshaling* de iconos | E5 | Media | Alto | Etapa aislada y con prueba dedicada de un `.lnk` con argumentos | **Mitigado** (2026-11-14; `ShellLinkReader` aislado en Interop con `DestroyIcon`/`FinalReleaseComObject` en `finally` y prueba real end-to-end) |
-| R-04 | Sincronización de estado entre las réplicas multimonitor | E7 | Media | Medio | Un único origen de verdad en el proyecto de núcleo | Abierto |
+| R-04 | Sincronización de estado entre las réplicas multimonitor | E7 | Media | Medio | Un único origen de verdad en el proyecto de núcleo | **Mitigado** (2026-11-15; `IConfigurationDocument` único + `DockBarViewModel.Dispose` + `MultiMonitorCoordinator`) |
 | R-05 | *Work area* y DPI mixto con varias escalas de pantalla | E2, E7 | Alta | Medio | ADR-002: geometría en píxeles de dispositivo (`GetMonitorInfoW` + `GetDpiForWindow`), `PerMonitorV2` (AMP-03) y pruebas de matriz de `GetDockedBounds`; verificación manual con dos escalas | **Mitigado** (2026-10-28; queda la verificación manual M-03 con dos escalas) |
 
 ---
@@ -520,17 +523,18 @@ Registradas al cerrar E4 con veredicto **APROBADA CON OBSERVACIONES** del 2026-1
 | M-18 | Hacer clic izquierdo en el icono de bandeja y comprobar apertura/activación de `SettingsWindow`; clic derecho y probar `Settings` y `Exit` verificando que el icono desaparece sin quedar fantasma | E6-CA1, E6-CA2, ADR-006 |
 | M-19 | Cambiar el temporizador de gracia en `SettingsWindow` (300–500 ms), comprobar efecto inmediato y persistencia tras reiniciar; cerrar `SettingsWindow` y verificar ejecución en segundo plano y fluidez visual con `RenderMode.SoftwareOnly` | E6-CA3, E6-CA5 |
 | M-20 | Activar/desactivar `"Start automatically with Windows"` y verificar entrada `"StickyDock"` en `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` | E6-CA4 |
+| M-21 | En entorno físico con 2+ monitores (DPI mixto y barra secundaria en otro borde), activar réplica, verificar acople por monitor, sincronización espejada en vivo y desconexión/reconexión física | E7-CA1..E7-CA5, R-05 |
 
 ---
 
 ## Resumen para reporte
 
-- **Etapas cerradas**: E0 (2026-10-22), E1 (2026-10-26), E2 (2026-10-28, `2aa510a`), E3 (2026-11-03, `98f3387`), E4 (2026-11-14, `5577dbc`), E5 (2026-11-14, `7aa22a4`) y **E6 (2026-11-14)**.
-- **Etapa cerrada — E6 (Bandeja, configuración y auto-inicio) al 100 %**:
-  - `Win32TrayIconService` (`ADR-006`: `Shell_NotifyIconW`, `HWND_MESSAGE`, menú nativo `CreatePopupMenu`/`TrackPopupMenuEx`, `GetMessagePos()`), `System.GC.ConserveMemory=5` y `RenderMode.SoftwareOnly` en `App.xaml.cs` para cumplir RNF-01.
-  - `SettingsViewModel` + `SettingsWindow` (gracia 300–500 ms inmediata y persistida, auto-inicio, `ShutdownMode="OnExplicitShutdown"`).
-  - `WindowsAutoStartService` en `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`.
-- **Veredicto de `qa`: APROBADA** — 5/5 criterios (`E6-CA1..E6-CA5`) en **Cumple**, 0 defectos, builds Release/Debug limpios, **464/464** pruebas en verde.
-- **RNF medidos por `qa` en Release** (30 muestras a 1 s): CPU en reposo **0,000 %** (< 1 %); memoria privada comprometida (`PrivateMemorySize64`) **33,71 MB** promedio (máx. **33,79 MB**, < 46 MB Q-12 y < 50 MB RNF-01).
-- **Avance del plan**: **78 %** (7 de 9 etapas cerradas; 66 de 87 puntos estimados).
-- **Próxima acción**: iniciar **E7 — Multimonitor y réplica espejada** (depende de E2, E5 y E6, ya completadas). Ratificar `ADR-006` si corresponde.
+- **Etapas cerradas**: E0 (2026-10-22), E1 (2026-10-26), E2 (2026-10-28, `2aa510a`), E3 (2026-11-03, `98f3387`), E4 (2026-11-14, `5577dbc`), E5 (2026-11-14, `7aa22a4`), E6 (2026-11-14, `76a12e1`) y **E7 (2026-11-15)**.
+- **Etapa cerrada — E7 (Multimonitor y réplica espejada) al 100 %**:
+  - `Win32MonitorCatalog` (`EnumDisplayMonitors`/`GetMonitorInfoExW`/`GetDpiForMonitor` sin WinForms) y `TaskbarMonitor.GetTaskbarPlacementForMonitor`.
+  - Migración v4→v5 (`AddMonitorReplicaMigration`) y selector en `SettingsViewModel`/`SettingsWindow` (solo réplica espejada, Q-04).
+  - Sincronización espejada vía `IConfigurationDocument.Changed` en `DockBarViewModel` (`IDisposable`) y `MultiMonitorCoordinator` / `WpfBarHostFactory` para desconexión y reconexión.
+- **Veredicto de `qa`: APROBADA CON OBSERVACIONES** — 6/6 criterios (`E7-CA1..E7-CA5`, `Q-04`) en **Cumple**, builds Release/Debug limpios, **477/477** pruebas en verde, `WinFormsModulesLoaded: 0`.
+- **RNF medidos por `qa` en Release** (30 muestras a 1 s): CPU en reposo **0,0064 %** (< 1 %); memoria privada comprometida (`PrivateMemorySize64`) **47,02 MB** promedio (máx. 47,14 MB — cumple RNF-01 `< 50 MB`, supera en ~1,02 MB el presupuesto interno Q-12 `< 46 MB`, asignado a perfilado de E8).
+- **Avance del plan**: **89 %** (8 de 9 etapas cerradas; 74 de 87 puntos estimados).
+- **Próxima acción**: iniciar **E8 — Rendimiento, endurecimiento y entrega** (etapa final del plan).

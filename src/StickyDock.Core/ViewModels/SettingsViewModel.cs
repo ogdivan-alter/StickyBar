@@ -1,6 +1,9 @@
+using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Windows.Input;
 using StickyDock.Core.Configuration;
 using StickyDock.Core.Diagnostics;
+using StickyDock.Core.Docking;
 using StickyDock.Core.Interaction;
 using StickyDock.Core.Mvvm;
 using StickyDock.Core.Services;
@@ -14,11 +17,13 @@ public sealed class SettingsViewModel : ViewModelBase, IDisposable
 {
     private readonly IConfigurationDocument _configuration;
     private readonly IAutoStartService _autoStartService;
+    private readonly IMonitorCatalog? _monitorCatalog;
     private readonly ILogger _logger;
 
     private int _gracePeriodMilliseconds;
     private bool _autoStartEnabled;
     private string _dockedEdgeLabel;
+    private bool _isUpdatingMonitors;
     private bool _disposed;
 
     /// <summary>
@@ -27,18 +32,23 @@ public sealed class SettingsViewModel : ViewModelBase, IDisposable
     /// <param name="configuration">Shared configuration document.</param>
     /// <param name="autoStartService">Service that reads and writes the Windows startup registration.</param>
     /// <param name="logger">Application logger.</param>
+    /// <param name="monitorCatalog">Optional catalog of attached display monitors (E7).</param>
     public SettingsViewModel(
         IConfigurationDocument configuration,
         IAutoStartService autoStartService,
-        ILogger logger)
+        ILogger logger,
+        IMonitorCatalog? monitorCatalog = null)
     {
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         _autoStartService = autoStartService ?? throw new ArgumentNullException(nameof(autoStartService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _monitorCatalog = monitorCatalog;
 
         _gracePeriodMilliseconds = GracePeriod.Normalize(_configuration.Current.GracePeriodMilliseconds);
         _dockedEdgeLabel = FormatDockEdge(_configuration.Current.DockEdge);
         _autoStartEnabled = ReadAutoStartState();
+
+        RefreshMonitors();
 
         CloseCommand = new RelayCommand(RequestClose);
         _configuration.Changed += OnConfigurationChanged;
@@ -123,6 +133,59 @@ public sealed class SettingsViewModel : ViewModelBase, IDisposable
     }
 
     /// <summary>
+    /// Gets the secondary display monitors detected on the system (E7, §4.6-02).
+    /// </summary>
+    public ObservableCollection<SecondaryMonitorItemViewModel> SecondaryMonitors { get; } = [];
+
+    /// <summary>
+    /// Gets whether at least one secondary display monitor is attached.
+    /// </summary>
+    public bool HasSecondaryMonitors => SecondaryMonitors.Count > 0;
+
+    /// <summary>
+    /// Gets whether no secondary display monitors are attached.
+    /// </summary>
+    public bool HasNoSecondaryMonitors => SecondaryMonitors.Count == 0;
+
+    /// <summary>
+    /// Refreshes the detected secondary display monitors from <see cref="IMonitorCatalog"/>.
+    /// </summary>
+    public void RefreshMonitors()
+    {
+        SecondaryMonitors.Clear();
+
+        if (_monitorCatalog is not null)
+        {
+            var enabled = new HashSet<string>(
+                _configuration.Current.EnabledReplicaMonitors ?? [],
+                StringComparer.OrdinalIgnoreCase);
+
+            var index = 1;
+
+            foreach (var monitor in _monitorCatalog.GetMonitors())
+            {
+                if (monitor.IsPrimary || string.IsNullOrWhiteSpace(monitor.DeviceName))
+                {
+                    continue;
+                }
+
+                var label = string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"Secondary Display {index} ({monitor.DeviceName}, {monitor.Bounds.Width}×{monitor.Bounds.Height})");
+                SecondaryMonitors.Add(new SecondaryMonitorItemViewModel(
+                    monitor.DeviceName,
+                    label,
+                    enabled.Contains(monitor.DeviceName),
+                    OnMonitorToggled));
+                index++;
+            }
+        }
+
+        OnPropertyChanged(nameof(HasSecondaryMonitors));
+        OnPropertyChanged(nameof(HasNoSecondaryMonitors));
+    }
+
+    /// <summary>
     /// Gets the command that closes the settings window.
     /// </summary>
     public ICommand CloseCommand { get; }
@@ -153,11 +216,57 @@ public sealed class SettingsViewModel : ViewModelBase, IDisposable
         }
     }
 
+    private void OnMonitorToggled(string deviceName, bool isEnabled)
+    {
+        if (_disposed || _isUpdatingMonitors)
+        {
+            return;
+        }
+
+        _isUpdatingMonitors = true;
+
+        try
+        {
+            _configuration.Update(current =>
+            {
+                var updated = new List<string>(current.EnabledReplicaMonitors ?? []);
+                updated.RemoveAll(name => string.Equals(name, deviceName, StringComparison.OrdinalIgnoreCase));
+
+                if (isEnabled)
+                {
+                    updated.Add(deviceName);
+                }
+
+                return current with { EnabledReplicaMonitors = updated };
+            });
+
+            _logger.Information($"Replica monitor '{deviceName}' {(isEnabled ? "enabled" : "disabled")}.");
+        }
+        finally
+        {
+            _isUpdatingMonitors = false;
+        }
+    }
+
     private void OnConfigurationChanged(object? sender, ConfigurationChangedEventArgs e)
     {
         var normalized = GracePeriod.Normalize(e.Document.GracePeriodMilliseconds);
         SetProperty(ref _gracePeriodMilliseconds, normalized, nameof(GracePeriodMilliseconds));
         DockedEdgeLabel = FormatDockEdge(e.Document.DockEdge);
+
+        if (_isUpdatingMonitors)
+        {
+            return;
+        }
+
+        var enabled = new HashSet<string>(
+            e.Document.EnabledReplicaMonitors ?? [],
+            StringComparer.OrdinalIgnoreCase);
+
+        foreach (var monitor in SecondaryMonitors)
+        {
+            monitor.SetEnabledFromConfiguration(enabled.Contains(monitor.DeviceName));
+        }
     }
 
     private void RequestClose() => CloseRequested?.Invoke(this, EventArgs.Empty);
