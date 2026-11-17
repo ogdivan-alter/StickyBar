@@ -54,24 +54,40 @@ public sealed class ShortcutLauncher : IShortcutLauncher
             return new ShortcutLaunchResult(false, $"Could not read shortcut '{shortcutPath}': {exception.Message}");
         }
 
+        ProcessStartInfo startInfo;
+        string launchTarget;
+
         if (string.IsNullOrWhiteSpace(resolved.TargetPath))
         {
-            var message = $"Shortcut '{shortcutPath}' has no target path.";
-            _logger?.Warning(message);
-            return new ShortcutLaunchResult(false, message);
+            if (!File.Exists(shortcutPath))
+            {
+                var message = $"Shortcut '{shortcutPath}' has no target path.";
+                _logger?.Warning(message);
+                return new ShortcutLaunchResult(false, message);
+            }
+
+            launchTarget = shortcutPath;
+            startInfo = new ProcessStartInfo
+            {
+                FileName = shortcutPath,
+                UseShellExecute = true,
+            };
         }
-
-        var workingDirectory = !string.IsNullOrWhiteSpace(resolved.WorkingDirectory)
-            ? resolved.WorkingDirectory
-            : Path.GetDirectoryName(resolved.TargetPath) ?? string.Empty;
-
-        var startInfo = new ProcessStartInfo
+        else
         {
-            FileName = resolved.TargetPath,
-            Arguments = resolved.Arguments,
-            WorkingDirectory = workingDirectory,
-            UseShellExecute = true,
-        };
+            var workingDirectory = !string.IsNullOrWhiteSpace(resolved.WorkingDirectory)
+                ? resolved.WorkingDirectory
+                : Path.GetDirectoryName(resolved.TargetPath) ?? string.Empty;
+
+            launchTarget = resolved.TargetPath;
+            startInfo = new ProcessStartInfo
+            {
+                FileName = resolved.TargetPath,
+                Arguments = resolved.Arguments,
+                WorkingDirectory = workingDirectory,
+                UseShellExecute = true,
+            };
+        }
 
         try
         {
@@ -79,18 +95,18 @@ public sealed class ShortcutLauncher : IShortcutLauncher
 
             if (!started)
             {
-                var message = $"Could not start '{resolved.TargetPath}'.";
+                var message = $"Could not start '{launchTarget}'.";
                 _logger?.Warning(message);
                 return new ShortcutLaunchResult(false, message);
             }
 
-            _logger?.Information($"Launched shortcut '{resolved.DisplayName}' -> '{resolved.TargetPath}'.");
+            _logger?.Information($"Launched shortcut '{resolved.DisplayName}' -> '{launchTarget}'.");
             return new ShortcutLaunchResult(true);
         }
         catch (Exception exception)
         {
-            _logger?.Error($"Failed to launch '{resolved.TargetPath}'.", exception);
-            return new ShortcutLaunchResult(false, $"Could not launch '{resolved.TargetPath}': {exception.Message}");
+            _logger?.Error($"Failed to launch '{launchTarget}'.", exception);
+            return new ShortcutLaunchResult(false, $"Could not launch '{launchTarget}': {exception.Message}");
         }
     }
 

@@ -128,6 +128,8 @@ public static class PointerRegionBehavior
         // Subscribed and unsubscribed every time so that the handler is attached once and only while it is useful.
         target.MouseEnter -= OnMouseEnter;
         target.MouseLeave -= OnMouseLeave;
+        target.DragEnter -= OnDragEnter;
+        target.DragLeave -= OnDragLeave;
 
         if (GetRegion(target) == DockRegion.None)
         {
@@ -137,11 +139,13 @@ public static class PointerRegionBehavior
         if (GetEnterCommand(target) is not null)
         {
             target.MouseEnter += OnMouseEnter;
+            target.DragEnter += OnDragEnter;
         }
 
         if (GetLeaveCommand(target) is not null)
         {
             target.MouseLeave += OnMouseLeave;
+            target.DragLeave += OnDragLeave;
         }
     }
 
@@ -156,6 +160,22 @@ public static class PointerRegionBehavior
     private static void OnMouseLeave(object sender, MouseEventArgs e)
     {
         if (sender is DependencyObject element)
+        {
+            Execute(GetLeaveCommand(element), GetRegion(element));
+        }
+    }
+
+    private static void OnDragEnter(object sender, DragEventArgs e)
+    {
+        if (e.Data.GetDataPresent(DataFormats.FileDrop) && sender is DependencyObject element)
+        {
+            Execute(GetEnterCommand(element), GetRegion(element));
+        }
+    }
+
+    private static void OnDragLeave(object sender, DragEventArgs e)
+    {
+        if (e.Data.GetDataPresent(DataFormats.FileDrop) && sender is DependencyObject element)
         {
             Execute(GetLeaveCommand(element), GetRegion(element));
         }

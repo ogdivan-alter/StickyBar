@@ -632,7 +632,8 @@
                 behaviors:PressDragBehavior.Command="{Binding DragCommand}"
                 input:PointerRegionBehavior.Region="{x:Static interaction:DockRegion.Tab}"
                 input:PointerRegionBehavior.EnterCommand="{Binding EnterRegionCommand}"
-                input:PointerRegionBehavior.LeaveCommand="{Binding LeaveRegionCommand}">
+                input:PointerRegionBehavior.LeaveCommand="{Binding LeaveRegionCommand}"
+                input:ShortcutDragDropBehavior.ExternalDropCommand="{Binding DropFilesOnBarCommand}">
             <Border.RenderTransform>
                 <ScaleTransform ScaleX="1" ScaleY="1" />
             </Border.RenderTransform>

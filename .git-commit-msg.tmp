@@ -1,10 +1,9 @@
-feat(multimonitor): implement mirrored monitor replicas and Win32 monitor catalog
+fix(shortcuts): enable drag-and-drop activation and drop on idle tab
 
-Implement Stage E7 (Multimonitor and mirrored replica):
-- Add Win32MonitorCatalog (EnumDisplayMonitors, GetMonitorInfoExW, GetDpiForMonitor) without WinForms, plus per-monitor taskbar/geometry resolution in TaskbarMonitor and Win32WindowGeometrySource.
-- Add v4->v5 schema migration (AddMonitorReplicaMigration) for enabledReplicaMonitors and secondary monitor toggles in SettingsViewModel/SettingsWindow (mirror-only mode per Q-04).
-- Subscribe DockBarViewModel (IDisposable) to IConfigurationDocument.Changed with anti-loop guards so ribbons and shortcuts stay mirrored in exact order across all active bars.
-- Add MultiMonitorCoordinator and WpfBarHostFactory to spawn, dock per monitor, close on disconnect and restore on reconnect (E7-CA3..E7-CA5).
-- Update docs/plan/ESTADO.md to close E7 (477/477 tests passing, 0.0064% CPU, 47.02 MB avg RAM).
+Fix inability to add .lnk shortcuts via external drag & drop from Explorer:
+- Subscribe PointerRegionBehavior to DragEnter and DragLeave for DataFormats.FileDrop so dragging over the idle tab arms and expands the bar (since Windows suppresses MouseEnter/MouseLeave during OLE DoDragDrop).
+- Bind ShortcutDragDropBehavior.ExternalDropCommand on TabBorder in MainWindow.xaml so AllowDrop=True is active on the idle tab as well.
+- Add UseShellExecute fallback in ShortcutLauncher when a .lnk has an empty TargetPath (e.g., shell/UWP shortcuts) while keeping faithful TargetPath/Arguments/WorkingDirectory execution.
+- Add regression tests (480/480 passing) and update docs/plan/ESTADO.md.
 
-Refs: RF05, HU05 (CA #2), §4.6-02, E7-CA1..E7-CA5, Q-04, R-04, R-05
+Refs: RF04, HU04 (CA #1), E5-CA1, E5-CA2

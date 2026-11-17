@@ -104,6 +104,30 @@ public sealed class DockBarViewModelShortcutsTests : IDisposable
     }
 
     [Fact]
+    public void DragEnterTab_ArmsAndExpandsBar_AndDropFilesOnBarAddsShortcut()
+    {
+        var lnkPath = CreateDummyFile("Ubuntu.lnk");
+        var scheduler = new ManualScheduler();
+        var fixture = CreateFixture(scheduler: scheduler);
+
+        Assert.Equal(DockState.Tab, fixture.Controller.State);
+
+        fixture.ViewModel.EnterRegionCommand.Execute(DockRegion.Tab);
+
+        Assert.Equal(DockState.Arming, fixture.Controller.State);
+
+        scheduler.Advance(InteractionTimings.ActivationMilliseconds);
+
+        Assert.Equal(DockState.Expanded, fixture.Controller.State);
+
+        fixture.ViewModel.DropFilesOnBarCommand.Execute(new[] { lnkPath });
+
+        var item = Assert.Single(fixture.ViewModel.BarItems);
+        Assert.Equal("Ubuntu", item.Name);
+        Assert.Equal(lnkPath, item.ShortcutPath);
+    }
+
+    [Fact]
     public void LaunchShortcut_WhenLauncherFails_ShowsErrorAlertWithoutThrowing()
     {
         var lnkPath = CreateDummyFile("Broken.lnk");
@@ -205,12 +229,12 @@ public sealed class DockBarViewModelShortcutsTests : IDisposable
         return path;
     }
 
-    private TestFixture CreateFixture(ShortcutLaunchResult? launchResult = null)
+    private TestFixture CreateFixture(ShortcutLaunchResult? launchResult = null, ManualScheduler? scheduler = null)
     {
         var logger = new RecordingLogger();
         var store = new RecordingConfigurationStore();
         var document = new ConfigurationDocument(store, new StickyDockConfiguration(), logger);
-        var controller = new DockInteractionController(new ManualScheduler(), document, logger);
+        var controller = new DockInteractionController(scheduler ?? new ManualScheduler(), document, logger);
         var reader = new FakeShellLinkReader();
         var launcher = new FakeShortcutLauncher(launchResult ?? new ShortcutLaunchResult(true));
         var alerts = new RecordingUserAlertService();

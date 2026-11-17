@@ -136,6 +136,41 @@ public sealed class ShellLinkReaderTests : IDisposable
         Assert.False(string.IsNullOrWhiteSpace(result.ErrorMessage));
     }
 
+    [Fact]
+    public void ShortcutLauncher_WhenTargetPathIsEmptyAndShortcutExists_LaunchesShortcutPathWithShellExecute()
+    {
+        var lnkPath = _directory.GetFilePath("Ubuntu.lnk");
+        File.WriteAllText(lnkPath, "uwp-shell-link");
+
+        ProcessStartInfo? captured = null;
+        var launcher = new ShortcutLauncher(
+            new EmptyTargetShellLinkReader(),
+            psi =>
+            {
+                captured = psi;
+                return true;
+            });
+
+        var result = launcher.Launch(lnkPath);
+
+        Assert.True(result.Succeeded);
+        Assert.NotNull(captured);
+        Assert.Equal(lnkPath, captured.FileName);
+        Assert.True(captured.UseShellExecute);
+    }
+
+    private sealed class EmptyTargetShellLinkReader : IShellLinkReader
+    {
+        public ResolvedShortcut Read(string shortcutPath)
+            => new(
+                shortcutPath,
+                Path.GetFileNameWithoutExtension(shortcutPath),
+                string.Empty,
+                string.Empty,
+                string.Empty,
+                null);
+    }
+
     private static void CreateShortcutFile(
         string lnkPath,
         string targetPath,

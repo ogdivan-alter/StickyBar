@@ -57,6 +57,23 @@ public sealed class MainWindowShortcutContractTests
             a => a.Name.LocalName == "ShortcutDragDropBehavior.ExternalDropCommand");
     }
 
+    [Fact]
+    public void TabBorder_DeclaresExternalDropCommandBoundToDropFilesOnBarCommand()
+    {
+        var document = LoadMainWindowXaml();
+
+        var tabBorder = document
+            .Descendants()
+            .Single(e => (string?)e.Attribute(XamlNamespace + "Name") == "TabBorder");
+
+        var externalDropAttribute = tabBorder
+            .Attributes()
+            .SingleOrDefault(a => a.Name.LocalName == "ShortcutDragDropBehavior.ExternalDropCommand");
+
+        Assert.NotNull(externalDropAttribute);
+        Assert.Equal("{Binding DropFilesOnBarCommand}", externalDropAttribute.Value);
+    }
+
     private static XDocument LoadMainWindowXaml()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
