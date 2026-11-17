@@ -39,7 +39,7 @@ public readonly record struct DockBarMetrics(
     public const double BarItemExtent = 44d;
 
     /// <summary>Additional perpendicular thickness added when a ribbon is open (E4-CA1, E4-CA6).</summary>
-    public const double OpenRibbonThickness = 220d;
+    public const double OpenRibbonThickness = 260d;
 
     /// <summary>
     /// Gets the footprint of a state in the orientation of an edge.

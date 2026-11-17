@@ -1,10 +1,11 @@
-feat(ui): style dock bar and ribbons per toolbox visual reference
+feat(ui): refine Win7 glass aesthetic, docked tab and narrow ribbon strip
 
-Align MainWindow.xaml, DockBarMetrics and RibbonViewModel with the requested visual design:
-- Embed icons/sticky-24x24.png, 32x32.png and 64x64.png as WPF resources in StickyDock.App.csproj and display the app icon at the end of the deployed bar.
-- Style ContentPanel and RibbonPanel as translucent rounded capsules inspired by the toolbox reference (preserving theme inversion and FillBehavior=Stop).
-- Render ribbons as numbered (DisplayNumber) tiles with directional deployment arrows (Down/Up/Right/Left) instead of inline editable names.
-- Render open ribbons perpendicularly with #DisplayNumber at the start, shortcuts in the body, and an inline edit toggle (pencil) at the end for move/delete actions.
-- Update DockBarMetrics and add 3 contract/ViewModel tests (483/483 passing in Debug).
+Refine MainWindow.xaml, DockBarViewModel and DockBarMetrics per user visual feedback:
+- Docked TabBorder renders as a slim Win7 glass tab with a subtle inward chevron and no "Sticky" text; floating TabBorder displays sticky-64x64.png + "Sticky".
+- Place the app icon at the start (left when horizontal, top when vertical) of ContentPanel.
+- Fix ContentPanel thickness (52) with per-edge DockPanel.Dock so the bar never stretches vertically/horizontally when opening a ribbon.
+- Narrow RibbonPanel (54 px strip) aligned under/beside its indicator via OpenRibbonOffset and RibbonOffsetToMarginConverter.
+- Replace green tones with Win7 Aero glass gradients/borders and open-chevron indicator paths without black fill.
+- Add 4 contract/ViewModel tests (487/487 passing in Debug and Release).
 
-Refs: RF02, RF03, §4.2, §4.4, E4-CA1, E4-CA4
+Refs: RF02, RF03, §4.2, §4.4, E4-CA1

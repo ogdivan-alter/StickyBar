@@ -261,6 +261,24 @@ public sealed class DockBarViewModelRibbonsTests
         Assert.False(ribbon.IsActionsOpen);
     }
 
+    [Fact]
+    public void OpenRibbonOffset_AlignsWithOpenRibbonIndex()
+    {
+        var fixture = CreateFixture();
+        var first = fixture.ViewModel.CreateRibbon("A");
+        var second = fixture.ViewModel.CreateRibbon("B");
+
+        Assert.Equal(0d, fixture.ViewModel.OpenRibbonOffset);
+
+        first.ToggleCommand.Execute(null);
+        var firstOffset = fixture.ViewModel.OpenRibbonOffset;
+        Assert.True(firstOffset > 0d);
+
+        second.ToggleCommand.Execute(null);
+        var secondOffset = fixture.ViewModel.OpenRibbonOffset;
+        Assert.Equal(firstOffset + StickyDock.Core.Docking.DockBarMetrics.RibbonIndicatorExtent, secondOffset);
+    }
+
     private static Fixture CreateFixture(StickyDockConfiguration? initial = null, bool confirmResult = true)
     {
         var store = new RecordingConfigurationStore();

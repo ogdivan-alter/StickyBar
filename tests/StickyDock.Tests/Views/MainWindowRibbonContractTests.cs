@@ -78,6 +78,147 @@ public sealed class MainWindowRibbonContractTests
         Assert.Contains(buttons, b => (string?)b.Attribute("Command") == "{Binding ToggleActionsCommand}");
     }
 
+    [Fact]
+    public void TabBorder_HidesStickyTextWhenDocked_AndShowsIconPlusTextWhenFloating()
+    {
+        var document = LoadMainWindowXaml();
+
+        var floatingStyle = StyleWithKey(document, "FloatingTabContentStyle");
+        Assert.Contains(
+            floatingStyle.Elements(),
+            e => e.Name.LocalName == "Setter"
+                && (string?)e.Attribute("Property") == "Visibility"
+                && (string?)e.Attribute("Value") == "Collapsed");
+        Assert.Contains(
+            floatingStyle.Descendants(),
+            e => e.Name.LocalName == "DataTrigger"
+                && (string?)e.Attribute("Value") == "{x:Null}"
+                && e.Elements().Any(s => (string?)s.Attribute("Property") == "Visibility" && (string?)s.Attribute("Value") == "Visible"));
+
+        var floatingContent = document
+            .Descendants()
+            .Single(e => (string?)e.Attribute(XamlNamespace + "Name") == "FloatingTabContent");
+        Assert.Contains(
+            floatingContent.Descendants().Where(e => e.Name.LocalName == "Image"),
+            img => string.Equals((string?)img.Attribute("Source"), "pack://application:,,,/Icons/sticky-64x64.png", StringComparison.Ordinal));
+        Assert.Contains(
+            floatingContent.Descendants().Where(e => e.Name.LocalName == "TextBlock"),
+            tb => string.Equals((string?)tb.Attribute("Text"), "Sticky", StringComparison.Ordinal));
+
+        var chevronStyle = StyleWithKey(document, "DockedTabChevronStyle");
+        Assert.Contains(
+            chevronStyle.Elements(),
+            e => e.Name.LocalName == "Setter"
+                && (string?)e.Attribute("Property") == "Fill"
+                && (string?)e.Attribute("Value") == "Transparent");
+        Assert.Contains(
+            chevronStyle.Descendants(),
+            e => e.Name.LocalName == "DataTrigger"
+                && (string?)e.Attribute("Value") == "{x:Null}"
+                && e.Elements().Any(s => (string?)s.Attribute("Property") == "Visibility" && (string?)s.Attribute("Value") == "Collapsed"));
+    }
+
+    [Fact]
+    public void ContentPanel_UsesFixedThickness_DynamicDockEdge_AndIconAtStart()
+    {
+        var document = LoadMainWindowXaml();
+
+        var barSlotStyle = StyleWithKey(document, "BarSlotStyle");
+        Assert.Contains(
+            barSlotStyle.Elements(),
+            e => e.Name.LocalName == "Setter"
+                && (string?)e.Attribute("Property") == "Height"
+                && (string?)e.Attribute("Value") == "52");
+        Assert.Contains(
+            barSlotStyle.Elements(),
+            e => e.Name.LocalName == "Setter"
+                && (string?)e.Attribute("Property") == "DockPanel.Dock"
+                && (string?)e.Attribute("Value") == "Top");
+
+        Assert.DoesNotContain(
+            barSlotStyle.Descendants(),
+            e => e.Name.LocalName == "DataTrigger"
+                && ((string?)e.Attribute("Binding") ?? string.Empty).Contains("HasOpenRibbon", StringComparison.Ordinal));
+
+        var triggers = barSlotStyle.Descendants().Where(e => e.Name.LocalName == "DataTrigger").ToList();
+        Assert.Contains(triggers, t => ((string?)t.Attribute("Value") ?? string.Empty).Contains("Bottom", StringComparison.Ordinal)
+            && t.Elements().Any(s => (string?)s.Attribute("Property") == "Height" && (string?)s.Attribute("Value") == "52"));
+        Assert.Contains(triggers, t => ((string?)t.Attribute("Value") ?? string.Empty).Contains("Left", StringComparison.Ordinal)
+            && t.Elements().Any(s => (string?)s.Attribute("Property") == "Width" && (string?)s.Attribute("Value") == "52"));
+        Assert.Contains(triggers, t => ((string?)t.Attribute("Value") ?? string.Empty).Contains("Right", StringComparison.Ordinal)
+            && t.Elements().Any(s => (string?)s.Attribute("Property") == "Width" && (string?)s.Attribute("Value") == "52"));
+
+        var contentPanel = document
+            .Descendants()
+            .Single(e => (string?)e.Attribute(XamlNamespace + "Name") == "ContentPanel");
+        var mainStack = contentPanel.Elements().First(e => e.Name.LocalName == "StackPanel");
+        var children = mainStack.Elements().ToList();
+
+        var iconIndex = children.FindIndex(e => e.Name.LocalName == "Border"
+            && e.Descendants().Any(img => img.Name.LocalName == "Image"
+                && (string?)img.Attribute("Source") == "pack://application:,,,/Icons/sticky-24x24.png"));
+        var barItemsIndex = children.FindIndex(e => e.Name.LocalName == "ItemsControl"
+            && (string?)e.Attribute("ItemsSource") == "{Binding BarItems}");
+        var ribbonsIndex = children.FindIndex(e => e.Name.LocalName == "ItemsControl"
+            && (string?)e.Attribute("ItemsSource") == "{Binding Ribbons}");
+
+        Assert.True(iconIndex > 0, "App icon should appear after the grip.");
+        Assert.True(iconIndex < barItemsIndex, "App icon should appear before BarItems.");
+        Assert.True(barItemsIndex < ribbonsIndex, "BarItems should appear before Ribbons.");
+    }
+
+    [Fact]
+    public void RibbonPanel_IsNarrowStrip_WithOpenChevronArrows_AndNoGreenColors()
+    {
+        var document = LoadMainWindowXaml();
+
+        var ribbonPanelStyle = StyleWithKey(document, "RibbonPanelStyle");
+        Assert.Contains(
+            ribbonPanelStyle.Elements(),
+            e => e.Name.LocalName == "Setter"
+                && (string?)e.Attribute("Property") == "Width"
+                && (string?)e.Attribute("Value") == "54");
+        Assert.Contains(
+            ribbonPanelStyle.Descendants(),
+            e => e.Name.LocalName == "DataTrigger"
+                && ((string?)e.Attribute("Value") ?? string.Empty).Contains("Left", StringComparison.Ordinal)
+                && e.Elements().Any(s => (string?)s.Attribute("Property") == "Height" && (string?)s.Attribute("Value") == "54"));
+
+        var ribbonPanel = document
+            .Descendants()
+            .Single(e => (string?)e.Attribute(XamlNamespace + "Name") == "RibbonPanel");
+        Assert.Contains(
+            ribbonPanel.Descendants(),
+            e => e.Name.LocalName == "MultiBinding"
+                && ((string?)e.Attribute("Converter") ?? string.Empty).Contains("RibbonOffsetToMarginConverter", StringComparison.Ordinal));
+
+        var arrowStyle = StyleWithKey(document, "RibbonArrowPathStyle");
+        Assert.Contains(
+            arrowStyle.Elements(),
+            e => e.Name.LocalName == "Setter"
+                && (string?)e.Attribute("Property") == "Fill"
+                && (string?)e.Attribute("Value") == "Transparent");
+        var arrowDataValues = arrowStyle
+            .Descendants()
+            .Where(e => e.Name.LocalName == "Setter" && (string?)e.Attribute("Property") == "Data")
+            .Select(e => (string?)e.Attribute("Value") ?? string.Empty)
+            .ToList();
+        Assert.Equal(4, arrowDataValues.Count);
+        Assert.All(arrowDataValues, data => Assert.DoesNotContain("M 6,2", data, StringComparison.Ordinal));
+
+        var tileStyle = StyleWithKey(document, "RibbonTileButtonStyle");
+        var serialized = tileStyle.ToString() + ribbonPanelStyle.ToString();
+        Assert.DoesNotContain("43A047", serialized, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("66BB6A", serialized, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("81C784", serialized, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static XElement StyleWithKey(XDocument document, string key)
+        => document
+            .Descendants()
+            .Where(e => e.Name.LocalName == "Style")
+            .Single(e => (string?)e.Attribute(XamlNamespace + "Key") == key);
+
     private static XDocument LoadMainWindowXaml()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);

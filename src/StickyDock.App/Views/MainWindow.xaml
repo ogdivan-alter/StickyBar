@@ -36,7 +36,65 @@
 
     <Window.Resources>
         <converters:PngBytesToImageSourceConverter x:Key="PngBytesToImageSourceConverter" />
+        <converters:RibbonOffsetToMarginConverter x:Key="RibbonOffsetToMarginConverter" />
         <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+
+        <!-- Windows 7 Aero Glass translucent brushes -->
+        <LinearGradientBrush x:Key="Win7DarkGlassBrush" StartPoint="0,0" EndPoint="0,1">
+            <GradientStop Color="#CC4A5668" Offset="0.0" />
+            <GradientStop Color="#CC232C3B" Offset="0.45" />
+            <GradientStop Color="#D9161D27" Offset="0.50" />
+            <GradientStop Color="#D91E2634" Offset="1.0" />
+        </LinearGradientBrush>
+
+        <LinearGradientBrush x:Key="Win7LightGlassBrush" StartPoint="0,0" EndPoint="0,1">
+            <GradientStop Color="#EEFFFFFF" Offset="0.0" />
+            <GradientStop Color="#DDF0F5FB" Offset="0.45" />
+            <GradientStop Color="#D4DCE6F2" Offset="0.50" />
+            <GradientStop Color="#DCE8EFF8" Offset="1.0" />
+        </LinearGradientBrush>
+
+        <LinearGradientBrush x:Key="Win7DarkTileGlassBrush" StartPoint="0,0" EndPoint="0,1">
+            <GradientStop Color="#44FFFFFF" Offset="0.0" />
+            <GradientStop Color="#1EFFFFFF" Offset="0.48" />
+            <GradientStop Color="#14000000" Offset="0.52" />
+            <GradientStop Color="#22FFFFFF" Offset="1.0" />
+        </LinearGradientBrush>
+
+        <LinearGradientBrush x:Key="Win7DarkTileHoverBrush" StartPoint="0,0" EndPoint="0,1">
+            <GradientStop Color="#66FFFFFF" Offset="0.0" />
+            <GradientStop Color="#34FFFFFF" Offset="0.48" />
+            <GradientStop Color="#1CFFFFFF" Offset="0.52" />
+            <GradientStop Color="#38FFFFFF" Offset="1.0" />
+        </LinearGradientBrush>
+
+        <LinearGradientBrush x:Key="Win7DarkTileOpenBrush" StartPoint="0,0" EndPoint="0,1">
+            <GradientStop Color="#77FFFFFF" Offset="0.0" />
+            <GradientStop Color="#44FFFFFF" Offset="0.48" />
+            <GradientStop Color="#28FFFFFF" Offset="0.52" />
+            <GradientStop Color="#48FFFFFF" Offset="1.0" />
+        </LinearGradientBrush>
+
+        <LinearGradientBrush x:Key="Win7LightTileGlassBrush" StartPoint="0,0" EndPoint="0,1">
+            <GradientStop Color="#AAFFFFFF" Offset="0.0" />
+            <GradientStop Color="#55FFFFFF" Offset="0.48" />
+            <GradientStop Color="#221A2433" Offset="0.52" />
+            <GradientStop Color="#44FFFFFF" Offset="1.0" />
+        </LinearGradientBrush>
+
+        <LinearGradientBrush x:Key="Win7LightTileHoverBrush" StartPoint="0,0" EndPoint="0,1">
+            <GradientStop Color="#CCFFFFFF" Offset="0.0" />
+            <GradientStop Color="#77FFFFFF" Offset="0.48" />
+            <GradientStop Color="#331A2433" Offset="0.52" />
+            <GradientStop Color="#66FFFFFF" Offset="1.0" />
+        </LinearGradientBrush>
+
+        <LinearGradientBrush x:Key="Win7LightTileOpenBrush" StartPoint="0,0" EndPoint="0,1">
+            <GradientStop Color="#EEFFFFFF" Offset="0.0" />
+            <GradientStop Color="#99FFFFFF" Offset="0.48" />
+            <GradientStop Color="#441A2433" Offset="0.52" />
+            <GradientStop Color="#88FFFFFF" Offset="1.0" />
+        </LinearGradientBrush>
 
         <Style TargetType="{x:Type Button}" x:Key="ShortcutButtonStyle">
             <Setter Property="Margin" Value="2" />
@@ -111,13 +169,13 @@
             outrank the next animation.
         -->
         <Style TargetType="{x:Type Button}" x:Key="RibbonTileButtonStyle">
-            <Setter Property="Width" Value="34" />
-            <Setter Property="Height" Value="34" />
+            <Setter Property="Width" Value="38" />
+            <Setter Property="Height" Value="38" />
             <Setter Property="Margin" Value="2" />
             <Setter Property="Padding" Value="0" />
             <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Background" Value="#3843A047" />
-            <Setter Property="BorderBrush" Value="#7766BB6A" />
+            <Setter Property="Background" Value="{StaticResource Win7DarkTileGlassBrush}" />
+            <Setter Property="BorderBrush" Value="#66FFFFFF" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Template">
                 <Setter.Value>
@@ -125,21 +183,46 @@
                         <Border Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="8">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                CornerRadius="7">
+                            <Border BorderBrush="#28FFFFFF"
+                                    BorderThickness="1"
+                                    CornerRadius="6">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
                         </Border>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
             <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#5843A047" />
-                    <Setter Property="BorderBrush" Value="#AA81C784" />
-                </Trigger>
-                <DataTrigger Binding="{Binding IsOpen}" Value="True">
-                    <Setter Property="Background" Value="#7243A047" />
-                    <Setter Property="BorderBrush" Value="#CC81C784" />
+                <DataTrigger Binding="{Binding DataContext.IsLightTheme, RelativeSource={RelativeSource AncestorType=Window}}"
+                             Value="False">
+                    <Setter Property="Background" Value="{StaticResource Win7LightTileGlassBrush}" />
+                    <Setter Property="BorderBrush" Value="#66243447" />
                 </DataTrigger>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{StaticResource Win7DarkTileHoverBrush}" />
+                    <Setter Property="BorderBrush" Value="#AAFFFFFF" />
+                </Trigger>
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding IsMouseOver, RelativeSource={RelativeSource Self}}" Value="True" />
+                        <Condition Binding="{Binding DataContext.IsLightTheme, RelativeSource={RelativeSource AncestorType=Window}}" Value="False" />
+                    </MultiDataTrigger.Conditions>
+                    <Setter Property="Background" Value="{StaticResource Win7LightTileHoverBrush}" />
+                    <Setter Property="BorderBrush" Value="#99243447" />
+                </MultiDataTrigger>
+                <DataTrigger Binding="{Binding IsOpen}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource Win7DarkTileOpenBrush}" />
+                    <Setter Property="BorderBrush" Value="#CCFFFFFF" />
+                </DataTrigger>
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding IsOpen}" Value="True" />
+                        <Condition Binding="{Binding DataContext.IsLightTheme, RelativeSource={RelativeSource AncestorType=Window}}" Value="False" />
+                    </MultiDataTrigger.Conditions>
+                    <Setter Property="Background" Value="{StaticResource Win7LightTileOpenBrush}" />
+                    <Setter Property="BorderBrush" Value="#BB243447" />
+                </MultiDataTrigger>
             </Style.Triggers>
         </Style>
 
@@ -147,25 +230,26 @@
             <Setter Property="Width" Value="12" />
             <Setter Property="Height" Value="12" />
             <Setter Property="Stretch" Value="None" />
+            <Setter Property="Fill" Value="Transparent" />
             <Setter Property="Stroke"
                     Value="{Binding DataContext.TabForeground, RelativeSource={RelativeSource AncestorType=Window}}" />
             <Setter Property="StrokeThickness" Value="1.8" />
             <Setter Property="StrokeStartLineCap" Value="Round" />
             <Setter Property="StrokeEndLineCap" Value="Round" />
             <Setter Property="StrokeLineJoin" Value="Round" />
-            <Setter Property="Data" Value="M 6,2 L 6,10 M 2.5,6.5 L 6,10 L 9.5,6.5" />
+            <Setter Property="Data" Value="M 2.5,4.5 L 6,8.5 L 9.5,4.5" />
             <Style.Triggers>
                 <DataTrigger Binding="{Binding DataContext.DockEdge, RelativeSource={RelativeSource AncestorType=Window}}"
                              Value="{x:Static coreDocking:DockEdge.Bottom}">
-                    <Setter Property="Data" Value="M 6,10 L 6,2 M 2.5,5.5 L 6,2 L 9.5,5.5" />
+                    <Setter Property="Data" Value="M 2.5,8.5 L 6,4.5 L 9.5,8.5" />
                 </DataTrigger>
                 <DataTrigger Binding="{Binding DataContext.DockEdge, RelativeSource={RelativeSource AncestorType=Window}}"
                              Value="{x:Static coreDocking:DockEdge.Left}">
-                    <Setter Property="Data" Value="M 2,6 L 10,6 M 6.5,2.5 L 10,6 L 6.5,9.5" />
+                    <Setter Property="Data" Value="M 4.5,2.5 L 8.5,6 L 4.5,9.5" />
                 </DataTrigger>
                 <DataTrigger Binding="{Binding DataContext.DockEdge, RelativeSource={RelativeSource AncestorType=Window}}"
                              Value="{x:Static coreDocking:DockEdge.Right}">
-                    <Setter Property="Data" Value="M 10,6 L 2,6 M 5.5,2.5 L 2,6 L 5.5,9.5" />
+                    <Setter Property="Data" Value="M 8.5,2.5 L 4.5,6 L 8.5,9.5" />
                 </DataTrigger>
             </Style.Triggers>
         </Style>
@@ -260,8 +344,8 @@
         </Style>
 
         <Style TargetType="{x:Type Border}" x:Key="ContentPanelStyle">
-            <Setter Property="Background" Value="#D91B2432" />
-            <Setter Property="BorderBrush" Value="#44FFFFFF" />
+            <Setter Property="Background" Value="{StaticResource Win7DarkGlassBrush}" />
+            <Setter Property="BorderBrush" Value="#77FFFFFF" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="CornerRadius" Value="12" />
             <Setter Property="Opacity" Value="1" />
@@ -269,8 +353,8 @@
             <Setter Property="VerticalAlignment" Value="Stretch" />
             <Style.Triggers>
                 <DataTrigger Binding="{Binding IsLightTheme}" Value="False">
-                    <Setter Property="Background" Value="#DCF0F4FA" />
-                    <Setter Property="BorderBrush" Value="#441A2433" />
+                    <Setter Property="Background" Value="{StaticResource Win7LightGlassBrush}" />
+                    <Setter Property="BorderBrush" Value="#77243447" />
                 </DataTrigger>
                 <!-- Nothing is deployed while the bar is collapsed or arming, so the surface is not even laid out. -->
                 <DataTrigger Binding="{Binding DockState}" Value="{x:Static coreServices:DockState.Tab}">
@@ -396,40 +480,55 @@
             Idle tab: the only drag handle and the visual anchor in both states (ADR-003, D3 and invariant I3). It keeps
             its position on screen while the bar deploys, so it carries no translation and no margin.
 
-            The tab is rotated on the vertical edges because its content-sized footprint (about 58x27 units) does not fit
-            the 36-unit thickness that DockBarMetrics declares for those edges.
+            When docked to an edge, it renders as a slim Win7 glass capsule flush with the edge and showing only an
+            inward chevron. When floating (DockEdge == null), it shows the app icon and the "Sticky" label.
         -->
         <Style TargetType="{x:Type Border}" x:Key="TabBorderStyle">
-            <Setter Property="Background" Value="{Binding TabBackground}" />
-            <Setter Property="CornerRadius" Value="6" />
-            <Setter Property="Padding" Value="12,6" />
-            <Setter Property="Opacity" Value="0.9" />
+            <Setter Property="Background" Value="{StaticResource Win7DarkGlassBrush}" />
+            <Setter Property="BorderBrush" Value="#77FFFFFF" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="0,0,7,7" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Width" Value="56" />
+            <Setter Property="Height" Value="14" />
+            <Setter Property="Opacity" Value="0.95" />
             <Setter Property="IsHitTestVisible" Value="True" />
             <Setter Property="RenderTransformOrigin" Value="0.5,0.5" />
             <Setter Property="HorizontalAlignment" Value="Center" />
             <Setter Property="VerticalAlignment" Value="Top" />
             <Style.Triggers>
+                <DataTrigger Binding="{Binding IsLightTheme}" Value="False">
+                    <Setter Property="Background" Value="{StaticResource Win7LightGlassBrush}" />
+                    <Setter Property="BorderBrush" Value="#77243447" />
+                </DataTrigger>
                 <DataTrigger Binding="{Binding DockEdge}" Value="{x:Static coreDocking:DockEdge.Bottom}">
                     <Setter Property="HorizontalAlignment" Value="Center" />
                     <Setter Property="VerticalAlignment" Value="Bottom" />
+                    <Setter Property="CornerRadius" Value="7,7,0,0" />
+                    <Setter Property="Width" Value="56" />
+                    <Setter Property="Height" Value="14" />
                 </DataTrigger>
                 <DataTrigger Binding="{Binding DockEdge}" Value="{x:Static coreDocking:DockEdge.Left}">
                     <Setter Property="HorizontalAlignment" Value="Left" />
                     <Setter Property="VerticalAlignment" Value="Center" />
-                    <Setter Property="LayoutTransform">
-                        <Setter.Value>
-                            <RotateTransform Angle="90" />
-                        </Setter.Value>
-                    </Setter>
+                    <Setter Property="CornerRadius" Value="0,7,7,0" />
+                    <Setter Property="Width" Value="14" />
+                    <Setter Property="Height" Value="56" />
                 </DataTrigger>
                 <DataTrigger Binding="{Binding DockEdge}" Value="{x:Static coreDocking:DockEdge.Right}">
                     <Setter Property="HorizontalAlignment" Value="Right" />
                     <Setter Property="VerticalAlignment" Value="Center" />
-                    <Setter Property="LayoutTransform">
-                        <Setter.Value>
-                            <RotateTransform Angle="270" />
-                        </Setter.Value>
-                    </Setter>
+                    <Setter Property="CornerRadius" Value="7,0,0,7" />
+                    <Setter Property="Width" Value="14" />
+                    <Setter Property="Height" Value="56" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding DockEdge}" Value="{x:Null}">
+                    <Setter Property="HorizontalAlignment" Value="Center" />
+                    <Setter Property="VerticalAlignment" Value="Center" />
+                    <Setter Property="CornerRadius" Value="8" />
+                    <Setter Property="Padding" Value="10,4" />
+                    <Setter Property="Width" Value="Auto" />
+                    <Setter Property="Height" Value="Auto" />
                 </DataTrigger>
 
                 <!-- Micro-expansion of HU02 CA #2: 1.06 of the tab during ~120 ms, before the bar is fully deployed. -->
@@ -452,22 +551,40 @@
 
         <!--
             Ribbon flyout panel (E4-CA1, E4-CA2, Q-10): visible only while the bar is Expanded and a ribbon is open.
-            Slides perpendicularly from the ribbon indicator into the interior of the screen with FillBehavior="Stop"
-            (ADR-004 D4).
+            Narrow strip aligned under/beside its indicator button; slides perpendicularly into the screen with
+            FillBehavior="Stop" (ADR-004 D4).
         -->
         <Style TargetType="{x:Type Border}" x:Key="RibbonPanelStyle">
-            <Setter Property="Background" Value="#D91B2432" />
-            <Setter Property="BorderBrush" Value="#44FFFFFF" />
+            <Setter Property="Background" Value="{StaticResource Win7DarkGlassBrush}" />
+            <Setter Property="BorderBrush" Value="#77FFFFFF" />
             <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="12" />
-            <Setter Property="Margin" Value="2" />
-            <Setter Property="Padding" Value="8" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="4" />
+            <Setter Property="Width" Value="54" />
+            <Setter Property="Height" Value="Auto" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="VerticalAlignment" Value="Top" />
             <Setter Property="Visibility" Value="Collapsed" />
             <Setter Property="Opacity" Value="1" />
             <Style.Triggers>
                 <DataTrigger Binding="{Binding IsLightTheme}" Value="False">
-                    <Setter Property="Background" Value="#DCF0F4FA" />
-                    <Setter Property="BorderBrush" Value="#441A2433" />
+                    <Setter Property="Background" Value="{StaticResource Win7LightGlassBrush}" />
+                    <Setter Property="BorderBrush" Value="#77243447" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding DockEdge}" Value="{x:Static coreDocking:DockEdge.Bottom}">
+                    <Setter Property="VerticalAlignment" Value="Bottom" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding DockEdge}" Value="{x:Static coreDocking:DockEdge.Left}">
+                    <Setter Property="Width" Value="Auto" />
+                    <Setter Property="Height" Value="54" />
+                    <Setter Property="HorizontalAlignment" Value="Left" />
+                    <Setter Property="VerticalAlignment" Value="Top" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding DockEdge}" Value="{x:Static coreDocking:DockEdge.Right}">
+                    <Setter Property="Width" Value="Auto" />
+                    <Setter Property="Height" Value="54" />
+                    <Setter Property="HorizontalAlignment" Value="Right" />
+                    <Setter Property="VerticalAlignment" Value="Top" />
                 </DataTrigger>
                 <MultiDataTrigger>
                     <MultiDataTrigger.Conditions>
@@ -578,28 +695,34 @@
             </Style.Triggers>
         </Style>
 
-        <!-- Places the main bar at the docked edge so the open ribbon always expands inward (E4-CA1, E4-CA7). -->
+        <!-- Places the main bar at the docked edge with fixed thickness (52) so opening a ribbon never stretches it (E4-CA1, E4-CA7). -->
         <Style TargetType="{x:Type Border}" x:Key="BarSlotStyle" BasedOn="{StaticResource ContentPanelStyle}">
             <Setter Property="DockPanel.Dock" Value="Top" />
-            <Setter Property="Height" Value="96" />
+            <Setter Property="Height" Value="52" />
+            <Setter Property="Width" Value="Auto" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="VerticalAlignment" Value="Top" />
             <Style.Triggers>
-                <DataTrigger Binding="{Binding HasOpenRibbon}" Value="False">
-                    <Setter Property="Height" Value="Auto" />
-                    <Setter Property="Width" Value="Auto" />
-                </DataTrigger>
                 <DataTrigger Binding="{Binding DockEdge}" Value="{x:Static coreDocking:DockEdge.Bottom}">
                     <Setter Property="DockPanel.Dock" Value="Bottom" />
-                    <Setter Property="Height" Value="96" />
+                    <Setter Property="Height" Value="52" />
+                    <Setter Property="Width" Value="Auto" />
+                    <Setter Property="HorizontalAlignment" Value="Stretch" />
+                    <Setter Property="VerticalAlignment" Value="Bottom" />
                 </DataTrigger>
                 <DataTrigger Binding="{Binding DockEdge}" Value="{x:Static coreDocking:DockEdge.Left}">
                     <Setter Property="DockPanel.Dock" Value="Left" />
+                    <Setter Property="Width" Value="52" />
                     <Setter Property="Height" Value="Auto" />
-                    <Setter Property="Width" Value="96" />
+                    <Setter Property="HorizontalAlignment" Value="Left" />
+                    <Setter Property="VerticalAlignment" Value="Stretch" />
                 </DataTrigger>
                 <DataTrigger Binding="{Binding DockEdge}" Value="{x:Static coreDocking:DockEdge.Right}">
                     <Setter Property="DockPanel.Dock" Value="Right" />
+                    <Setter Property="Width" Value="52" />
                     <Setter Property="Height" Value="Auto" />
-                    <Setter Property="Width" Value="96" />
+                    <Setter Property="HorizontalAlignment" Value="Right" />
+                    <Setter Property="VerticalAlignment" Value="Stretch" />
                 </DataTrigger>
             </Style.Triggers>
         </Style>
@@ -612,6 +735,64 @@
                 </DataTrigger>
                 <DataTrigger Binding="{Binding DockEdge}" Value="{x:Static coreDocking:DockEdge.Right}">
                     <Setter Property="Orientation" Value="Vertical" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style TargetType="{x:Type StackPanel}" x:Key="BarMainStackStyle" BasedOn="{StaticResource RibbonStripOrientationStyle}">
+            <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding DockEdge}" Value="{x:Static coreDocking:DockEdge.Left}">
+                    <Setter Property="HorizontalAlignment" Value="Center" />
+                    <Setter Property="VerticalAlignment" Value="Top" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding DockEdge}" Value="{x:Static coreDocking:DockEdge.Right}">
+                    <Setter Property="HorizontalAlignment" Value="Center" />
+                    <Setter Property="VerticalAlignment" Value="Top" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style TargetType="{x:Type StackPanel}" x:Key="FloatingTabContentStyle">
+            <Setter Property="Orientation" Value="Horizontal" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Visibility" Value="Collapsed" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding DockEdge}" Value="{x:Null}">
+                    <Setter Property="Visibility" Value="Visible" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style TargetType="{x:Type Path}" x:Key="DockedTabChevronStyle">
+            <Setter Property="Width" Value="10" />
+            <Setter Property="Height" Value="10" />
+            <Setter Property="Stretch" Value="Uniform" />
+            <Setter Property="Fill" Value="Transparent" />
+            <Setter Property="Stroke" Value="{Binding TabForeground}" />
+            <Setter Property="StrokeThickness" Value="1.5" />
+            <Setter Property="StrokeStartLineCap" Value="Round" />
+            <Setter Property="StrokeEndLineCap" Value="Round" />
+            <Setter Property="StrokeLineJoin" Value="Round" />
+            <Setter Property="Opacity" Value="0.85" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Visibility" Value="Visible" />
+            <Setter Property="Data" Value="M 1,3 L 5,7 L 9,3" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding DockEdge}" Value="{x:Static coreDocking:DockEdge.Bottom}">
+                    <Setter Property="Data" Value="M 1,7 L 5,3 L 9,7" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding DockEdge}" Value="{x:Static coreDocking:DockEdge.Left}">
+                    <Setter Property="Data" Value="M 3,1 L 7,5 L 3,9" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding DockEdge}" Value="{x:Static coreDocking:DockEdge.Right}">
+                    <Setter Property="Data" Value="M 7,1 L 3,5 L 7,9" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding DockEdge}" Value="{x:Null}">
+                    <Setter Property="Visibility" Value="Collapsed" />
                 </DataTrigger>
             </Style.Triggers>
         </Style>
@@ -639,7 +820,7 @@
                 -->
                 <Border x:Name="ContentPanel"
                         Style="{StaticResource BarSlotStyle}"
-                        Padding="6"
+                        Padding="3"
                         input:PointerRegionBehavior.Region="{x:Static interaction:DockRegion.Bar}"
                         input:PointerRegionBehavior.EnterCommand="{Binding EnterRegionCommand}"
                         input:PointerRegionBehavior.LeaveCommand="{Binding LeaveRegionCommand}"
@@ -648,18 +829,34 @@
                         <TranslateTransform X="0" Y="0" />
                     </Border.RenderTransform>
 
-                    <StackPanel Style="{StaticResource RibbonStripOrientationStyle}"
-                                VerticalAlignment="Center"
-                                HorizontalAlignment="Center">
+                    <StackPanel Style="{StaticResource BarMainStackStyle}">
                         <!-- Subtle 3-dot grip indicator at the start of the bar -->
                         <TextBlock Text="⋮"
-                                   FontSize="14"
+                                   Width="14"
+                                   Height="14"
+                                   FontSize="13"
                                    FontWeight="Bold"
+                                   TextAlignment="Center"
                                    Opacity="0.45"
-                                   Margin="2,0,4,0"
+                                   Margin="0"
                                    VerticalAlignment="Center"
                                    HorizontalAlignment="Center"
                                    Foreground="{Binding TabForeground}" />
+
+                        <!-- App icon container at the start of the bar (after grip) -->
+                        <Border Width="28"
+                                Height="28"
+                                Margin="2"
+                                Padding="3"
+                                CornerRadius="8"
+                                Background="#22FFFFFF"
+                                BorderBrush="#44FFFFFF"
+                                BorderThickness="1">
+                            <Image Width="20"
+                                   Height="20"
+                                   Source="pack://application:,,,/Icons/sticky-24x24.png"
+                                   RenderOptions.BitmapScalingMode="HighQuality" />
+                        </Border>
 
                         <ItemsControl ItemsSource="{Binding BarItems}"
                                       ItemTemplate="{StaticResource ShortcutItemTemplate}">
@@ -690,7 +887,7 @@
                                             </ContextMenu>
                                         </Button.ContextMenu>
 
-                                        <Grid Width="28" Height="28">
+                                        <Grid Width="30" Height="30">
                                             <Path Style="{StaticResource RibbonArrowPathStyle}"
                                                   HorizontalAlignment="Center"
                                                   VerticalAlignment="Center"
@@ -712,21 +909,6 @@
                                 Style="{StaticResource CreateRibbonButtonStyle}"
                                 Command="{Binding CreateRibbonCommand}"
                                 ToolTip="Create Ribbon" />
-
-                        <!-- App icon container at the far end of the bar -->
-                        <Border Width="28"
-                                Height="28"
-                                Margin="2"
-                                Padding="3"
-                                CornerRadius="8"
-                                Background="#1AFFFFFF"
-                                BorderBrush="#33FFFFFF"
-                                BorderThickness="1">
-                            <Image Width="20"
-                                   Height="20"
-                                   Source="pack://application:,,,/Icons/sticky-24x24.png"
-                                   RenderOptions.BitmapScalingMode="HighQuality" />
-                        </Border>
                     </StackPanel>
                 </Border>
 
@@ -740,6 +922,12 @@
                         input:PointerRegionBehavior.EnterCommand="{Binding EnterRegionCommand}"
                         input:PointerRegionBehavior.LeaveCommand="{Binding LeaveRegionCommand}"
                         input:ShortcutDragDropBehavior.ExternalDropCommand="{Binding OpenRibbon.DropFilesCommand}">
+                    <Border.Margin>
+                        <MultiBinding Converter="{StaticResource RibbonOffsetToMarginConverter}">
+                            <Binding Path="OpenRibbonOffset" />
+                            <Binding Path="DockEdge" />
+                        </MultiBinding>
+                    </Border.Margin>
                     <Border.RenderTransform>
                         <TranslateTransform X="0" Y="0" />
                     </Border.RenderTransform>
@@ -753,17 +941,17 @@
                                    FontSize="10"
                                    FontWeight="SemiBold"
                                    Opacity="0.7"
-                                   Margin="4"
+                                   Margin="2"
                                    HorizontalAlignment="Center"
                                    VerticalAlignment="Center"
                                    Foreground="{Binding DataContext.TabForeground, RelativeSource={RelativeSource AncestorType=Window}}" />
 
-                        <!-- Shortcuts arranged perpendicularly to the bar -->
+                        <!-- Shortcuts arranged in a single column/row perpendicularly to the bar -->
                         <ItemsControl ItemsSource="{Binding ShortcutItems}"
                                       ItemTemplate="{StaticResource ShortcutItemTemplate}">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
-                                    <WrapPanel Style="{StaticResource RibbonWrapOrientationStyle}" />
+                                    <StackPanel Style="{StaticResource RibbonBodyOrientationStyle}" />
                                 </ItemsPanelTemplate>
                             </ItemsControl.ItemsPanel>
                         </ItemsControl>
@@ -810,7 +998,22 @@
             <Border.RenderTransform>
                 <ScaleTransform ScaleX="1" ScaleY="1" />
             </Border.RenderTransform>
-            <TextBlock Text="Sticky" Foreground="{Binding TabForeground}" FontSize="11" />
+            <Grid>
+                <StackPanel x:Name="FloatingTabContent" Style="{StaticResource FloatingTabContentStyle}">
+                    <Image Width="20"
+                           Height="20"
+                           Margin="0,0,6,0"
+                           VerticalAlignment="Center"
+                           Source="pack://application:,,,/Icons/sticky-64x64.png"
+                           RenderOptions.BitmapScalingMode="HighQuality" />
+                    <TextBlock Text="Sticky"
+                               Foreground="{Binding TabForeground}"
+                               FontSize="11"
+                               FontWeight="SemiBold"
+                               VerticalAlignment="Center" />
+                </StackPanel>
+                <Path x:Name="DockedTabChevron" Style="{StaticResource DockedTabChevronStyle}" />
+            </Grid>
         </Border>
     </Grid>
 </Window>

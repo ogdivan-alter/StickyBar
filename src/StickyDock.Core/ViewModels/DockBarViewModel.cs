@@ -217,7 +217,43 @@ public sealed class DockBarViewModel : ViewModelBase, IRibbonLayoutState, IDispo
             if (SetProperty(ref _openRibbon, value))
             {
                 OnPropertyChanged(nameof(HasOpenRibbon));
+                OnPropertyChanged(nameof(OpenRibbonOffset));
             }
+        }
+    }
+
+    /// <summary>
+    /// Gets the offset in device-independent units along the bar axis where the open ribbon flyout aligns with its
+    /// indicator button.
+    /// </summary>
+    public double OpenRibbonOffset
+    {
+        get
+        {
+            if (_openRibbon is null)
+            {
+                return 0d;
+            }
+
+            var ribbonIndex = Ribbons.IndexOf(_openRibbon);
+            if (ribbonIndex < 0)
+            {
+                return 0d;
+            }
+
+            const double contentStartOffset = 4d; // 1px border + 3px padding
+            const double gripExtent = 14d;
+            const double appIconExtent = 32d; // 28px + 2*2px margin
+            const double ribbonPanelHalfExtent = 27d; // 54px / 2
+
+            var ribbonCenter = contentStartOffset
+                + gripExtent
+                + appIconExtent
+                + BarItems.Count * DockBarMetrics.BarItemExtent
+                + ribbonIndex * DockBarMetrics.RibbonIndicatorExtent
+                + DockBarMetrics.RibbonIndicatorExtent / 2d;
+
+            return Math.Max(0d, ribbonCenter - ribbonPanelHalfExtent);
         }
     }
 
@@ -1145,6 +1181,7 @@ public sealed class DockBarViewModel : ViewModelBase, IRibbonLayoutState, IDispo
     {
         OnPropertyChanged(nameof(RibbonCount));
         OnPropertyChanged(nameof(BarItemCount));
+        OnPropertyChanged(nameof(OpenRibbonOffset));
         LayoutChanged?.Invoke(this, EventArgs.Empty);
     }
 }
