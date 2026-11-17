@@ -23,6 +23,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Resource Include="..\..\icons\sticky-24x24.png" Link="Icons\sticky-24x24.png" />
+    <Resource Include="..\..\icons\sticky-32x32.png" Link="Icons\sticky-32x32.png" />
+    <Resource Include="..\..\icons\sticky-64x64.png" Link="Icons\sticky-64x64.png" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\StickyDock.Core\StickyDock.Core.csproj" />
     <ProjectReference Include="..\StickyDock.Interop\StickyDock.Interop.csproj" />
   </ItemGroup>

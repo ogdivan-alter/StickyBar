@@ -1,9 +1,10 @@
-fix(shortcuts): enable drag-and-drop activation and drop on idle tab
+feat(ui): style dock bar and ribbons per toolbox visual reference
 
-Fix inability to add .lnk shortcuts via external drag & drop from Explorer:
-- Subscribe PointerRegionBehavior to DragEnter and DragLeave for DataFormats.FileDrop so dragging over the idle tab arms and expands the bar (since Windows suppresses MouseEnter/MouseLeave during OLE DoDragDrop).
-- Bind ShortcutDragDropBehavior.ExternalDropCommand on TabBorder in MainWindow.xaml so AllowDrop=True is active on the idle tab as well.
-- Add UseShellExecute fallback in ShortcutLauncher when a .lnk has an empty TargetPath (e.g., shell/UWP shortcuts) while keeping faithful TargetPath/Arguments/WorkingDirectory execution.
-- Add regression tests (480/480 passing) and update docs/plan/ESTADO.md.
+Align MainWindow.xaml, DockBarMetrics and RibbonViewModel with the requested visual design:
+- Embed icons/sticky-24x24.png, 32x32.png and 64x64.png as WPF resources in StickyDock.App.csproj and display the app icon at the end of the deployed bar.
+- Style ContentPanel and RibbonPanel as translucent rounded capsules inspired by the toolbox reference (preserving theme inversion and FillBehavior=Stop).
+- Render ribbons as numbered (DisplayNumber) tiles with directional deployment arrows (Down/Up/Right/Left) instead of inline editable names.
+- Render open ribbons perpendicularly with #DisplayNumber at the start, shortcuts in the body, and an inline edit toggle (pencil) at the end for move/delete actions.
+- Update DockBarMetrics and add 3 contract/ViewModel tests (483/483 passing in Debug).
 
-Refs: RF04, HU04 (CA #1), E5-CA1, E5-CA2
+Refs: RF02, RF03, §4.2, §4.4, E4-CA1, E4-CA4

@@ -110,13 +110,168 @@
             panel looks the same on the first deployment and on the hundredth (H-E3-06). Nothing is held, so nothing can
             outrank the next animation.
         -->
+        <Style TargetType="{x:Type Button}" x:Key="RibbonTileButtonStyle">
+            <Setter Property="Width" Value="34" />
+            <Setter Property="Height" Value="34" />
+            <Setter Property="Margin" Value="2" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Background" Value="#3843A047" />
+            <Setter Property="BorderBrush" Value="#7766BB6A" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type Button}">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#5843A047" />
+                    <Setter Property="BorderBrush" Value="#AA81C784" />
+                </Trigger>
+                <DataTrigger Binding="{Binding IsOpen}" Value="True">
+                    <Setter Property="Background" Value="#7243A047" />
+                    <Setter Property="BorderBrush" Value="#CC81C784" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style TargetType="{x:Type Path}" x:Key="RibbonArrowPathStyle">
+            <Setter Property="Width" Value="12" />
+            <Setter Property="Height" Value="12" />
+            <Setter Property="Stretch" Value="None" />
+            <Setter Property="Stroke"
+                    Value="{Binding DataContext.TabForeground, RelativeSource={RelativeSource AncestorType=Window}}" />
+            <Setter Property="StrokeThickness" Value="1.8" />
+            <Setter Property="StrokeStartLineCap" Value="Round" />
+            <Setter Property="StrokeEndLineCap" Value="Round" />
+            <Setter Property="StrokeLineJoin" Value="Round" />
+            <Setter Property="Data" Value="M 6,2 L 6,10 M 2.5,6.5 L 6,10 L 9.5,6.5" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding DataContext.DockEdge, RelativeSource={RelativeSource AncestorType=Window}}"
+                             Value="{x:Static coreDocking:DockEdge.Bottom}">
+                    <Setter Property="Data" Value="M 6,10 L 6,2 M 2.5,5.5 L 6,2 L 9.5,5.5" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding DataContext.DockEdge, RelativeSource={RelativeSource AncestorType=Window}}"
+                             Value="{x:Static coreDocking:DockEdge.Left}">
+                    <Setter Property="Data" Value="M 2,6 L 10,6 M 6.5,2.5 L 10,6 L 6.5,9.5" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding DataContext.DockEdge, RelativeSource={RelativeSource AncestorType=Window}}"
+                             Value="{x:Static coreDocking:DockEdge.Right}">
+                    <Setter Property="Data" Value="M 10,6 L 2,6 M 5.5,2.5 L 2,6 L 5.5,9.5" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style TargetType="{x:Type Button}" x:Key="CreateRibbonButtonStyle">
+            <Setter Property="Width" Value="28" />
+            <Setter Property="Height" Value="28" />
+            <Setter Property="Margin" Value="2" />
+            <Setter Property="FontSize" Value="15" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Foreground" Value="#1A1A1A" />
+            <Setter Property="Background" Value="#E8B84B" />
+            <Setter Property="BorderBrush" Value="#AAFFFFFF" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type Button}">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="14">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#F0C050" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style TargetType="{x:Type Button}" x:Key="InlineRibbonActionButtonStyle">
+            <Setter Property="Width" Value="24" />
+            <Setter Property="Height" Value="24" />
+            <Setter Property="Margin" Value="1" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="FontSize" Value="10" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Foreground"
+                    Value="{Binding DataContext.TabForeground, RelativeSource={RelativeSource AncestorType=Window}}" />
+            <Setter Property="Background" Value="#22FFFFFF" />
+            <Setter Property="BorderBrush" Value="#44FFFFFF" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type Button}">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#44FFFFFF" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style TargetType="{x:Type StackPanel}" x:Key="RibbonBodyOrientationStyle">
+            <Setter Property="Orientation" Value="Vertical" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding DataContext.DockEdge, RelativeSource={RelativeSource AncestorType=Window}}"
+                             Value="{x:Static coreDocking:DockEdge.Left}">
+                    <Setter Property="Orientation" Value="Horizontal" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding DataContext.DockEdge, RelativeSource={RelativeSource AncestorType=Window}}"
+                             Value="{x:Static coreDocking:DockEdge.Right}">
+                    <Setter Property="Orientation" Value="Horizontal" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style TargetType="{x:Type WrapPanel}" x:Key="RibbonWrapOrientationStyle">
+            <Setter Property="Orientation" Value="Vertical" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding DataContext.DockEdge, RelativeSource={RelativeSource AncestorType=Window}}"
+                             Value="{x:Static coreDocking:DockEdge.Left}">
+                    <Setter Property="Orientation" Value="Horizontal" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding DataContext.DockEdge, RelativeSource={RelativeSource AncestorType=Window}}"
+                             Value="{x:Static coreDocking:DockEdge.Right}">
+                    <Setter Property="Orientation" Value="Horizontal" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
         <Style TargetType="{x:Type Border}" x:Key="ContentPanelStyle">
-            <Setter Property="Background" Value="{Binding TabBackground}" />
-            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Background" Value="#D91B2432" />
+            <Setter Property="BorderBrush" Value="#44FFFFFF" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="12" />
             <Setter Property="Opacity" Value="1" />
             <Setter Property="HorizontalAlignment" Value="Stretch" />
             <Setter Property="VerticalAlignment" Value="Stretch" />
             <Style.Triggers>
+                <DataTrigger Binding="{Binding IsLightTheme}" Value="False">
+                    <Setter Property="Background" Value="#DCF0F4FA" />
+                    <Setter Property="BorderBrush" Value="#441A2433" />
+                </DataTrigger>
                 <!-- Nothing is deployed while the bar is collapsed or arming, so the surface is not even laid out. -->
                 <DataTrigger Binding="{Binding DockState}" Value="{x:Static coreServices:DockState.Tab}">
                     <Setter Property="Visibility" Value="Collapsed" />
@@ -301,13 +456,19 @@
             (ADR-004 D4).
         -->
         <Style TargetType="{x:Type Border}" x:Key="RibbonPanelStyle">
-            <Setter Property="Background" Value="{Binding TabBackground}" />
-            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Background" Value="#D91B2432" />
+            <Setter Property="BorderBrush" Value="#44FFFFFF" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="12" />
             <Setter Property="Margin" Value="2" />
             <Setter Property="Padding" Value="8" />
             <Setter Property="Visibility" Value="Collapsed" />
             <Setter Property="Opacity" Value="1" />
             <Style.Triggers>
+                <DataTrigger Binding="{Binding IsLightTheme}" Value="False">
+                    <Setter Property="Background" Value="#DCF0F4FA" />
+                    <Setter Property="BorderBrush" Value="#441A2433" />
+                </DataTrigger>
                 <MultiDataTrigger>
                     <MultiDataTrigger.Conditions>
                         <Condition Binding="{Binding DockState}" Value="{x:Static coreServices:DockState.Expanded}" />
@@ -490,6 +651,16 @@
                     <StackPanel Style="{StaticResource RibbonStripOrientationStyle}"
                                 VerticalAlignment="Center"
                                 HorizontalAlignment="Center">
+                        <!-- Subtle 3-dot grip indicator at the start of the bar -->
+                        <TextBlock Text="⋮"
+                                   FontSize="14"
+                                   FontWeight="Bold"
+                                   Opacity="0.45"
+                                   Margin="2,0,4,0"
+                                   VerticalAlignment="Center"
+                                   HorizontalAlignment="Center"
+                                   Foreground="{Binding TabForeground}" />
+
                         <ItemsControl ItemsSource="{Binding BarItems}"
                                       ItemTemplate="{StaticResource ShortcutItemTemplate}">
                             <ItemsControl.ItemsPanel>
@@ -507,43 +678,55 @@
                             </ItemsControl.ItemsPanel>
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Button Command="{Binding ToggleCommand}"
-                                            Content="{Binding Name}"
-                                            Margin="2"
-                                            Padding="8,4"
-                                            MinWidth="68"
-                                            FontSize="11"
-                                            Foreground="{Binding DataContext.TabForeground, RelativeSource={RelativeSource AncestorType=Window}}"
-                                            Background="#33FFFFFF"
-                                            BorderThickness="1"
-                                            BorderBrush="#55FFFFFF"
+                                    <Button Style="{StaticResource RibbonTileButtonStyle}"
+                                            Command="{Binding ToggleCommand}"
                                             input:ShortcutDragDropBehavior.ExternalDropCommand="{Binding DropFilesCommand}">
                                         <Button.ContextMenu>
                                             <ContextMenu>
-                                                <MenuItem Header="Rename" Command="{Binding BeginRenameCommand}" />
                                                 <MenuItem Header="Move Earlier" Command="{Binding MoveEarlierCommand}" />
                                                 <MenuItem Header="Move Later" Command="{Binding MoveLaterCommand}" />
                                                 <Separator />
                                                 <MenuItem Header="Delete" Command="{Binding DeleteCommand}" />
                                             </ContextMenu>
                                         </Button.ContextMenu>
+
+                                        <Grid Width="28" Height="28">
+                                            <Path Style="{StaticResource RibbonArrowPathStyle}"
+                                                  HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"
+                                                  Margin="0,0,4,4" />
+                                            <TextBlock Text="{Binding DisplayNumber}"
+                                                       FontSize="9"
+                                                       FontWeight="SemiBold"
+                                                       Opacity="0.75"
+                                                       HorizontalAlignment="Right"
+                                                       VerticalAlignment="Bottom"
+                                                       Foreground="{Binding DataContext.TabForeground, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                        </Grid>
                                     </Button>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
 
                         <Button Content="+"
+                                Style="{StaticResource CreateRibbonButtonStyle}"
                                 Command="{Binding CreateRibbonCommand}"
-                                ToolTip="Create Ribbon"
-                                Width="28"
+                                ToolTip="Create Ribbon" />
+
+                        <!-- App icon container at the far end of the bar -->
+                        <Border Width="28"
                                 Height="28"
                                 Margin="2"
-                                FontSize="13"
-                                FontWeight="Bold"
-                                Foreground="{Binding TabForeground}"
-                                Background="#33FFFFFF"
-                                BorderThickness="1"
-                                BorderBrush="#55FFFFFF" />
+                                Padding="3"
+                                CornerRadius="8"
+                                Background="#1AFFFFFF"
+                                BorderBrush="#33FFFFFF"
+                                BorderThickness="1">
+                            <Image Width="20"
+                                   Height="20"
+                                   Source="pack://application:,,,/Icons/sticky-24x24.png"
+                                   RenderOptions.BitmapScalingMode="HighQuality" />
+                        </Border>
                     </StackPanel>
                 </Border>
 
@@ -561,67 +744,57 @@
                         <TranslateTransform X="0" Y="0" />
                     </Border.RenderTransform>
 
-                    <Grid DataContext="{Binding OpenRibbon}">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="*" />
-                        </Grid.RowDefinitions>
+                    <StackPanel DataContext="{Binding OpenRibbon}"
+                                Style="{StaticResource RibbonBodyOrientationStyle}"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center">
+                        <!-- Subtle ribbon number at the beginning of the deployed ribbon -->
+                        <TextBlock Text="{Binding DisplayNumber, StringFormat='#{0}'}"
+                                   FontSize="10"
+                                   FontWeight="SemiBold"
+                                   Opacity="0.7"
+                                   Margin="4"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   Foreground="{Binding DataContext.TabForeground, RelativeSource={RelativeSource AncestorType=Window}}" />
 
-                        <DockPanel Grid.Row="0" Margin="0,0,0,6">
-                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                                <Button Content="◀" Command="{Binding MoveEarlierCommand}" Padding="4,1" Margin="1,0" FontSize="10" ToolTip="Move Earlier" />
-                                <Button Content="▶" Command="{Binding MoveLaterCommand}" Padding="4,1" Margin="1,0" FontSize="10" ToolTip="Move Later" />
-                                <Button Content="✎" Command="{Binding BeginRenameCommand}" Padding="4,1" Margin="1,0" FontSize="10" ToolTip="Rename" />
-                                <Button Content="✕" Command="{Binding DeleteCommand}" Padding="4,1" Margin="1,0" FontSize="10" ToolTip="Delete Ribbon" />
-                            </StackPanel>
-
-                            <Grid>
-                                <TextBlock Text="{Binding Name}"
-                                           FontWeight="SemiBold"
-                                           FontSize="12"
-                                           VerticalAlignment="Center"
-                                           Foreground="{Binding DataContext.TabForeground, RelativeSource={RelativeSource AncestorType=Window}}">
-                                    <TextBlock.Style>
-                                        <Style TargetType="{x:Type TextBlock}">
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsRenaming}" Value="True">
-                                                    <Setter Property="Visibility" Value="Collapsed" />
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </TextBlock.Style>
-                                </TextBlock>
-
-                                <StackPanel Orientation="Horizontal">
-                                    <StackPanel.Style>
-                                        <Style TargetType="{x:Type StackPanel}">
-                                            <Setter Property="Visibility" Value="Collapsed" />
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsRenaming}" Value="True">
-                                                    <Setter Property="Visibility" Value="Visible" />
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </StackPanel.Style>
-                                    <TextBox Text="{Binding DraftName, UpdateSourceTrigger=PropertyChanged}"
-                                             MinWidth="72"
-                                             FontSize="11" />
-                                    <Button Content="✓" Command="{Binding CommitRenameCommand}" Padding="4,1" Margin="2,0,0,0" FontSize="10" />
-                                    <Button Content="✕" Command="{Binding CancelRenameCommand}" Padding="4,1" Margin="2,0,0,0" FontSize="10" />
-                                </StackPanel>
-                            </Grid>
-                        </DockPanel>
-
-                        <ItemsControl Grid.Row="1"
-                                      ItemsSource="{Binding ShortcutItems}"
+                        <!-- Shortcuts arranged perpendicularly to the bar -->
+                        <ItemsControl ItemsSource="{Binding ShortcutItems}"
                                       ItemTemplate="{StaticResource ShortcutItemTemplate}">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
-                                    <WrapPanel Orientation="Horizontal" />
+                                    <WrapPanel Style="{StaticResource RibbonWrapOrientationStyle}" />
                                 </ItemsPanelTemplate>
                             </ItemsControl.ItemsPanel>
                         </ItemsControl>
-                    </Grid>
+
+                        <!-- Edit button and inline management actions at the end of the ribbon -->
+                        <StackPanel Style="{StaticResource RibbonBodyOrientationStyle}"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    Margin="2">
+                            <Button Content="✎"
+                                    Style="{StaticResource InlineRibbonActionButtonStyle}"
+                                    Command="{Binding ToggleActionsCommand}"
+                                    ToolTip="Ribbon Actions" />
+
+                            <StackPanel Style="{StaticResource RibbonBodyOrientationStyle}"
+                                        Visibility="{Binding IsActionsOpen, Converter={StaticResource BoolToVisibilityConverter}}">
+                                <Button Content="◀"
+                                        Style="{StaticResource InlineRibbonActionButtonStyle}"
+                                        Command="{Binding MoveEarlierCommand}"
+                                        ToolTip="Move Earlier" />
+                                <Button Content="▶"
+                                        Style="{StaticResource InlineRibbonActionButtonStyle}"
+                                        Command="{Binding MoveLaterCommand}"
+                                        ToolTip="Move Later" />
+                                <Button Content="✕"
+                                        Style="{StaticResource InlineRibbonActionButtonStyle}"
+                                        Command="{Binding DeleteCommand}"
+                                        ToolTip="Delete Ribbon" />
+                            </StackPanel>
+                        </StackPanel>
+                    </StackPanel>
                 </Border>
             </DockPanel>
         </Grid>

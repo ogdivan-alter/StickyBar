@@ -24,6 +24,7 @@ public sealed class RibbonViewModel : ViewModelBase
     private int _order;
     private bool _isOpen;
     private bool _isRenaming;
+    private bool _isActionsOpen;
     private string _draftName;
 
     /// <summary>
@@ -57,6 +58,7 @@ public sealed class RibbonViewModel : ViewModelBase
         ShortcutItems.CollectionChanged += OnShortcutItemsChanged;
 
         ToggleCommand = new RelayCommand(() => _toggle(Id));
+        ToggleActionsCommand = new RelayCommand(() => IsActionsOpen = !IsActionsOpen);
         BeginRenameCommand = new RelayCommand(BeginRename);
         CommitRenameCommand = new RelayCommand(CommitRename);
         CancelRenameCommand = new RelayCommand(CancelRename);
@@ -95,8 +97,17 @@ public sealed class RibbonViewModel : ViewModelBase
     public int Order
     {
         get => _order;
-        internal set => SetProperty(ref _order, value);
+        internal set
+        {
+            if (SetProperty(ref _order, value))
+            {
+                OnPropertyChanged(nameof(DisplayNumber));
+            }
+        }
     }
+
+    /// <summary>Gets the 1-based display number of the ribbon along the dock bar.</summary>
+    public int DisplayNumber => Order + 1;
 
     /// <summary>Gets the shortcut item view models contained in this ribbon (E5).</summary>
     public ObservableCollection<ShortcutItemViewModel> ShortcutItems { get; } = [];
@@ -111,7 +122,20 @@ public sealed class RibbonViewModel : ViewModelBase
     public bool IsOpen
     {
         get => _isOpen;
-        internal set => SetProperty(ref _isOpen, value);
+        internal set
+        {
+            if (SetProperty(ref _isOpen, value) && !value)
+            {
+                IsActionsOpen = false;
+            }
+        }
+    }
+
+    /// <summary>Gets a value indicating whether the inline ribbon management actions are visible.</summary>
+    public bool IsActionsOpen
+    {
+        get => _isActionsOpen;
+        private set => SetProperty(ref _isActionsOpen, value);
     }
 
     /// <summary>Gets a value indicating whether the inline rename editor is active.</summary>
@@ -130,6 +154,9 @@ public sealed class RibbonViewModel : ViewModelBase
 
     /// <summary>Gets the command that toggles this ribbon open or closed (E4-CA2).</summary>
     public ICommand ToggleCommand { get; }
+
+    /// <summary>Gets the command that toggles the inline ribbon management actions.</summary>
+    public ICommand ToggleActionsCommand { get; }
 
     /// <summary>Gets the command that enters inline rename mode.</summary>
     public ICommand BeginRenameCommand { get; }

@@ -29,17 +29,17 @@ public readonly record struct DockBarMetrics(
     /// </summary>
     public static DockBarMetrics Default { get; } = new(120d, 36d, 168d, 96d);
 
-    /// <summary>Reserved length along the deployed bar for the create-ribbon button and margins (E4-CA6).</summary>
-    public const double BarActionPadding = 44d;
+    /// <summary>Reserved length along the deployed bar for the grip, create-ribbon button, app icon and padding (E4-CA6).</summary>
+    public const double BarActionPadding = 76d;
 
     /// <summary>Length occupied by each ribbon indicator slot along the bar (E4-CA6).</summary>
-    public const double RibbonIndicatorExtent = 84d;
+    public const double RibbonIndicatorExtent = 42d;
 
     /// <summary>Length occupied by each shortcut slot on the main bar (E4-CA6).</summary>
     public const double BarItemExtent = 44d;
 
     /// <summary>Additional perpendicular thickness added when a ribbon is open (E4-CA1, E4-CA6).</summary>
-    public const double OpenRibbonThickness = 144d;
+    public const double OpenRibbonThickness = 220d;
 
     /// <summary>
     /// Gets the footprint of a state in the orientation of an edge.

@@ -227,6 +227,40 @@ public sealed class DockBarViewModelRibbonsTests
         Assert.Null(typeof(Ribbon).GetProperty("Ribbons"));
     }
 
+    [Fact]
+    public void RibbonDisplayNumber_TracksOneBasedOrderAndUpdatesOnReorder()
+    {
+        var fixture = CreateFixture();
+        var first = fixture.ViewModel.CreateRibbon("A");
+        var second = fixture.ViewModel.CreateRibbon("B");
+
+        Assert.Equal(1, first.DisplayNumber);
+        Assert.Equal(2, second.DisplayNumber);
+
+        second.MoveEarlierCommand.Execute(null);
+
+        Assert.Equal(1, second.DisplayNumber);
+        Assert.Equal(2, first.DisplayNumber);
+    }
+
+    [Fact]
+    public void RibbonToggleActionsCommand_TogglesInlineActionsAndResetsWhenClosed()
+    {
+        var fixture = CreateFixture();
+        var ribbon = fixture.ViewModel.CreateRibbon("A");
+
+        ribbon.ToggleCommand.Execute(null);
+        Assert.True(ribbon.IsOpen);
+        Assert.False(ribbon.IsActionsOpen);
+
+        ribbon.ToggleActionsCommand.Execute(null);
+        Assert.True(ribbon.IsActionsOpen);
+
+        ribbon.ToggleCommand.Execute(null);
+        Assert.False(ribbon.IsOpen);
+        Assert.False(ribbon.IsActionsOpen);
+    }
+
     private static Fixture CreateFixture(StickyDockConfiguration? initial = null, bool confirmResult = true)
     {
         var store = new RecordingConfigurationStore();

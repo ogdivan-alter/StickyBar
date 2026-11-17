@@ -51,6 +51,33 @@ public sealed class MainWindowRibbonContractTests
         Assert.Contains("(UIElement.RenderTransform).(TranslateTransform.X)", animatedProperties);
     }
 
+    [Fact]
+    public void ContentPanel_IncludesAppIconResourceAndDirectionalRibbonIndicators()
+    {
+        var document = LoadMainWindowXaml();
+
+        var images = document.Descendants().Where(e => e.Name.LocalName == "Image").ToList();
+        Assert.Contains(
+            images,
+            img => string.Equals(
+                (string?)img.Attribute("Source"),
+                "pack://application:,,,/Icons/sticky-24x24.png",
+                StringComparison.Ordinal));
+
+        var arrowStyle = document
+            .Descendants()
+            .Where(e => e.Name.LocalName == "Style")
+            .Single(e => (string?)e.Attribute(XamlNamespace + "Key") == "RibbonArrowPathStyle");
+        var triggers = arrowStyle.Descendants().Where(e => e.Name.LocalName == "DataTrigger").ToList();
+        Assert.Equal(3, triggers.Count);
+
+        var ribbonPanel = document
+            .Descendants()
+            .Single(e => (string?)e.Attribute(XamlNamespace + "Name") == "RibbonPanel");
+        var buttons = ribbonPanel.Descendants().Where(e => e.Name.LocalName == "Button").ToList();
+        Assert.Contains(buttons, b => (string?)b.Attribute("Command") == "{Binding ToggleActionsCommand}");
+    }
+
     private static XDocument LoadMainWindowXaml()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
