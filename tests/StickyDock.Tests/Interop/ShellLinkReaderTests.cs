@@ -96,6 +96,24 @@ public sealed class ShellLinkReaderTests : IDisposable
     }
 
     [Fact]
+    public void ShortcutLauncher_WhenTargetDoesNotExist_ReturnsFailureResultWithoutThrowing()
+    {
+        var lnkPath = _directory.GetFilePath("MissingTarget.lnk");
+        var missingTargetPath = _directory.GetFilePath("NonExistentApp.exe");
+
+        CreateShortcutFile(lnkPath, missingTargetPath, string.Empty, _directory.Path, iconLocation: null, iconIndex: 0);
+
+        var logger = new RecordingLogger();
+        var launcher = new ShortcutLauncher(new ShellLinkReader(), logger);
+
+        var result = launcher.Launch(lnkPath);
+
+        Assert.False(result.Succeeded);
+        Assert.False(string.IsNullOrWhiteSpace(result.ErrorMessage));
+        Assert.Contains(logger.Entries, entry => entry.StartsWith("Error:", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void ShortcutLauncher_RealEndToEndExecution_PreservesCommandLineArguments()
     {
         var lnkPath = _directory.GetFilePath("EchoTest.lnk");

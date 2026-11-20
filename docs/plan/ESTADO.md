@@ -3,8 +3,8 @@
 Tablero de estado del plan definido en `docs/plan/PLAN.md`. El inventario normalizado de requisitos y las matrices de trazabilidad viven en `docs/plan/TRAZABILIDAD.md`.
 
 - **Propietario**: Director de Desarrollo
-- **Última actualización**: 2026-11-15
-- **Etapa actual**: E8 (Rendimiento, endurecimiento y entrega) lista para iniciar. **E7 cerrada el 2026-11-15**.
+- **Última actualización**: 2026-11-20
+- **Etapa actual**: **Todas las etapas completadas (E0–E8 al 100 %)**. Producto listo para entrega en `dist/StickyDock-Setup-win-x64.zip`.
 
 ---
 
@@ -20,7 +20,7 @@ Tablero de estado del plan definido en `docs/plan/PLAN.md`. El inventario normal
 | E5 | Accesos directos `.lnk` | Completada | 100 % | 2026-11-14 | E1, E4 | — |
 | E6 | Bandeja, configuración y auto-inicio | Completada | 100 % | 2026-11-14 | E1 | — |
 | E7 | Multimonitor y réplica | Completada | 100 % | 2026-11-15 | E2, E5, E6 | — |
-| E8 | Rendimiento, endurecimiento y entrega | No iniciada | 0 % | 2026-10-22 | E0–E7 | — |
+| E8 | Rendimiento, endurecimiento y entrega | Completada | 100 % | 2026-11-20 | E0–E7 | — |
 
 **Estados válidos**: `No iniciada` · `En curso` · `En revisión` · `Bloqueada` · `Completada`
 
@@ -117,6 +117,9 @@ Tablero de estado del plan definido en `docs/plan/PLAN.md`. El inventario normal
 | 2026-11-20 | E3–E5 (fix) | **Corrección de bloqueo intermitente de regiones** | Resuelto el atasco en `Tab` (chevron sin desplegar) o en `Expanded` (barra sin colapsar) tras múltiples interacciones: `DockInteractionController.EnterRegion` reevalúa si `Tab` ya estaba en `_regions` en estado `Tab` sin temporizador; `PointerRegionBehavior` agenda comprobación `!IsMouseOver` tras `Drop` y sincroniza `EnterCommand` cuando un elemento pasa a `Visible` bajo el cursor. Build Release limpio; suite **499/499** en verde. | Director / Implementador |
 | 2026-11-20 | E2–E5 (fix) | **Cierre garantizado de `_dragging` y ancla izquierda-superior flotante** | (1) `WpfMessageDockingEventSource` + `WpfDockWindowHost` (`try/finally` en `BeginDrag`) garantizan emitir `WindowDragCompleted` cuando `SendMessage(SC_MOVE)` retorna sin `WM_EXITSIZEMOVE` (clic sin movimiento), eliminando el congelamiento de `_dragging = true`. (2) Por solicitud explícita del usuario sobre la barra desacoplada, `DockPlacementCalculator.GetFloatingBounds` mantiene fijos `X, Y` (ancla superior-izquierda, sin recentrado de `ADR-003 §6.3`) y `TabBorderStyle` usa `Left/Top` en modo flotante. Builds Debug/Release limpios; suite **500/500** en verde. | Director / Implementador |
 | 2026-11-20 | E4/E5 (fix) | **Bloqueo de colapso con `ContextMenu` abierto** | Añadida la propiedad `IsContextMenuOpen` en `IDockStateService` / `DockInteractionController` (compartiendo `HoldOpenFromTransientState` con `IsPinned`), comandos `BeginContextMenuCommand`/`EndContextMenuCommand` en `DockBarViewModel` y `ContextMenuHoldBehavior` (`OpenedCommand`/`ClosedCommand`) en los menús contextuales de accesos directos y Cintas en `MainWindow.xaml`. Builds Debug/Release limpios; suite **503/503** en verde. | Director / Implementador |
+| 2026-11-20 | E8 | Implementación de E8 entregada | Endurecimiento (`D-08` BOM UTF-8 en `JsonConfigurationStore`, `LoadOrDefaultAsync` con recuperación por defecto en `StickyDockSettings` y `Bootstrapper`, manejo de permisos en `WindowsAutoStartService`), documentación (`docs/MANUAL-USUARIO.md`, `docs/ARQUITECTURA.md`) y empaquetado instalable/desinstalable con auto-inicio (`installer/StickyDockInstaller.ps1`, `Instalar-StickyDock.bat`, `Desinstalar-StickyDock.bat`, `Build-Package.ps1` → `dist/StickyDock-Setup-win-x64.zip`). Suite: **511/511** (+8 pruebas). Sin commit. | Director / Implementador |
+| 2026-11-20 | E8 | Verificación final de `qa`: veredicto **APROBADA CON OBSERVACIONES** | Builds Release y Debug `--no-incremental`: **0 errores y 0 advertencias**. `dotnet test`: **511/511** en verde. Greps ADR-004 §9.4 y ADR-005 §6.2 limpios, MVVM limpio. Medición RNF en Release publicado (`dist/StickyDock-Package/app/StickyDock.exe`, 30 muestras a 1 s): RAM privada `PrivateMemorySize64` / `PrivateBytes` **36,64 MB** promedio (máx. **36,75 MB**, < 46 MB Q-12 y < 50 MB RNF-01); CPU en reposo **0,008 %** promedio (máx. 0,129 %, < 1 % RNF-02). Quedan verificaciones manuales complementarias (`M-22` peor caso visual desplegado y `M-23` instalación en Windows 10 x64). | QA |
+| 2026-11-20 | E8 | **Cierre de E8 y del plan (100 %)** | E8 pasa a **Completada al 100 %**; `D-08` pasa a **Corregido**; el plan alcanza **100 %** (9 de 9 etapas, 87 de 87 puntos). Producto empaquetado en `dist/StickyDock-Setup-win-x64.zip`. | Director de Desarrollo |
 
 ---
 
@@ -429,7 +432,7 @@ Registrada al cerrar E2. **Ninguno de estos puntos incumple un criterio de acept
 | ID | Descripción | Etapa que debe abordarlo |
 | --- | --- | --- |
 | D-07 | **Dos copias del documento de configuración**: `Bootstrapper` registra un `StickyDockConfiguration` como singleton, pero `DockPlacementCoordinator` recibe su propia instancia y persiste sobre ella. Cuando E3 o E6 guarden otras preferencias con la copia del contenedor, el `dockEdge` puede revertirse a un valor obsoleto. Debe quedar un único documento mutable compartido antes de que exista un segundo escritor | **En curso** — ADR-003 declara `IConfigurationDocument` como único escritor y único llamador de `IConfigurationStore.SaveAsync`. Se cierra al verificar E3 |
-| D-08 | Un `settings.json` guardado con BOM UTF-8 rompe `JsonConfigurationStore` (`0xEF is an invalid start of a value`) y la aplicación arranca con valores por defecto. El archivo lo genera la propia aplicación sin BOM, así que solo ocurre si un editor externo lo añade; aun así, el lector debería tolerar el BOM | E8 (manejo de configuración corrupta) |
+| D-08 | **Corregido** el 2026-11-20 (E8): `JsonConfigurationStore.Parse` omite el BOM UTF-8 (`0xEF,0xBB,0xBF`) y `LoadOrDefaultAsync` recupera con valores por defecto ante archivos corruptos | — |
 | D-09 | El coordinador solo recalcula la colocación al arrancar y ante eventos del entorno. Si la barra cambia de tamaño por contenido (crece con elementos o Cintas, E4) sin que llegue `WM_EXITSIZEMOVE` ni un cambio de área de trabajo, no se re-resuelve sola. Hará falta un `NotifyBarSizeChanged()` explícito en el contrato o en el host | **En curso** — ADR-003 añade `DockPlacementCoordinator.NotifyBarSizeChanged()` y lo cablea desde `IDockStateService.StateChanged` en la raíz de composición. Se cierra al verificar E3 |
 | D-10 | `Undock()` conserva la misma cola que ahora vive en `ReleaseToFloating` (limpiar borde, persistir, elevar `PlacementChanged`). Unificarlas es un refactor sin cambio de comportamiento | Repaso de E2 |
 
@@ -532,17 +535,18 @@ Registradas al cerrar E4 con veredicto **APROBADA CON OBSERVACIONES** del 2026-1
 | M-19 | Cambiar el temporizador de gracia en `SettingsWindow` (300–500 ms), comprobar efecto inmediato y persistencia tras reiniciar; cerrar `SettingsWindow` y verificar ejecución en segundo plano y fluidez visual con `RenderMode.SoftwareOnly` | E6-CA3, E6-CA5 |
 | M-20 | Activar/desactivar `"Start automatically with Windows"` y verificar entrada `"StickyDock"` en `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` | E6-CA4 |
 | M-21 | En entorno físico con 2+ monitores (DPI mixto y barra secundaria en otro borde), activar réplica, verificar acople por monitor, sincronización espejada en vivo y desconexión/reconexión física | E7-CA1..E7-CA5, R-05 |
+| M-22 | Ejecutar `dist/StickyDock-Package/app/StickyDock.exe` con la barra desplegada y múltiples Cintas/accesos directos abiertos y comprobar `PrivateMemorySize64 < 50 MB` | E8-CA1 |
+| M-23 | Descomprimir `dist/StickyDock-Setup-win-x64.zip` en Windows 10 x64, probar `Instalar-StickyDock.bat` (con/sin auto-inicio), operación básica y `Desinstalar-StickyDock.bat` | E8-CA5, E8-CA7, RNF-03 |
 
 ---
 
 ## Resumen para reporte
 
-- **Etapas cerradas**: E0 (2026-10-22), E1 (2026-10-26), E2 (2026-10-28, `2aa510a`), E3 (2026-11-03, `98f3387`), E4 (2026-11-14, `5577dbc`), E5 (2026-11-14, `7aa22a4`), E6 (2026-11-14, `76a12e1`) y **E7 (2026-11-15)**.
-- **Etapa cerrada — E7 (Multimonitor y réplica espejada) al 100 %**:
-  - `Win32MonitorCatalog` (`EnumDisplayMonitors`/`GetMonitorInfoExW`/`GetDpiForMonitor` sin WinForms) y `TaskbarMonitor.GetTaskbarPlacementForMonitor`.
-  - Migración v4→v5 (`AddMonitorReplicaMigration`) y selector en `SettingsViewModel`/`SettingsWindow` (solo réplica espejada, Q-04).
-  - Sincronización espejada vía `IConfigurationDocument.Changed` en `DockBarViewModel` (`IDisposable`) y `MultiMonitorCoordinator` / `WpfBarHostFactory` para desconexión y reconexión.
-- **Veredicto de `qa`: APROBADA CON OBSERVACIONES** — 6/6 criterios (`E7-CA1..E7-CA5`, `Q-04`) en **Cumple**, builds Release/Debug limpios, **477/477** pruebas en verde, `WinFormsModulesLoaded: 0`.
-- **RNF medidos por `qa` en Release** (30 muestras a 1 s): CPU en reposo **0,0064 %** (< 1 %); memoria privada comprometida (`PrivateMemorySize64`) **47,02 MB** promedio (máx. 47,14 MB — cumple RNF-01 `< 50 MB`, supera en ~1,02 MB el presupuesto interno Q-12 `< 46 MB`, asignado a perfilado de E8).
-- **Avance del plan**: **89 %** (8 de 9 etapas cerradas; 74 de 87 puntos estimados).
-- **Próxima acción**: iniciar **E8 — Rendimiento, endurecimiento y entrega** (etapa final del plan).
+- **Etapas cerradas**: E0–E8 (**9 de 9 etapas completadas — 100 %**, 87 de 87 puntos).
+- **Etapa cerrada — E8 (Rendimiento, endurecimiento y entrega) al 100 %**:
+  - **Endurecimiento**: tolerancia a BOM UTF-8 (`D-08`) en `JsonConfigurationStore`, recuperación segura en `StickyDockSettings.LoadOrDefaultAsync` / `Bootstrapper`, manejo de permisos en `WindowsAutoStartService`, y avisos sin cierre ante `.lnk` inexistentes.
+  - **Instalador y desinstalador**: `installer/StickyDockInstaller.ps1`, `Instalar-StickyDock.bat`, `Desinstalar-StickyDock.bat`, `Build-Package.ps1` → `dist/StickyDock-Setup-win-x64.zip` con soporte de auto-inicio y entrada en *Aplicaciones instaladas*.
+  - **Documentación**: `docs/MANUAL-USUARIO.md` y `docs/ARQUITECTURA.md`.
+- **Veredicto de `qa`: APROBADA CON OBSERVACIONES** — 5/7 en **Cumple**, 2/7 **Parcial** (`M-22` peor caso desplegado y `M-23` prueba física en Windows 10 x64), builds Release/Debug limpios, **511/511** pruebas en verde.
+- **RNF medidos por `qa` en Release publicado** (`dist/StickyDock-Package/app/StickyDock.exe`, 30 muestras a 1 s): CPU en reposo **0,008 %** (< 1 %); memoria privada comprometida **36,64 MB** promedio (máx. **36,75 MB**, < 46 MB Q-12 y < 50 MB RNF-01).
+- **Avance del plan**: **100 %** (E0–E8 completadas). Producto listo para entrega.

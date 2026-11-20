@@ -1,9 +1,9 @@
-fix(interaction): prevent bar collapse while a ContextMenu is open
+chore(release): harden errors, add installer, user manual and close E8
 
-Hold the bar open whenever a shortcut or ribbon ContextMenu is open:
-- Add IsContextMenuOpen to IDockStateService and DockInteractionController (sharing HoldOpenFromTransientState with IsPinned) so grace collapse never triggers while a ContextMenu popup is open, and resumes normally upon close.
-- Expose BeginContextMenuCommand and EndContextMenuCommand in DockBarViewModel.
-- Add ContextMenuHoldBehavior (OpenedCommand/ClosedCommand) and bind it on both ContextMenus in MainWindow.xaml without code-behind logic.
-- Add unit and XAML contract tests (503/503 passing in Debug and Release).
+Complete Stage E8 (Performance, hardening and delivery) at 100%:
+- Harden JsonConfigurationStore against UTF-8 BOM (D-08), recover with defaults on corrupt settings via StickyDockSettings.LoadOrDefaultAsync, handle registry permission exceptions in WindowsAutoStartService, and cover missing shortcut targets (E8-CA3, E8-CA4).
+- Add install/uninstall packaging scripts (installer/StickyDockInstaller.ps1, Instalar-StickyDock.bat, Desinstalar-StickyDock.bat, Build-Package.ps1) with auto-start and Windows Installed Apps registration, generating dist/StickyDock-Setup-win-x64.zip (E8-CA5).
+- Add Spanish user manual (docs/MANUAL-USUARIO.md) and architecture guide (docs/ARQUITECTURA.md).
+- Update docs/plan/ESTADO.md closing E8 (9/9 stages, 511/511 tests passing, 36.64 MB avg RAM and 0.008% CPU in published Release).
 
-Refs: RF02, RF03, RF04, HU02, E3-CA3, E4-CA4, E5-CA4, OBS-01
+Refs: RNF-01, RNF-02, RNF-03, E8-CA1..E8-CA7, D-08

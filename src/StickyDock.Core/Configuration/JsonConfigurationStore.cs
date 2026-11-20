@@ -130,11 +130,19 @@ public sealed class JsonConfigurationStore<TDocument> : IConfigurationStore<TDoc
 
     private TDocument Parse(byte[] payload)
     {
+        ReadOnlySpan<byte> utf8Json = payload;
+
+        // Tolerate UTF-8 BOM (0xEF, 0xBB, 0xBF) written by external editors (D-08).
+        if (utf8Json.Length >= 3 && utf8Json[0] == 0xEF && utf8Json[1] == 0xBB && utf8Json[2] == 0xBF)
+        {
+            utf8Json = utf8Json[3..];
+        }
+
         JsonNode? node;
 
         try
         {
-            node = JsonNode.Parse(payload);
+            node = JsonNode.Parse(utf8Json);
         }
         catch (JsonException exception)
         {

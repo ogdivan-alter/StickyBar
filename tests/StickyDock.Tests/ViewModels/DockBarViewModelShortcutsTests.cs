@@ -141,6 +141,38 @@ public sealed class DockBarViewModelShortcutsTests : IDisposable
     }
 
     [Fact]
+    public void LaunchShortcut_WithShortcutLauncherAndMissingTarget_ShowsErrorAlertWithoutThrowing()
+    {
+        var lnkPath = CreateDummyFile("MissingApp.lnk");
+        var missingExePath = _directory.GetFilePath("DoesNotExist.exe");
+        var logger = new RecordingLogger();
+        var store = StickyDockSettings.CreateStore(_directory.GetFilePath("settings.json"), logger);
+        using var document = new ConfigurationDocument(store, new StickyDockConfiguration(), logger);
+        var controller = new DockInteractionController(new ManualScheduler(), document, logger);
+        var reader = new MissingTargetShellLinkReader(missingExePath);
+        var launcher = new ShortcutLauncher(reader, logger);
+        var alerts = new RecordingUserAlertService();
+
+        var vm = new DockBarViewModel(
+            logger,
+            controller,
+            controller,
+            themeService: null,
+            document,
+            deletionConfirmer: null,
+            reader,
+            launcher,
+            alerts);
+
+        vm.DropFilesOnBar([lnkPath]);
+        vm.BarItems[0].LaunchCommand.Execute(null);
+
+        var error = Assert.Single(alerts.Errors);
+        Assert.False(string.IsNullOrWhiteSpace(error.Message));
+        Assert.Contains(logger.Entries, entry => entry.StartsWith("Error:", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void MoveShortcutToRibbon_AndMoveShortcutToBar_UpdatesContainersAndPersists()
     {
         var lnkPath = CreateDummyFile("Code.lnk");
@@ -342,6 +374,18 @@ public sealed class DockBarViewModelShortcutsTests : IDisposable
     private sealed class FakeShortcutLauncher(ShortcutLaunchResult result) : IShortcutLauncher
     {
         public ShortcutLaunchResult Launch(string shortcutPath) => result;
+    }
+
+    private sealed class MissingTargetShellLinkReader(string missingTargetPath) : IShellLinkReader
+    {
+        public ResolvedShortcut Read(string shortcutPath)
+            => new(
+                shortcutPath,
+                Path.GetFileNameWithoutExtension(shortcutPath),
+                missingTargetPath,
+                string.Empty,
+                Path.GetDirectoryName(missingTargetPath) ?? string.Empty,
+                [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
     }
 
     private sealed class RecordingUserAlertService : IUserAlertService

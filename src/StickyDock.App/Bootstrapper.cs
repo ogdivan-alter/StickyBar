@@ -75,7 +75,8 @@ internal sealed class Bootstrapper : IDisposable
             var store = StickyDockSettings.CreateStore(paths.ConfigurationFilePath, logger);
             services.AddSingleton(store);
 
-            var configuration = await LoadConfigurationAsync(store, logger, cancellationToken).ConfigureAwait(false);
+            var configuration = await StickyDockSettings.LoadOrDefaultAsync(store, logger, cancellationToken)
+                .ConfigureAwait(false);
 
             // The single writer of the preferences (ADR-003, D1): every consumer sees the same instance, and the write is
             // flushed when the container disposes it (D-04).
@@ -96,7 +97,7 @@ internal sealed class Bootstrapper : IDisposable
             services.AddSingleton<IWindowsThemeService>(themeService);
 
             // E6: Windows auto-start service.
-            services.AddSingleton<IAutoStartService>(new WindowsAutoStartService());
+            services.AddSingleton<IAutoStartService>(new WindowsAutoStartService(logger: logger));
 
             // E7: pure Win32 display monitor catalog.
             services.AddSingleton<IMonitorCatalog>(new Win32MonitorCatalog());
@@ -495,23 +496,5 @@ internal sealed class Bootstrapper : IDisposable
         }
 
         coordinator.Dispose();
-    }
-
-    private static async Task<StickyDockConfiguration> LoadConfigurationAsync(
-        IConfigurationStore<StickyDockConfiguration> store,
-        ILogger logger,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            return await store.LoadAsync(cancellationToken).ConfigureAwait(false);
-        }
-        catch (ConfigurationException exception)
-        {
-            // Baseline recovery for E0: defaults are used and the invalid file is left untouched so no user data is
-            // discarded. The definitive policy belongs to E8.
-            logger.Error("The configuration could not be loaded; defaults are used.", exception);
-            return new StickyDockConfiguration();
-        }
     }
 }

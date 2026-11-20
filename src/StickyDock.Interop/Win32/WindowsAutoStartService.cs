@@ -1,4 +1,6 @@
+using System.Security;
 using Microsoft.Win32;
+using StickyDock.Core.Diagnostics;
 using StickyDock.Core.Services;
 
 namespace StickyDock.Interop.Win32;
@@ -21,6 +23,7 @@ public sealed class WindowsAutoStartService : IAutoStartService
     private readonly string _registrySubKeyPath;
     private readonly string _valueName;
     private readonly Func<string?> _executablePathProvider;
+    private readonly ILogger? _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="WindowsAutoStartService"/> class.
@@ -28,10 +31,12 @@ public sealed class WindowsAutoStartService : IAutoStartService
     /// <param name="registrySubKeyPath">Subkey path under <see cref="Registry.CurrentUser"/>.</param>
     /// <param name="valueName">Registry value name.</param>
     /// <param name="executablePathProvider">Provider for the executable path; defaults to <see cref="Environment.ProcessPath"/>.</param>
+    /// <param name="logger">Optional logger for diagnostics when registry access is denied.</param>
     public WindowsAutoStartService(
         string registrySubKeyPath = DefaultRegistrySubKeyPath,
         string valueName = DefaultValueName,
-        Func<string?>? executablePathProvider = null)
+        Func<string?>? executablePathProvider = null,
+        ILogger? logger = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(registrySubKeyPath);
         ArgumentException.ThrowIfNullOrWhiteSpace(valueName);
@@ -39,41 +44,57 @@ public sealed class WindowsAutoStartService : IAutoStartService
         _registrySubKeyPath = registrySubKeyPath;
         _valueName = valueName;
         _executablePathProvider = executablePathProvider ?? (() => Environment.ProcessPath);
+        _logger = logger;
     }
 
     /// <inheritdoc />
     public bool IsEnabled()
     {
-        using var key = Registry.CurrentUser.OpenSubKey(_registrySubKeyPath, writable: false);
-
-        if (key is null)
+        try
         {
+            using var key = Registry.CurrentUser.OpenSubKey(_registrySubKeyPath, writable: false);
+
+            if (key is null)
+            {
+                return false;
+            }
+
+            return key.GetValue(_valueName) is string value && !string.IsNullOrWhiteSpace(value);
+        }
+        catch (Exception exception) when (exception is UnauthorizedAccessException or SecurityException)
+        {
+            _logger?.Warning($"Insufficient permissions to read auto-start registry key '{_registrySubKeyPath}'.", exception);
             return false;
         }
-
-        return key.GetValue(_valueName) is string value && !string.IsNullOrWhiteSpace(value);
     }
 
     /// <inheritdoc />
     public void SetEnabled(bool enabled)
     {
-        if (enabled)
+        try
         {
-            var executablePath = _executablePathProvider();
-
-            if (string.IsNullOrWhiteSpace(executablePath))
+            if (enabled)
             {
-                throw new InvalidOperationException("The current executable path could not be resolved.");
+                var executablePath = _executablePathProvider();
+
+                if (string.IsNullOrWhiteSpace(executablePath))
+                {
+                    throw new InvalidOperationException("The current executable path could not be resolved.");
+                }
+
+                using var key = Registry.CurrentUser.CreateSubKey(_registrySubKeyPath, writable: true)
+                    ?? throw new InvalidOperationException($"Could not open registry subkey '{_registrySubKeyPath}'.");
+
+                key.SetValue(_valueName, $"\"{executablePath}\"", RegistryValueKind.String);
+                return;
             }
 
-            using var key = Registry.CurrentUser.CreateSubKey(_registrySubKeyPath, writable: true)
-                ?? throw new InvalidOperationException($"Could not open registry subkey '{_registrySubKeyPath}'.");
-
-            key.SetValue(_valueName, $"\"{executablePath}\"", RegistryValueKind.String);
-            return;
+            using var existingKey = Registry.CurrentUser.OpenSubKey(_registrySubKeyPath, writable: true);
+            existingKey?.DeleteValue(_valueName, throwOnMissingValue: false);
         }
-
-        using var existingKey = Registry.CurrentUser.OpenSubKey(_registrySubKeyPath, writable: true);
-        existingKey?.DeleteValue(_valueName, throwOnMissingValue: false);
+        catch (Exception exception) when (exception is UnauthorizedAccessException or SecurityException)
+        {
+            _logger?.Warning($"Insufficient permissions to update auto-start registry key '{_registrySubKeyPath}'.", exception);
+        }
     }
 }

@@ -162,6 +162,21 @@ public sealed class JsonConfigurationStoreTests : IDisposable
     }
 
     [Fact]
+    public async Task LoadAsync_WhenFileHasUtf8Bom_LoadsDocumentSuccessfully()
+    {
+        var store = CreateStore();
+        var jsonBytes = System.Text.Encoding.UTF8.GetBytes("{ \"schemaVersion\": 1, \"displayName\": \"bom-ok\", \"items\": [\"x\"] }");
+        byte[] payloadWithBom = [0xEF, 0xBB, 0xBF, .. jsonBytes];
+        await File.WriteAllBytesAsync(store.FilePath, payloadWithBom);
+
+        var loaded = await store.LoadAsync();
+
+        Assert.Equal(1, loaded.SchemaVersion);
+        Assert.Equal("bom-ok", loaded.DisplayName);
+        Assert.Equal(new[] { "x" }, loaded.Items);
+    }
+
+    [Fact]
     public void Constructor_WhenTheDefaultDocumentHasNoVersion_Throws()
     {
         Assert.Throws<InvalidOperationException>(
