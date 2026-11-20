@@ -1,4 +1,4 @@
-# Informe de Trazabilidad — Sticky Dock Utility
+# Informe de Trazabilidad — StickyBar
 
 Artefacto de la **Fase B**: inventario normalizado de requisitos, matrices de trazabilidad directa e inversa, y veredicto de cobertura del plan.
 

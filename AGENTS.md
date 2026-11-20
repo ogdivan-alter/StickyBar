@@ -1,4 +1,4 @@
-# Sticky Dock Utility — Guía de proyecto
+# StickyBar — Guía de proyecto
 
 Aplicación de escritorio nativa **Windows 10/11 x64** que ofrece una barra flotante de accesos directos, adherible a los bordes de pantalla y organizada en **Cintas**.
 

@@ -1,4 +1,4 @@
-# Plan de Implementación — Sticky Dock Utility
+# Plan de Implementación — StickyBar
 
 Plan por etapas derivado de la especificación (`requerimiento/`). Este documento es la fuente de verdad del **alcance de cada etapa**; el estado y el seguimiento viven en `docs/plan/ESTADO.md`.
 
@@ -40,7 +40,7 @@ Plan por etapas derivado de la especificación (`requerimiento/`). Este document
   - Solución .NET 10 (`net10.0-windows`, Q-05) con **WPF** (ADR-001 *Aceptada*) y los proyectos: aplicación, núcleo de dominio, interoperabilidad Win32 y pruebas.
   - Estructura de carpetas y convenciones documentadas en `AGENTS.md`.
   - Infraestructura MVVM mínima: `ViewModelBase`, contenedor de dependencias, comandos observables.
-  - Servicio de persistencia JSON versionado en `%AppData%\StickyDock\` con escritura atómica y esquema inicial.
+  - Servicio de persistencia JSON versionado en `%AppData%\StickyBar\` con escritura atómica y esquema inicial.
   - Logging con niveles y archivo rotado.
   - `dotnet build` y `dotnet test` en verde, perfil Release y Debug.
 - **Criterios de aceptación**:

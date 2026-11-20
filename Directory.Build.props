@@ -17,9 +17,9 @@
 
     <IsPackable>false</IsPackable>
     <NeutralLanguage>en</NeutralLanguage>
-    <Product>Sticky Dock Utility</Product>
-    <Company>Sticky Dock Utility</Company>
-    <Version>0.1.0</Version>
+    <Product>StickyBar</Product>
+    <Company>StickyBar</Company>
+    <Version>1.0.0</Version>
   </PropertyGroup>
 
 </Project>

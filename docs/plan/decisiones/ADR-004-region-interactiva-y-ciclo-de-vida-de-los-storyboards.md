@@ -37,13 +37,13 @@ Causa: `ContentPanelStyle` (`MainWindow.xaml` l. 47-166) anima `Opacity` desde `
 
 ### 1.2 Hechos del código que condicionan el diseño
 
-1. **La región de la barra vive en la raíz y se fabrica.** `RootPanel` lleva `input:WindowRegionReporter.Region="{x:Static interaction:DockRegion.Bar}"` (`MainWindow.xaml` l. 245-249) con `Background="Transparent"`, y `WindowRegionReporter` (`src\StickyDock.App\Input\WindowRegionReporter.cs`, 284 líneas medidas) sostiene ese estado con tres mecanismos: reafirmación en cada movimiento, reconciliación con el cursor real por `CursorProbe` tras cada cambio de tamaño o posición (l. 282-317) y un `WindowRegionTracker` que deduplica observaciones (`src\StickyDock.Core\Interaction\WindowRegionTracker.cs`, 51 líneas medidas).
+1. **La región de la barra vive en la raíz y se fabrica.** `RootPanel` lleva `input:WindowRegionReporter.Region="{x:Static interaction:DockRegion.Bar}"` (`MainWindow.xaml` l. 245-249) con `Background="Transparent"`, y `WindowRegionReporter` (`src\StickyBar.App\Input\WindowRegionReporter.cs`, 284 líneas medidas) sostiene ese estado con tres mecanismos: reafirmación en cada movimiento, reconciliación con el cursor real por `CursorProbe` tras cada cambio de tamaño o posición (l. 282-317) y un `WindowRegionTracker` que deduplica observaciones (`src\StickyBar.Core\Interaction\WindowRegionTracker.cs`, 51 líneas medidas).
 2. **El estado reportado no depende de lo pintado.** `Reconcile` pregunta por el puntero dentro del **rectángulo de la ventana**, no dentro de una superficie pintada. En una ventana *layered* (`AllowsTransparency="True"`) un píxel con alfa 0 es *click-through*: el sistema no entrega allí ningún mensaje, de modo que la región puede afirmar «dentro» sobre una zona que el usuario no puede tocar y sobre la que WPF nunca volverá a hablar.
 3. **La raíz es ancestro de la pestaña.** Por eso el comentario del XAML concluye que «no hay entrada que observar» y que la región debe colgar del rectángulo. Ese razonamiento era correcto para la raíz y es falso para el panel: el panel **no** es ancestro de la pestaña, así que entrar en él desde la pestaña sí produce un `MouseEnter` propio.
 4. **`Enter(Tab)` durante `Collapsing` también revierte.** `EnterRegion` revierte cualquier región con `_state == DockState.Collapsing` (`DockInteractionController.cs` l. 81-87), así que volver a la pestaña mientras la ventana encoge la reabre. Con el reporter fabricando entradas, ese camino se dispara sin que el usuario haya tocado nada.
 5. **La reversión es la única defensa del colapso, y por eso el `Leave` perdido es fatal.** El conjunto de regiones es la memoria del área interactiva (A4); si una región entra y no sale, la gracia no se arma jamás. No hay ninguna validación que compruebe que una región sigue siendo posible en el estado vigente.
 6. **El colapso mantiene el panel pintado durante todo su transcurso.** `Visibility` solo pasa a `Collapsed` en `Tab`/`Arming` (l. 55-60); en `Collapsing` el panel sigue visible y solo se le baja la opacidad, y la ventana encoge cuando vence el temporizador de asentamiento (160 ms), no antes.
-7. **Los cinco literales de animación no tienen comprobación.** El desplazamiento `±60` (= `96 − 36`) y las duraciones `0.16` / `0.12` viven solo en el XAML (deuda D-14), y la prueba que hoy los vigila —`tests\StickyDock.Tests\Views\MainWindowRegionLayoutTests.cs`— **afirma lo contrario de lo que hay que garantizar**: exige que la región cuelgue de la raíz, que la raíz pinte un fondo y que el panel **no** declare región. Es una prueba del diseño defectuoso.
+7. **Los cinco literales de animación no tienen comprobación.** El desplazamiento `±60` (= `96 − 36`) y las duraciones `0.16` / `0.12` viven solo en el XAML (deuda D-14), y la prueba que hoy los vigila —`tests\StickyBar.Tests\Views\MainWindowRegionLayoutTests.cs`— **afirma lo contrario de lo que hay que garantizar**: exige que la región cuelgue de la raíz, que la raíz pinte un fondo y que el panel **no** declare región. Es una prueba del diseño defectuoso.
 8. **La huella plegada es exactamente la ventana de E1.** `DockBarMetrics.Default` declara `(120, 36, 168, 96)` y E1-CA4 se cumple porque la ventana colapsada mide 120×36; no existe *hit-test* selectivo (deuda D-15), así que **toda** superficie que intercepte el clic en reposo cuenta.
 9. **El código de la vista está limpio.** `MainWindow.xaml.cs` solo tiene `InitializeComponent` y `MainViewModel`; la región entra por propiedades adjuntas. No hay code-behind que tocar en este ADR.
 
@@ -259,10 +259,10 @@ El micro-efecto de la pestaña (`Arming`) conserva `To="1.06"`, `0:0:0.06` y `Au
 
 ### 4.5 D5 — Verificación: contrato de los *storyboards*, matriz de presencia y secuencia real
 
-- **Se sustituye** `tests\StickyDock.Tests\Views\MainWindowRegionLayoutTests.cs` —cuyas aserciones están invertidas— por `tests\StickyDock.Tests\Views\MainWindowStoryboardContractTests.cs`, que comprueba: `Bar` declarada **en `ContentPanel`** y **no** en `RootPanel`; `RootPanel` **sin** `Background` y sin ninguna propiedad `WindowRegionReporter` en todo el XAML; `TabBorder` con su región y su asa de arrastre; ausencia de `HoldEnd`; que **todo** `Storyboard` tiene `FillBehavior="Stop"`; que ninguna animación de `Opacity` fija un `From` cuyo valor sea 0.3; que el desplazamiento literal de cada borde vale `|DockBarMetrics.Default.ExpandedThickness − CollapsedThickness|` deducido de **Core**, y que las duraciones valen `InteractionTimings.SlideMilliseconds` (lo que convierte D-14 en una comprobación de máquina).
-- **Se añade** `tests\StickyDock.Tests\Interaction\DockRegionPresenceTests.cs`: las 16 combinaciones de la matriz y `IsContent` para las cuatro regiones.
+- **Se sustituye** `tests\StickyBar.Tests\Views\MainWindowRegionLayoutTests.cs` —cuyas aserciones están invertidas— por `tests\StickyBar.Tests\Views\MainWindowStoryboardContractTests.cs`, que comprueba: `Bar` declarada **en `ContentPanel`** y **no** en `RootPanel`; `RootPanel` **sin** `Background` y sin ninguna propiedad `WindowRegionReporter` en todo el XAML; `TabBorder` con su región y su asa de arrastre; ausencia de `HoldEnd`; que **todo** `Storyboard` tiene `FillBehavior="Stop"`; que ninguna animación de `Opacity` fija un `From` cuyo valor sea 0.3; que el desplazamiento literal de cada borde vale `|DockBarMetrics.Default.ExpandedThickness − CollapsedThickness|` deducido de **Core**, y que las duraciones valen `InteractionTimings.SlideMilliseconds` (lo que convierte D-14 en una comprobación de máquina).
+- **Se añade** `tests\StickyBar.Tests\Interaction\DockRegionPresenceTests.cs`: las 16 combinaciones de la matriz y `IsContent` para las cuatro regiones.
 - **Se añaden pruebas de la secuencia real** en `DockInteractionControllerTests`: entrada de `Bar` ignorada en `Tab` y en `Arming`, reversión desde `Collapsing` con `Bar`, **no** reversión con `Tab` seguida de redespliegue tras el *hover*, purga de las regiones de contenido al asentar, y entradas repetidas de una región activa que no arman ni cancelan la ranura.
-- **Se borra** `tests\StickyDock.Tests\Interaction\WindowRegionTrackerTests.cs` (su sujeto desaparece).
+- **Se borra** `tests\StickyBar.Tests\Interaction\WindowRegionTrackerTests.cs` (su sujeto desaparece).
 - **Se conserva la sonda del Director** como evidencia de cierre, ampliada a tres ciclos (§9.5).
 
 ## 5. Contratos y cambios concretos
@@ -272,8 +272,8 @@ Nombres definitivos, en inglés, y comentarios XML en inglés. Todo lo que no se
 ### 5.1 Módulo comparativo de la raíz
 
 ```csharp
-// src\StickyDock.Core\Interaction\DockRegionPresence.cs  (new file)
-namespace StickyDock.Core.Interaction;
+// src\StickyBar.Core\Interaction\DockRegionPresence.cs  (new file)
+namespace StickyBar.Core.Interaction;
 
 /// <summary>
 /// Declares which regions can exist in which state (ADR-004, D3). It is the single translation of the
@@ -321,7 +321,7 @@ public static class DockRegionPresence
 ### 5.2 Cambios en `DockInteractionController`
 
 ```csharp
-// src\StickyDock.Core\Interaction\DockInteractionController.cs  (amendments; the rest of the class is unchanged)
+// src\StickyBar.Core\Interaction\DockInteractionController.cs  (amendments; the rest of the class is unchanged)
 public sealed class DockInteractionController : IDockStateService, IDockRegionSink, IDisposable
 {
     /// <inheritdoc />
@@ -420,7 +420,7 @@ public sealed class DockInteractionController : IDockStateService, IDockRegionSi
 ### 5.3 Cambios en la vista
 
 ```xml
-<!-- src\StickyDock.App\Views\MainWindow.xaml -->
+<!-- src\StickyBar.App\Views\MainWindow.xaml -->
 
 <!-- ADR-004 D1: the root no longer paints and no longer reports. Nothing of WindowRegionReporter survives in the
      XAML: the region is deduced from what is painted, and a transparent pixel of a layered window never receives the
@@ -550,13 +550,13 @@ y, en `TabBorderStyle`, el micro-efecto:
 
 | Archivo | Qué se retira | Quién lo usaba |
 | --- | --- | --- |
-| `src\StickyDock.App\Input\WindowRegionReporter.cs` | **Archivo completo** | la raíz en XAML |
-| `src\StickyDock.Core\Interaction\WindowRegionTracker.cs` | **Archivo completo**, con `RegionReport` | el reporter |
-| `src\StickyDock.Interop\Win32\CursorProbe.cs` | **Archivo completo** | el reporter |
-| `src\StickyDock.Interop\Win32\NativeMethods.cs` | `GetCursorPos` y las estructuras que quedaran solo para él | `CursorProbe` |
-| `src\StickyDock.Core\Docking\DockingGeometry.cs` | `PixelRect.Contains(int, int)` | `Reconcile` |
-| `tests\StickyDock.Tests\Interaction\WindowRegionTrackerTests.cs` | **Archivo completo** | `WindowRegionTracker` |
-| `tests\StickyDock.Tests\Views\MainWindowRegionLayoutTests.cs` | **Archivo completo**, sustituido | la estructura anterior |
+| `src\StickyBar.App\Input\WindowRegionReporter.cs` | **Archivo completo** | la raíz en XAML |
+| `src\StickyBar.Core\Interaction\WindowRegionTracker.cs` | **Archivo completo**, con `RegionReport` | el reporter |
+| `src\StickyBar.Interop\Win32\CursorProbe.cs` | **Archivo completo** | el reporter |
+| `src\StickyBar.Interop\Win32\NativeMethods.cs` | `GetCursorPos` y las estructuras que quedaran solo para él | `CursorProbe` |
+| `src\StickyBar.Core\Docking\DockingGeometry.cs` | `PixelRect.Contains(int, int)` | `Reconcile` |
+| `tests\StickyBar.Tests\Interaction\WindowRegionTrackerTests.cs` | **Archivo completo** | `WindowRegionTracker` |
+| `tests\StickyBar.Tests\Views\MainWindowRegionLayoutTests.cs` | **Archivo completo**, sustituido | la estructura anterior |
 
 Ninguno tiene otro consumidor: la comprobación está hecha sobre el árbol (`grep` sin resultados fuera de los archivos listados).
 
@@ -676,7 +676,7 @@ El valor mostrado deja de depender del historial: es un `Setter` del estado vige
 
 Cambiar una prueba porque el comportamiento esperado ha cambiado **no es aflojarla**: cada cambio tiene que dejar la aserción **más estricta** que antes, y se documenta aquí para que la revisión lo compruebe.
 
-| Prueba (`tests\StickyDock.Tests\Interaction\DockInteractionControllerTests.cs`) | Situación | Cambio |
+| Prueba (`tests\StickyBar.Tests\Interaction\DockInteractionControllerTests.cs`) | Situación | Cambio |
 | --- | --- | --- |
 | `EnteringACollapsingBar_ReExpandsIt` (l. 358) | sigue válida | ninguna: es la fila `Collapsing + Enter(Bar)` de D2 |
 | `EnteringTheTabAfterTheCollapse_StartsANewActivation` (l. 373) | sigue válida pero hoy para a mitad | se avanza el **asentamiento** y después la **activación**, y se afirma `Expanded`; se renombra a `SettleThenHover_DeploysTheBarAgain` |
@@ -721,14 +721,14 @@ Ninguna prueba puede usar esperas reales: el reloj es el `ManualScheduler` de AD
 
 ### 9.2 Pruebas nuevas, con su aserción
 
-`tests\StickyDock.Tests\Interaction\DockRegionPresenceTests.cs`
+`tests\StickyBar.Tests\Interaction\DockRegionPresenceTests.cs`
 
 | Prueba | Aserción |
 | --- | --- |
 | `PresenceMatrix_MatchesTheTable` | `[Theory]` con las 16 combinaciones; `Tab` verdadero en los cuatro estados, `Bar`/`Ribbon` verdaderos solo en `Expanded` y `Collapsing`, `None` falso siempre |
 | `IsContent_OnlyForTheBarAndTheRibbons` | `Bar` y `Ribbon` verdaderos; `Tab` y `None` falsos |
 
-`tests\StickyDock.Tests\Interaction\DockInteractionControllerTests.cs` (nuevas)
+`tests\StickyBar.Tests\Interaction\DockInteractionControllerTests.cs` (nuevas)
 
 | Prueba | Aserción |
 | --- | --- |
@@ -741,7 +741,7 @@ Ninguna prueba puede usar esperas reales: el reloj es el `ManualScheduler` de AD
 | `RepeatedEntriesOfAnActiveRegion_DoNotArmOrCancelTheSlot` | cinco entradas seguidas de la misma región activa no cambian `ScheduleCount` ni `CancelCount` |
 | `ThreeConsecutiveCycles_DeployAndCollapseEveryTime` | tres ciclos completos dejan tres `Expanded` y tres `Tab` en la secuencia de estados, y terminan sin temporizador pendiente |
 
-`tests\StickyDock.Tests\Views\MainWindowStoryboardContractTests.cs` (nuevas; carga el XAML con el mismo patrón de `RepositoryRoot()` que la prueba que sustituye)
+`tests\StickyBar.Tests\Views\MainWindowStoryboardContractTests.cs` (nuevas; carga el XAML con el mismo patrón de `RepositoryRoot()` que la prueba que sustituye)
 
 | Prueba | Aserción |
 | --- | --- |
@@ -769,19 +769,19 @@ Get-ChildItem -Path src,tests -Recurse -Include *.cs,*.xaml |
     Select-String -Pattern 'WindowRegionReporter|WindowRegionTracker|RegionReport|CursorProbe|GetCursorPos|PixelRect\.Contains'
 
 # Ningún reloj retenido en la vista.
-Get-ChildItem -Path src\StickyDock.App\Views -Recurse -Include *.xaml |
+Get-ChildItem -Path src\StickyBar.App\Views -Recurse -Include *.xaml |
     Select-String -Pattern 'HoldEnd'
 
 # La raíz no pinta ni reporta.
-Get-ChildItem -Path src\StickyDock.App\Views -Recurse -Include *.xaml |
+Get-ChildItem -Path src\StickyBar.App\Views -Recurse -Include *.xaml |
     Select-String -Pattern 'RootPanel' -Context 0,4
 
 # La política sigue fuera de la vista (E0-CA6, §5.2-01).
-Get-ChildItem -Path src\StickyDock.App\Views -Recurse -Include *.cs |
+Get-ChildItem -Path src\StickyBar.App\Views -Recurse -Include *.cs |
     Select-String -Pattern 'DockState|Timer|DispatcherTimer|Thread\.Sleep|CompositionTarget'
 
 # Nada periódico nuevo en Core.
-Get-ChildItem -Path src\StickyDock.Core -Recurse -Include *.cs |
+Get-ChildItem -Path src\StickyBar.Core -Recurse -Include *.cs |
     Select-String -Pattern 'DispatcherTimer|CompositionTarget\.Rendering|Thread\.Sleep'
 ```
 
@@ -797,7 +797,7 @@ Script descartable `.tmp-e3diag\probeD.ps1`, ampliación del `probeB2.ps1` que e
 
 **Algoritmo**:
 
-1. Localizar la ventana de la aplicación enumerando con `EnumWindows` y filtrando por el **PID** del proceso y por la clase `HwndWrapper[StickyDock;;<guid>]`; guardar ese `HWND`. **No** sirve `MainWindowHandle` (vale 0 porque la ventana usa `ShowInTaskbar="False"`) ni buscar por título: el título real es `Sticky Dock Utility`, no `StickyDock`, y un `FindWindow` con ese nombre devuelve 0.
+1. Localizar la ventana de la aplicación enumerando con `EnumWindows` y filtrando por el **PID** del proceso y por la clase `HwndWrapper[StickyBar;;<guid>]`; guardar ese `HWND`. **No** sirve `MainWindowHandle` (vale 0 porque la ventana usa `ShowInTaskbar="False"`) ni buscar por título: el título real es `StickyBar`, no `StickyBar`, y un `FindWindow` con ese nombre devuelve 0.
 2. Leer `GetWindowRect` en reposo y **afirmar** `36x120`.
 3. Calcular dos puntos a partir del rectángulo plegado: `P_tab` en el centro de la franja exterior (la pestaña) y `P_panel` en una coordenada que solo exista con la barra desplegada (por ejemplo `(rect.Left − 84, rect.Top + 60)` para el borde derecho, que corresponde al `(1840, 500)` de la medición original).
 4. Repetir **tres ciclos**:
@@ -830,38 +830,38 @@ Script descartable `.tmp-e3diag\probeD.ps1`, ampliación del `probeB2.ps1` que e
 
 ## 10. Lista de verificación de implementación
 
-### Crear — `StickyDock.Core`
+### Crear — `StickyBar.Core`
 
-- [ ] `src\StickyDock.Core\Interaction\DockRegionPresence.cs` — `IsPresent`, `IsContent` (§5.1).
+- [ ] `src\StickyBar.Core\Interaction\DockRegionPresence.cs` — `IsPresent`, `IsContent` (§5.1).
 
 ### Crear — pruebas
 
-- [ ] `tests\StickyDock.Tests\Interaction\DockRegionPresenceTests.cs` — matriz de 16 combinaciones y `IsContent`.
-- [ ] `tests\StickyDock.Tests\Views\MainWindowStoryboardContractTests.cs` — las once comprobaciones de §9.2, con `RepositoryRoot()` copiado del archivo que sustituye.
+- [ ] `tests\StickyBar.Tests\Interaction\DockRegionPresenceTests.cs` — matriz de 16 combinaciones y `IsContent`.
+- [ ] `tests\StickyBar.Tests\Views\MainWindowStoryboardContractTests.cs` — las once comprobaciones de §9.2, con `RepositoryRoot()` copiado del archivo que sustituye.
 
 ### Modificar
 
-- [ ] `src\StickyDock.Core\Interaction\DockInteractionController.cs` — guarda de presencia en `EnterRegion`, reversión solo para contenido, retorno temprano para `Tab` en `Collapsing`, `PurgeAbsentRegions()` invocada desde `SetState` **antes** de elevar el evento, y simplificación de la rama `Arming` de `Reevaluate` (§5.2).
-- [ ] `src\StickyDock.App\Views\MainWindow.xaml` — `RootPanel` sin `Background` ni propiedades `WindowRegionReporter`; `ContentPanel` con `PointerRegionBehavior` (`Bar`, `EnterCommand`, `LeaveCommand`); los seis `Storyboard` con `FillBehavior="Stop"`; `Opacity` de reposo por estado; eliminación de los cinco `From="0.3"`; fundido de salida a `0:0:0.16` con `Setter` `Opacity` = 0 en el `DataTrigger`; micro-efecto con `Stop`. Se actualizan los dos comentarios que documentan el razonamiento derogado (l. 37-46 y l. 227-244).
-- [ ] `src\StickyDock.Interop\Win32\NativeMethods.cs` — retirar `GetCursorPos` y las estructuras que queden sin uso.
-- [ ] `src\StickyDock.Core\Docking\DockingGeometry.cs` — retirar `PixelRect.Contains(int, int)`.
-- [ ] `tests\StickyDock.Tests\Interaction\DockInteractionControllerTests.cs` — ocho pruebas nuevas y los cuatro cambios de §8.3.
+- [ ] `src\StickyBar.Core\Interaction\DockInteractionController.cs` — guarda de presencia en `EnterRegion`, reversión solo para contenido, retorno temprano para `Tab` en `Collapsing`, `PurgeAbsentRegions()` invocada desde `SetState` **antes** de elevar el evento, y simplificación de la rama `Arming` de `Reevaluate` (§5.2).
+- [ ] `src\StickyBar.App\Views\MainWindow.xaml` — `RootPanel` sin `Background` ni propiedades `WindowRegionReporter`; `ContentPanel` con `PointerRegionBehavior` (`Bar`, `EnterCommand`, `LeaveCommand`); los seis `Storyboard` con `FillBehavior="Stop"`; `Opacity` de reposo por estado; eliminación de los cinco `From="0.3"`; fundido de salida a `0:0:0.16` con `Setter` `Opacity` = 0 en el `DataTrigger`; micro-efecto con `Stop`. Se actualizan los dos comentarios que documentan el razonamiento derogado (l. 37-46 y l. 227-244).
+- [ ] `src\StickyBar.Interop\Win32\NativeMethods.cs` — retirar `GetCursorPos` y las estructuras que queden sin uso.
+- [ ] `src\StickyBar.Core\Docking\DockingGeometry.cs` — retirar `PixelRect.Contains(int, int)`.
+- [ ] `tests\StickyBar.Tests\Interaction\DockInteractionControllerTests.cs` — ocho pruebas nuevas y los cuatro cambios de §8.3.
 
 ### Borrar
 
-- [ ] `src\StickyDock.App\Input\WindowRegionReporter.cs`.
-- [ ] `src\StickyDock.Core\Interaction\WindowRegionTracker.cs`.
-- [ ] `src\StickyDock.Interop\Win32\CursorProbe.cs`.
-- [ ] `tests\StickyDock.Tests\Interaction\WindowRegionTrackerTests.cs`.
-- [ ] `tests\StickyDock.Tests\Views\MainWindowRegionLayoutTests.cs`.
+- [ ] `src\StickyBar.App\Input\WindowRegionReporter.cs`.
+- [ ] `src\StickyBar.Core\Interaction\WindowRegionTracker.cs`.
+- [ ] `src\StickyBar.Interop\Win32\CursorProbe.cs`.
+- [ ] `tests\StickyBar.Tests\Interaction\WindowRegionTrackerTests.cs`.
+- [ ] `tests\StickyBar.Tests\Views\MainWindowRegionLayoutTests.cs`.
 
 ### No tocar
 
-- [ ] `src\StickyDock.App\Views\MainWindow.xaml.cs` — ya no contiene manejadores y no debe contener ninguno.
-- [ ] `src\StickyDock.App\Input\PointerRegionBehavior.cs` — se reutiliza tal cual.
-- [ ] `src\StickyDock.Core\Interaction\DockRegion.cs`, `IDockRegionSink.cs`, `GracePeriod.cs`, `InteractionTimings.cs`, `DockBarSizeSource.cs`, `src\StickyDock.Core\Timing\ISingleShotScheduler.cs`.
-- [ ] `src\StickyDock.Core\Docking\*` — `DockBarMetrics`, `IDockBarSizeSource`, `DockPlacementCoordinator`, `DockPlacementCalculator`.
-- [ ] `src\StickyDock.Core\Configuration\*` y el esquema v2.
+- [ ] `src\StickyBar.App\Views\MainWindow.xaml.cs` — ya no contiene manejadores y no debe contener ninguno.
+- [ ] `src\StickyBar.App\Input\PointerRegionBehavior.cs` — se reutiliza tal cual.
+- [ ] `src\StickyBar.Core\Interaction\DockRegion.cs`, `IDockRegionSink.cs`, `GracePeriod.cs`, `InteractionTimings.cs`, `DockBarSizeSource.cs`, `src\StickyBar.Core\Timing\ISingleShotScheduler.cs`.
+- [ ] `src\StickyBar.Core\Docking\*` — `DockBarMetrics`, `IDockBarSizeSource`, `DockPlacementCoordinator`, `DockPlacementCalculator`.
+- [ ] `src\StickyBar.Core\Configuration\*` y el esquema v2.
 
 ### Verificación final
 
@@ -955,7 +955,7 @@ Este ADR no modifica el tablero; estas son las entradas que corresponden registr
 4. **D-14 pasa a comprobación de máquina**: no se cierra —los literales siguen en el XAML—, pero un desajuste con Core rompe la suite.
 5. **D-15 no cambia**: quitar el `Background` de `RootPanel` no altera el *hit-test* de la ventana, porque la `Window` conserva `Background="Transparent"` y sigue siendo el alfa del píxel el que decide qué se entrega. D-15 sigue **abierta** como ausencia de *hit-test* selectivo, con su regla de vigilancia intacta.
 6. **Verificaciones manuales nuevas M-09, M-10 y M-11** (§9.6), que se suman a M-05 a M-08.
-7. **Prueba derogada y sustituida**: `tests\StickyDock.Tests\Views\MainWindowRegionLayoutTests.cs` desaparece y su lugar lo ocupa `MainWindowStoryboardContractTests.cs`. Debe constar en la bitácora para que no parezca una prueba eliminada sin justificación (§9.3).
+7. **Prueba derogada y sustituida**: `tests\StickyBar.Tests\Views\MainWindowRegionLayoutTests.cs` desaparece y su lugar lo ocupa `MainWindowStoryboardContractTests.cs`. Debe constar en la bitácora para que no parezca una prueba eliminada sin justificación (§9.3).
 8. **Cifra de la suite**: la estimación con método está en §9.1 y da **393** (368 − 7 − 4 + 17 + 8 + 11), con ±1 de variación por la fusión de §8.3 y por cómo cuenta el `[Theory]`. La cifra exacta la fija el `implementador` y la comprueba el `qa` contra la ejecución real; **no se admite bajar de 368** sin justificación escrita.
 9. **Deuda nueva D-18, D-19 y D-20** (§14.3), y la observación de §14.2, que es de E6.
 
