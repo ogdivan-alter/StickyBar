@@ -17,11 +17,36 @@ param(
 
     [string]$StartMenuDir = ([Environment]::GetFolderPath('Programs')),
 
-    [string]$SourceDir = (Join-Path $PSScriptRoot 'app')
+    [string]$SourceDir = ''
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+
+$scriptDir = if ($PSScriptRoot) {
+    $PSScriptRoot
+}
+elseif ($MyInvocation.MyCommand.Path) {
+    Split-Path -Parent $MyInvocation.MyCommand.Path
+}
+else {
+    (Get-Location).Path
+}
+
+if ([string]::IsNullOrWhiteSpace($SourceDir)) {
+    $localAppDir = Join-Path $scriptDir 'app'
+    $distAppDir = Join-Path (Split-Path -Parent $scriptDir) 'dist\StickyBar-Package\app'
+
+    if (Test-Path -LiteralPath $localAppDir) {
+        $SourceDir = $localAppDir
+    }
+    elseif (Test-Path -LiteralPath $distAppDir) {
+        $SourceDir = $distAppDir
+    }
+    else {
+        $SourceDir = $localAppDir
+    }
+}
 
 function Resolve-RegistryPath {
     param([string]$Path)
