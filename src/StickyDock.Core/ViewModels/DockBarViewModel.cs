@@ -132,6 +132,8 @@ public sealed class DockBarViewModel : ViewModelBase, IRibbonLayoutState, IDispo
         TogglePinCommand = new RelayCommand(() => IsPinned = !IsPinned);
         BeginShortcutDragCommand = new RelayCommand(() => _dockStateService.BeginDrag());
         EndShortcutDragCommand = new RelayCommand(() => _dockStateService.EndDrag());
+        BeginContextMenuCommand = new RelayCommand(() => _dockStateService.IsContextMenuOpen = true);
+        EndContextMenuCommand = new RelayCommand(() => _dockStateService.IsContextMenuOpen = false);
         EnterRegionCommand = new RelayCommand<DockRegion>(region => _regions.EnterRegion(region));
         LeaveRegionCommand = new RelayCommand<DockRegion>(region => _regions.LeaveRegion(region));
         CreateRibbonCommand = new RelayCommand(() => CreateRibbon());
@@ -197,6 +199,12 @@ public sealed class DockBarViewModel : ViewModelBase, IRibbonLayoutState, IDispo
 
     /// <summary>Gets the command invoked when an internal shortcut drag ends.</summary>
     public ICommand EndShortcutDragCommand { get; }
+
+    /// <summary>Gets the command invoked when a context menu opens, suspending automatic collapse.</summary>
+    public ICommand BeginContextMenuCommand { get; }
+
+    /// <summary>Gets the command invoked when a context menu closes, resuming automatic collapse.</summary>
+    public ICommand EndContextMenuCommand { get; }
 
     /// <summary>Gets or sets a value indicating whether the dock bar is pinned open (transient, not persisted).</summary>
     public bool IsPinned

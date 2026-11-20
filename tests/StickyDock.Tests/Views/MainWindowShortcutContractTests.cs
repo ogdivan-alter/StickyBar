@@ -146,6 +146,32 @@ public sealed class MainWindowShortcutContractTests
             (string?)ribbonPanel.Attributes().Single(a => a.Name.LocalName == "ShortcutDragDropBehavior.MoveToRibbonCommand").Value);
     }
 
+    [Fact]
+    public void ContextMenus_BindContextMenuHoldBehaviorOpenedAndClosedCommands()
+    {
+        var document = LoadMainWindowXaml();
+
+        var contextMenus = document
+            .Descendants()
+            .Where(e => e.Name.LocalName == "ContextMenu")
+            .ToList();
+
+        Assert.Equal(2, contextMenus.Count);
+
+        foreach (var menu in contextMenus)
+        {
+            var opened = menu.Attributes()
+                .SingleOrDefault(a => a.Name.LocalName == "ContextMenuHoldBehavior.OpenedCommand");
+            var closed = menu.Attributes()
+                .SingleOrDefault(a => a.Name.LocalName == "ContextMenuHoldBehavior.ClosedCommand");
+
+            Assert.NotNull(opened);
+            Assert.NotNull(closed);
+            Assert.Contains("BeginContextMenuCommand", opened.Value, StringComparison.Ordinal);
+            Assert.Contains("EndContextMenuCommand", closed.Value, StringComparison.Ordinal);
+        }
+    }
+
     private static XDocument LoadMainWindowXaml()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);

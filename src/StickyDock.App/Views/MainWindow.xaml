@@ -125,7 +125,8 @@
         <DataTemplate x:Key="ShortcutItemTemplate">
             <Button Style="{StaticResource ShortcutButtonStyle}">
                 <Button.ContextMenu>
-                    <ContextMenu>
+                    <ContextMenu input:ContextMenuHoldBehavior.OpenedCommand="{Binding PlacementTarget.Tag.BeginContextMenuCommand, RelativeSource={RelativeSource Self}}"
+                                 input:ContextMenuHoldBehavior.ClosedCommand="{Binding PlacementTarget.Tag.EndContextMenuCommand, RelativeSource={RelativeSource Self}}">
                         <MenuItem Header="{Binding PlacementTarget.Tag.Strings.MoveToMainBar, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                   Command="{Binding MoveToBarCommand}"
                                   Visibility="{Binding IsInRibbon, Converter={StaticResource BoolToVisibilityConverter}}" />
@@ -942,7 +943,8 @@
                                             input:ShortcutDragDropBehavior.TargetRibbon="{Binding}"
                                             input:ShortcutDragDropBehavior.MoveToRibbonCommand="{Binding AcceptInternalShortcutCommand}">
                                         <Button.ContextMenu>
-                                            <ContextMenu>
+                                            <ContextMenu input:ContextMenuHoldBehavior.OpenedCommand="{Binding PlacementTarget.Tag.BeginContextMenuCommand, RelativeSource={RelativeSource Self}}"
+                                                         input:ContextMenuHoldBehavior.ClosedCommand="{Binding PlacementTarget.Tag.EndContextMenuCommand, RelativeSource={RelativeSource Self}}">
                                                 <MenuItem Header="{Binding PlacementTarget.Tag.Strings.MoveEarlier, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                                           Command="{Binding MoveEarlierCommand}" />
                                                 <MenuItem Header="{Binding PlacementTarget.Tag.Strings.MoveLater, RelativeSource={RelativeSource AncestorType=ContextMenu}}"

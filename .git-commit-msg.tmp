@@ -1,8 +1,9 @@
-fix(docking,interaction): guarantee drag completion and top-left floating anchor
+fix(interaction): prevent bar collapse while a ContextMenu is open
 
-Fix remaining stuck-state bug and floating horizontal jump:
-- Track WM_EXITSIZEMOVE in WpfMessageDockingEventSource and invoke EnsureDragCompletedAfterNativeMove in WpfDockWindowHost.BeginDrag finally block (main and replica hosts) so clicks without movement never leave _dragging stuck true.
-- Update DockPlacementCalculator.GetFloatingBounds to keep X, Y fixed (top-left anchor without recentering) and set TabBorderStyle to Left/Top in floating mode so the idle icon+name stays stationary and the deployed bar starts at the exact same X.
-- Update floating placement tests and add TabBorderStyle_InFloatingMode_AnchorsTopLeft (500/500 passing in Debug and Release).
+Hold the bar open whenever a shortcut or ribbon ContextMenu is open:
+- Add IsContextMenuOpen to IDockStateService and DockInteractionController (sharing HoldOpenFromTransientState with IsPinned) so grace collapse never triggers while a ContextMenu popup is open, and resumes normally upon close.
+- Expose BeginContextMenuCommand and EndContextMenuCommand in DockBarViewModel.
+- Add ContextMenuHoldBehavior (OpenedCommand/ClosedCommand) and bind it on both ContextMenus in MainWindow.xaml without code-behind logic.
+- Add unit and XAML contract tests (503/503 passing in Debug and Release).
 
-Refs: RF01, RF02, HU01, HU02, E2-CA1, E3-CA1, E3-CA2, ADR-005
+Refs: RF02, RF03, RF04, HU02, E3-CA3, E4-CA4, E5-CA4, OBS-01

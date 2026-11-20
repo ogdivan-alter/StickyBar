@@ -15,6 +15,11 @@ public interface IDockStateService
     /// </summary>
     bool IsPinned { get; set; }
 
+    /// <summary>
+    /// Gets or sets a value indicating whether a context menu is currently open, suspending automatic collapse.
+    /// </summary>
+    bool IsContextMenuOpen { get; set; }
+
     /// <summary>Raised when the state changes.</summary>
     event EventHandler<DockStateChangedEventArgs>? StateChanged;
 

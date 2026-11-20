@@ -15,6 +15,9 @@ internal sealed class FakeDockStateService : IDockStateService
     public bool IsPinned { get; set; }
 
     /// <inheritdoc />
+    public bool IsContextMenuOpen { get; set; }
+
+    /// <inheritdoc />
     public event EventHandler<DockStateChangedEventArgs>? StateChanged;
 
     /// <summary>Gets the number of times <see cref="Expand"/> was called.</summary>

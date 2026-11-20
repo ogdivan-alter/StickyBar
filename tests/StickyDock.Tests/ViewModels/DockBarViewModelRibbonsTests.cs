@@ -304,6 +304,8 @@ public sealed class DockBarViewModelRibbonsTests
 
         public bool IsPinned { get; set; }
 
+        public bool IsContextMenuOpen { get; set; }
+
         public event EventHandler<DockStateChangedEventArgs>? StateChanged;
 
         public void SetState(DockState state)

@@ -31,6 +31,7 @@ public sealed class DockInteractionController : IDockStateService, IDockRegionSi
     private DockState _state = DockState.Tab;
     private bool _dragging;
     private bool _isPinned;
+    private bool _isContextMenuOpen;
     private bool _disposed;
 
     /// <summary>
@@ -76,15 +77,34 @@ public sealed class DockInteractionController : IDockStateService, IDockRegionSi
 
             if (_isPinned)
             {
-                if (_state == DockState.Collapsing)
-                {
-                    CancelPendingTimer();
-                    SetState(DockState.Expanded);
-                }
-                else if (_state == DockState.Expanded)
-                {
-                    CancelPendingTimer();
-                }
+                HoldOpenFromTransientState();
+            }
+
+            Reevaluate();
+        }
+    }
+
+    /// <inheritdoc />
+    public bool IsContextMenuOpen
+    {
+        get => _isContextMenuOpen;
+        set
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+
+            if (_isContextMenuOpen == value)
+            {
+                return;
+            }
+
+            _isContextMenuOpen = value;
+            _logger.Debug(_isContextMenuOpen
+                ? "Context menu opened; dock collapse suspended."
+                : "Context menu closed; dock collapse resumed.");
+
+            if (_isContextMenuOpen)
+            {
+                HoldOpenFromTransientState();
             }
 
             Reevaluate();
@@ -241,7 +261,7 @@ public sealed class DockInteractionController : IDockStateService, IDockRegionSi
 
         if (_state == DockState.Expanded)
         {
-            if (_regions.Count == 0 && !_isPinned)
+            if (_regions.Count == 0 && !_isPinned && !_isContextMenuOpen)
             {
                 if (_pending != PendingTimer.Grace)
                 {
@@ -312,7 +332,7 @@ public sealed class DockInteractionController : IDockStateService, IDockRegionSi
 
         _pending = PendingTimer.None;
 
-        if (_dragging || _isPinned || _state != DockState.Expanded)
+        if (_dragging || _isPinned || _isContextMenuOpen || _state != DockState.Expanded)
         {
             return;
         }
@@ -340,6 +360,19 @@ public sealed class DockInteractionController : IDockStateService, IDockRegionSi
 
         // The pointer may already be back on the tab, in which case a new activation starts right away.
         Reevaluate();
+    }
+
+    private void HoldOpenFromTransientState()
+    {
+        if (_state == DockState.Collapsing)
+        {
+            CancelPendingTimer();
+            SetState(DockState.Expanded);
+        }
+        else if (_state == DockState.Expanded)
+        {
+            CancelPendingTimer();
+        }
     }
 
     private void SettleToStableState()

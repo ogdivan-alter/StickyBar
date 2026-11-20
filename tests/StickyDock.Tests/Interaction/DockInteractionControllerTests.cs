@@ -834,6 +834,7 @@ public sealed class DockInteractionControllerTests
         Assert.Throws<ObjectDisposedException>(() => fixture.Controller.EndDrag());
         Assert.Throws<ObjectDisposedException>(() => fixture.Controller.Expand());
         Assert.Throws<ObjectDisposedException>(() => fixture.Controller.CollapseToTab());
+        Assert.Throws<ObjectDisposedException>(() => fixture.Controller.IsContextMenuOpen = true);
     }
 
     [Fact]
@@ -868,6 +869,49 @@ public sealed class DockInteractionControllerTests
 
         fixture.Scheduler.Advance(InteractionTimings.SlideMilliseconds);
         Assert.Equal(DockState.Tab, fixture.Controller.State);
+    }
+
+    [Fact]
+    public void IsContextMenuOpen_PreventsCollapseOnRegionExit_AndResumesGraceCollapseWhenClosed()
+    {
+        using var fixture = new Fixture();
+
+        fixture.Controller.Expand();
+        fixture.Controller.EnterRegion(DockRegion.Bar);
+        fixture.Controller.IsContextMenuOpen = true;
+        fixture.Controller.LeaveRegion(DockRegion.Bar);
+
+        fixture.Scheduler.Advance(5_000);
+        Assert.Equal(DockState.Expanded, fixture.Controller.State);
+
+        fixture.Controller.IsContextMenuOpen = false;
+        fixture.Scheduler.Advance(GracePeriod.DefaultMilliseconds - 1);
+        Assert.Equal(DockState.Expanded, fixture.Controller.State);
+
+        fixture.Scheduler.Advance(1);
+        Assert.Equal(DockState.Collapsing, fixture.Controller.State);
+
+        fixture.Scheduler.Advance(InteractionTimings.SlideMilliseconds);
+        Assert.Equal(DockState.Tab, fixture.Controller.State);
+    }
+
+    [Fact]
+    public void IsContextMenuOpen_WhenCollapsing_CancelsSettleAndReturnsToExpanded()
+    {
+        using var fixture = new Fixture();
+
+        fixture.Controller.Expand();
+        fixture.Controller.EnterRegion(DockRegion.Bar);
+        fixture.Controller.LeaveRegion(DockRegion.Bar);
+        fixture.Scheduler.Advance(GracePeriod.DefaultMilliseconds);
+        Assert.Equal(DockState.Collapsing, fixture.Controller.State);
+
+        fixture.Controller.IsContextMenuOpen = true;
+        Assert.Equal(DockState.Expanded, fixture.Controller.State);
+        Assert.False(fixture.Scheduler.IsPending);
+
+        fixture.Scheduler.Advance(5_000);
+        Assert.Equal(DockState.Expanded, fixture.Controller.State);
     }
 
     [Fact]

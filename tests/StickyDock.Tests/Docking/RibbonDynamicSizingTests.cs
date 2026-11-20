@@ -155,6 +155,8 @@ public sealed class RibbonDynamicSizingTests
 
         public bool IsPinned { get; set; }
 
+        public bool IsContextMenuOpen { get; set; }
+
         public event EventHandler<DockStateChangedEventArgs>? StateChanged
         {
             add { }
