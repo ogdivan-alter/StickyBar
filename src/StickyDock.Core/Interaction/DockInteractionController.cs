@@ -119,6 +119,11 @@ public sealed class DockInteractionController : IDockStateService, IDockRegionSi
 
         if (!_regions.Add(region))
         {
+            if (_state == DockState.Tab && region == DockRegion.Tab && _pending == PendingTimer.None)
+            {
+                Reevaluate();
+            }
+
             return;
         }
 

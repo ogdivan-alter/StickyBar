@@ -81,6 +81,32 @@ public sealed class DockInteractionControllerTests
     }
 
     [Fact]
+    public void EnterRegion_Tab_WhenTabAlreadyInRegionsAndStateIsTabWithNoPendingTimer_ReevaluatesAndArms()
+    {
+        // Regression: if Tab remained in _regions after returning to DockState.Tab without a LeaveRegion(Tab)
+        // (e.g., via CollapseToTab while Tab was active), a subsequent EnterRegion(Tab) must reevaluate and arm
+        // instead of returning silently and stranding the bar as a chevron.
+        using var fixture = new Fixture();
+        fixture.Controller.EnterRegion(DockRegion.Tab);
+        fixture.Controller.CollapseToTab();
+
+        Assert.Equal(DockState.Tab, fixture.Controller.State);
+        Assert.False(fixture.Scheduler.IsPending);
+        Assert.Contains(DockRegion.Tab, fixture.Controller.ActiveRegions);
+
+        fixture.Controller.EnterRegion(DockRegion.Tab);
+
+        Assert.Equal(DockState.Arming, fixture.Controller.State);
+        Assert.Equal(
+            TimeSpan.FromMilliseconds(InteractionTimings.ActivationMilliseconds),
+            fixture.Scheduler.PendingDelay);
+
+        fixture.Scheduler.Advance(InteractionTimings.ActivationMilliseconds);
+
+        Assert.Equal(DockState.Expanded, fixture.Controller.State);
+    }
+
+    [Fact]
     public void LeaveRegion_SchedulesTheGraceWithoutChangingState()
     {
         // E3-CA2: the grace is not a state, it is a pending timer inside Expanded, so the bar stays deployed.

@@ -1,9 +1,8 @@
-feat(ux): add expanded-bar grip drag, pin toggle and drag-shortcut-to-ribbon
+fix(interaction): prevent stuck Tab/Expanded regions after repeated gestures
 
-Implement three UX improvements for the expanded dock bar:
-- Bind GripDragHandle (⋮) in MainWindow.xaml to PressDragBehavior.Command so users can dock/undock while the bar is expanded.
-- Add IsPinned / TogglePinCommand (📌) in DockInteractionController and DockBarViewModel plus DragStartedCommand/DragEndedCommand suspension around internal DoDragDrop so the bar never collapses prematurely while dragging shortcuts.
-- Support dragging a shortcut from the main bar (or another ribbon) onto any ribbon tile button or RibbonPanel via AcceptInternalShortcutCommand / MoveToRibbonCommand.
-- Add Spanish/English tooltips in LocalizedStrings and 6 new unit/contract tests (498/498 passing in Debug and Release).
+Fix intermittent stuck states (chevron failing to deploy or expanded bar failing to collapse):
+- In DockInteractionController.EnterRegion, call Reevaluate() when Tab is already in _regions under DockState.Tab with no pending timer instead of returning silently.
+- In PointerRegionBehavior, check !IsMouseOver on Input-priority Dispatcher after Drop to clear drag-entered regions, and emit EnterCommand when a region becomes Visible while IsMouseOver is true.
+- Add regression test in DockInteractionControllerTests (499/499 passing, Release build clean).
 
-Refs: RF01, RF02, RF04, HU01, HU04, E5-CA4, E5-CA5
+Refs: RF02, HU02 (CA #2, CA #3), E3-CA1, E3-CA2, E3-CA3

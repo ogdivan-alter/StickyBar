@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Threading;
 using StickyDock.Core.Interaction;
 
 namespace StickyDock.App.Input;
@@ -130,6 +131,7 @@ public static class PointerRegionBehavior
         target.MouseLeave -= OnMouseLeave;
         target.DragEnter -= OnDragEnter;
         target.DragLeave -= OnDragLeave;
+        target.Drop -= OnDrop;
         target.IsVisibleChanged -= OnIsVisibleChanged;
 
         if (GetRegion(target) == DockRegion.None)
@@ -137,16 +139,24 @@ public static class PointerRegionBehavior
             return;
         }
 
-        if (GetEnterCommand(target) is not null)
+        var hasEnter = GetEnterCommand(target) is not null;
+        var hasLeave = GetLeaveCommand(target) is not null;
+
+        if (hasEnter)
         {
             target.MouseEnter += OnMouseEnter;
             target.DragEnter += OnDragEnter;
         }
 
-        if (GetLeaveCommand(target) is not null)
+        if (hasLeave)
         {
             target.MouseLeave += OnMouseLeave;
             target.DragLeave += OnDragLeave;
+            target.Drop += OnDrop;
+        }
+
+        if (hasEnter || hasLeave)
+        {
             target.IsVisibleChanged += OnIsVisibleChanged;
         }
     }
@@ -183,12 +193,41 @@ public static class PointerRegionBehavior
         }
     }
 
+    private static void OnDrop(object sender, DragEventArgs e)
+    {
+        if (sender is not UIElement target)
+        {
+            return;
+        }
+
+        // After an external OLE DoDragDrop, WPF may not raise MouseLeave or DragLeave if the pointer exits quickly.
+        target.Dispatcher.BeginInvoke(
+            DispatcherPriority.Input,
+            () =>
+            {
+                if (!target.IsMouseOver)
+                {
+                    Execute(GetLeaveCommand(target), GetRegion(target));
+                }
+            });
+    }
+
     private static void OnIsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
     {
-        // WPF does not raise MouseLeave when an element collapses (e.g., TabBorder in Expanded or RibbonPanel closing).
-        if (e.NewValue is false && sender is DependencyObject element)
+        if (sender is not UIElement target)
         {
-            Execute(GetLeaveCommand(element), GetRegion(element));
+            return;
+        }
+
+        if (e.NewValue is false)
+        {
+            // WPF does not raise MouseLeave when an element collapses (e.g., TabBorder in Expanded or RibbonPanel closing).
+            Execute(GetLeaveCommand(target), GetRegion(target));
+        }
+        else if (e.NewValue is true && target.IsMouseOver)
+        {
+            // WPF may not raise MouseEnter when an element becomes Visible directly under a stationary pointer.
+            Execute(GetEnterCommand(target), GetRegion(target));
         }
     }
 
