@@ -1,9 +1,8 @@
-chore(release): harden errors, add installer, user manual and close E8
+chore(branding): rename project, solution, namespaces, installer and docs to StickyBar
 
-Complete Stage E8 (Performance, hardening and delivery) at 100%:
-- Harden JsonConfigurationStore against UTF-8 BOM (D-08), recover with defaults on corrupt settings via StickyDockSettings.LoadOrDefaultAsync, handle registry permission exceptions in WindowsAutoStartService, and cover missing shortcut targets (E8-CA3, E8-CA4).
-- Add install/uninstall packaging scripts (installer/StickyDockInstaller.ps1, Instalar-StickyDock.bat, Desinstalar-StickyDock.bat, Build-Package.ps1) with auto-start and Windows Installed Apps registration, generating dist/StickyDock-Setup-win-x64.zip (E8-CA5).
-- Add Spanish user manual (docs/MANUAL-USUARIO.md) and architecture guide (docs/ARQUITECTURA.md).
-- Update docs/plan/ESTADO.md closing E8 (9/9 stages, 511/511 tests passing, 36.64 MB avg RAM and 0.008% CPU in published Release).
-
-Refs: RNF-01, RNF-02, RNF-03, E8-CA1..E8-CA7, D-08
+Rename the entire solution and documentation to the official product name StickyBar (preserving requerimiento/ untouched):
+- Solution and projects: StickyBar.sln, StickyBar.Core, StickyBar.Interop, StickyBar.App (StickyBar.exe) and StickyBar.Tests.
+- Namespaces, classes and runtime identifiers: StickyBar.*, StickyBarConfiguration, StickyBarSettings, StickyBarTrayWindow, Local\StickyBar.SingleInstance, %AppData%\StickyBar, stickybar.log, and HKCU Run\StickyBar.
+- Icons and installer: icons/stickybar.* and installer/StickyBarInstaller.ps1, Instalar-StickyBar.bat, Desinstalar-StickyBar.bat generating dist/StickyBar-Setup-win-x64.zip.
+- Documentation: AGENTS.md, docs/MANUAL-USUARIO.md, docs/ARQUITECTURA.md, docs/plan/** and .opencode/**.
+- Verified Debug/Release --no-incremental builds (0 errors, 0 warnings) and 511/511 tests passing.

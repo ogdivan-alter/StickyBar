@@ -14,7 +14,7 @@
 
 ### 1.1 El defecto, medido
 
-`DockPlacementCoordinator.ResolveFloating` (`src\StickyDock.Core\Docking\DockPlacementCoordinator.cs:250-276`) vuelve a derivar el ancla en **cada** transición, y la deriva con `DockPlacementCalculator.GetNearestEdge` (`:259`) sobre el rectángulo que la ventana tiene **antes** de redimensionarse (`_host.GetBounds()`, `:252`). El mismo `current` alimenta así dos estados con tamaños distintos, y el ancla puede cambiar entre ellos.
+`DockPlacementCoordinator.ResolveFloating` (`src\StickyBar.Core\Docking\DockPlacementCoordinator.cs:250-276`) vuelve a derivar el ancla en **cada** transición, y la deriva con `DockPlacementCalculator.GetNearestEdge` (`:259`) sobre el rectángulo que la ventana tiene **antes** de redimensionarse (`_host.GetBounds()`, `:252`). El mismo `current` alimenta así dos estados con tamaños distintos, y el ancla puede cambiar entre ellos.
 
 Traza medida en Release, un monitor de 1920×1080 al 100 %, barra flotante:
 
@@ -28,7 +28,7 @@ Son **dos causas encadenadas**, no una: (1) el ancla se deriva sobre el rectáng
 
 ### 1.2 Lo que **no** es la causa
 
-`DockPlacementCalculator.GetFloatingBounds` (`src\StickyDock.Core\Docking\DockPlacementCalculator.cs:194-216`) es determinista para un rectángulo, un ancla y un tamaño dados, y `GetNearestEdge` (`:162-180`) también. Ambos están cubiertos por la suite y **no se tocan** (QA-E3-02). Tampoco es la causa el orden de desempate: `GetNearestEdge` rompe empates con `<` estricto en el orden `Top`, `Left`, `Right`, `Bottom` (`:172`), y eso es parte de su contrato.
+`DockPlacementCalculator.GetFloatingBounds` (`src\StickyBar.Core\Docking\DockPlacementCalculator.cs:194-216`) es determinista para un rectángulo, un ancla y un tamaño dados, y `GetNearestEdge` (`:162-180`) también. Ambos están cubiertos por la suite y **no se tocan** (QA-E3-02). Tampoco es la causa el orden de desempate: `GetNearestEdge` rompe empates con `<` estricto en el orden `Top`, `Left`, `Right`, `Bottom` (`:172`), y eso es parte de su contrato.
 
 ### 1.3 Estado actual del ancla
 
@@ -87,7 +87,7 @@ Se adopta la Opción A. Se concreta en ocho reglas, todas verificables.
 
 ### D1 — El ancla es estado del coordinador, por instancia, y no se persiste
 
-`private DockEdge? _anchor;` en `DockPlacementCoordinator`, junto al resto del estado mutable (`:39-41`). **No** entra en `StickyDockConfiguration`, **no** se escribe en disco y **no** se comparte entre instancias: E7 construye un coordinador por barra y cada uno tendrá el suyo, ligado a la geometría de su monitor.
+`private DockEdge? _anchor;` en `DockPlacementCoordinator`, junto al resto del estado mutable (`:39-41`). **No** entra en `StickyBarConfiguration`, **no** se escribe en disco y **no** se comparte entre instancias: E7 construye un coordinador por barra y cada uno tendrá el suyo, ligado a la geometría de su monitor.
 
 `null` significa **«derívalo»**, no «no hay ancla»: es el valor que tiene al arrancar y tras acoplar, y el único punto que lo interpreta es `ResolveFloating`.
 
@@ -165,7 +165,7 @@ La deriva pasa de 24 px en X y 30 px en Y a **cero**. El desplazamiento de 24 px
 
 ## 5. Mapa hallazgo → pieza → prueba
 
-Todas las pruebas viven en `tests\StickyDock.Tests\Docking\DockPlacementCoordinatorTests.cs`, sobre los dobles ya existentes (`FakeDockWindowHost`, `FakeWindowGeometrySource`, `FakeDockingEventSource`, `RecordingConfigurationStore`).
+Todas las pruebas viven en `tests\StickyBar.Tests\Docking\DockPlacementCoordinatorTests.cs`, sobre los dobles ya existentes (`FakeDockWindowHost`, `FakeWindowGeometrySource`, `FakeDockingEventSource`, `RecordingConfigurationStore`).
 
 | Hallazgo / regla | Pieza | Prueba |
 | --- | --- | --- |
@@ -195,11 +195,11 @@ Ejecutados desde la raíz del repositorio, con `Get-ChildItem -Recurse`. **No** 
 
 ```powershell
 # 1. El ancla no se persiste: no debe existir ninguna propiedad nueva de configuración.
-Get-ChildItem -Path src\StickyDock.Core\Configuration -Recurse -Include *.cs |
+Get-ChildItem -Path src\StickyBar.Core\Configuration -Recurse -Include *.cs |
     Select-String -Pattern 'DockAnchor|AnchorEdge|FloatingAnchor'
 
 # 2. La ruta normal de ResolveFloating no re-deriva el ancla.
-Get-ChildItem -Path src\StickyDock.Core\Docking -Recurse -Include *.cs |
+Get-ChildItem -Path src\StickyBar.Core\Docking -Recurse -Include *.cs |
     Select-String -Pattern 'GetNearestEdge' -Context 2,2
 
 # 3. El estado nuevo es local al coordinador.

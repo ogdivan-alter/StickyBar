@@ -3,7 +3,7 @@ description: Inicia la planeación de la implementación a partir de los requeri
 agent: director-desarrollo
 ---
 
-Ejecuta la **Fase A (Diagnóstico)** y la **Fase B (Planeación)** del ciclo del Director de Desarrollo para el alcance completo de Sticky Dock Utility.
+Ejecuta la **Fase A (Diagnóstico)** y la **Fase B (Planeación)** del ciclo del Director de Desarrollo para el alcance completo de StickyBar.
 
 1. Lee los dos documentos de `requerimiento/` y extrae RF, RNF y Criterios de Aceptación.
 2. Delega al subagente `analista` el informe de trazabilidad y la detección de contradicciones, ambigüedades y huecos.

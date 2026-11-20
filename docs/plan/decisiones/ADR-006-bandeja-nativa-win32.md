@@ -6,7 +6,7 @@
 - **Trazabilidad**: RNF-01 (RAM < 50 MB), Q-08 / Q-12 (presupuesto interno < 46 MB), §4.6-01, HU05 CA #1, E6-CA1, E6-CA2
 - **Sustituye parcialmente a**: **ADR-001** — mecanismo del icono de bandeja (`System.Windows.Forms.NotifyIcon` → `Shell_NotifyIconW` nativo). Todo lo demás de ADR-001 (.NET 10, WPF, `DwmEnableBlurBehindWindow`, JSON) sigue vigente.
 
-> **Resumen en una frase**: el icono de la bandeja del sistema se implementa con `Shell_NotifyIconW` y menú contextual nativo (`CreatePopupMenu` / `TrackPopupMenuEx`) en `StickyDock.Interop` en lugar de `System.Windows.Forms.NotifyIcon`, para evitar cargar `System.Windows.Forms.dll` al arranque y cumplir el RNF de memoria (< 50 MB).
+> **Resumen en una frase**: el icono de la bandeja del sistema se implementa con `Shell_NotifyIconW` y menú contextual nativo (`CreatePopupMenu` / `TrackPopupMenuEx`) en `StickyBar.Interop` en lugar de `System.Windows.Forms.NotifyIcon`, para evitar cargar `System.Windows.Forms.dll` al arranque y cumplir el RNF de memoria (< 50 MB).
 
 ---
 
@@ -21,7 +21,7 @@ Instanciar `System.Windows.Forms.NotifyIcon` y `ContextMenuStrip` al inicio carg
 
 ## 2. Decisión
 
-Se sustituye `WinFormsTrayIconService` por **`Win32TrayIconService`** dentro de `StickyDock.Interop`, manteniendo intacta la interfaz `ITrayIconService` en `StickyDock.Core`:
+Se sustituye `WinFormsTrayIconService` por **`Win32TrayIconService`** dentro de `StickyBar.Interop`, manteniendo intacta la interfaz `ITrayIconService` en `StickyBar.Core`:
 
 1. **Icono de bandeja**: `Shell_NotifyIconW` (`shell32.dll`) con `NOTIFYICONDATAW` (`NIF_MESSAGE | NIF_ICON | NIF_TIP`) y `LoadIconW(0, IDI_APPLICATION)` (recurso compartido del sistema, sin fuga de `HICON`).
 2. **Ventana de mensajes**: ventana oculta nativa (`CreateWindowExW` o `HwndSource` de 0×0) en el hilo de UI para recibir el mensaje de callback `WM_TRAYICON` (`WM_APP + 1`):

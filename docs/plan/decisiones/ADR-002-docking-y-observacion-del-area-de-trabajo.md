@@ -14,11 +14,11 @@
 
 La etapa E2 se declaró completada, pero la auditoría del Director (H-E2-01 a H-E2-04 en `docs/plan/ESTADO.md`) demostró que **el acoplamiento no existe**. Hechos verificados en el código:
 
-1. `MainWindow.OnMouseLeftButtonUp` calcula el borde de destino y **descarta el resultado**: la ventana nunca se mueve (`src\StickyDock.App\Views\MainWindow.xaml.cs:139-157`).
-2. `DockingCoordinator.GetTaskbarEdge()` devuelve siempre `Bottom` y `GetWorkArea()` devuelve un `1920x1080` fijo (`src\StickyDock.Core\Services\DockingCoordinator.cs:62,86`). La detección real existe en Interop, pero Core no puede verla porque **no puede referenciar** `StickyDock.Interop` (el proyecto Interop referencia a Core, no al revés).
+1. `MainWindow.OnMouseLeftButtonUp` calcula el borde de destino y **descarta el resultado**: la ventana nunca se mueve (`src\StickyBar.App\Views\MainWindow.xaml.cs:139-157`).
+2. `DockingCoordinator.GetTaskbarEdge()` devuelve siempre `Bottom` y `GetWorkArea()` devuelve un `1920x1080` fijo (`src\StickyBar.Core\Services\DockingCoordinator.cs:62,86`). La detección real existe en Interop, pero Core no puede verla porque **no puede referenciar** `StickyBar.Interop` (el proyecto Interop referencia a Core, no al revés).
 3. `DockingCoordinator.OnWorkAreaChanged` solo escribe en el log (`:116`); el acoplamiento a la reflexión (`GetEvent("WorkAreaChanged")`, `:47,146`) es un enlace frágil y no verificable por el compilador.
 4. `DockingHookService` engancha `EVENT_OBJECT_LOCATIONCHANGE` **sin filtro**: se dispara con cualquier ventana de cualquier proceso, mientras se arrastra cualquier ventana del escritorio (H-E2-04), con coste de CPU incompatible con RNF-02.
-5. `Bootstrapper.ShowMainWindow` intenta crear el hook con `WindowInteropHelper(window).Handle` **antes de `Show()`**, cuando el handle todavía es cero (`src\StickyDock.App\Bootstrapper.cs:114-148`). Todo el bloque está envuelto en `catch {}` vacíos.
+5. `Bootstrapper.ShowMainWindow` intenta crear el hook con `WindowInteropHelper(window).Handle` **antes de `Show()`**, cuando el handle todavía es cero (`src\StickyBar.App\Bootstrapper.cs:114-148`). Todo el bloque está envuelto en `catch {}` vacíos.
 6. Hay **dos enums de borde duplicados** (`Core.Services.TaskbarEdge` y `Interop.Win32.TaskbarEdge`, con los mismos valores) y un tercero distinto para el acoplamiento (`Configuration.DockEdge`, con **otro orden de valores**). La conversión se resuelve hoy con casts (`MainWindow.xaml.cs:145`).
 7. El arrastre, las coordenadas de pantalla y hasta un `[DllImport("dwmapi.dll")]` viven en el code-behind de la vista (H-E2-03), en contra de §5.2-01 y de E0-CA6.
 8. La suite tiene **60 pruebas, ninguna de E2** (H-E2-02).
@@ -36,7 +36,7 @@ Y una restricción de alcance: E2 **no** incluye multi-monitor completo (E7), ni
 Ordenados por peso:
 
 1. **Que el acoplamiento ocurra de verdad y sea verificable.** HU01 CA #1 y CA #2 son criterios observables; el diseño debe permitir probarlos sin abrir una ventana (hoy no se puede probar nada).
-2. **Frontera Core ↔ Interop explícita y tipada.** `StickyDock.Core` no puede ver Win32, pero sí necesita el borde de la barra de tareas, el área de trabajo y el DPI. La frontera debe ser un contrato compilable, no reflexión.
+2. **Frontera Core ↔ Interop explícita y tipada.** `StickyBar.Core` no puede ver Win32, pero sí necesita el borde de la barra de tareas, el área de trabajo y el DPI. La frontera debe ser un contrato compilable, no reflexión.
 3. **Coste en reposo (RNF-02) y huella (RNF-01/Q-08).** La observación de cambios debe ser dirigida por eventos y filtrar en origen; nada de polling ni de hooks de alcance global sin criterio.
 4. **DPI mixto y cambio de topología (R-05, E2-CA3).** La geometría se decide en píxeles de dispositivo, que es la única unidad inequívoca.
 5. **MVVM verificable (§5.2-01).** Ni matemática de geometría, ni P/Invoke, ni coordenadas en el code-behind.
@@ -112,9 +112,9 @@ Ordenados por peso:
 2. **Observación**: mensajes de ventana para el área de trabajo, el display y el fin de arrastre; `SetWinEventHook` filtrado por la ventana de la barra de tareas como complemento.
 3. **Unidades**: Core trabaja en **píxeles de dispositivo** (`PixelRect`); el tamaño de la barra entra en unidades independientes del dispositivo (las de WPF) y Core lo convierte con el DPI del monitor.
 4. **Aplicación del movimiento**: `SetWindowPos` desde Interop, invocado por la App; **nunca** `Window.Left/Top` como fuente de verdad, y **nunca** `DragMove` en el code-behind.
-5. **Un solo enum de borde**: `StickyDock.Core.Docking.DockEdge`, con los valores numéricos que ya están persistidos.
+5. **Un solo enum de borde**: `StickyBar.Core.Docking.DockEdge`, con los valores numéricos que ya están persistidos.
 
-El criterio que decide la balanza es la **verificabilidad**: con esta forma, cinco de los seis criterios de E2 se prueban con dobles en `tests\StickyDock.Tests` sin abrir una ventana, y el sexto (recursos del hook) se prueba sobre el wrapper de Interop. La opción B no lo consigue y la C desplaza la parte no comprobable a la App.
+El criterio que decide la balanza es la **verificabilidad**: con esta forma, cinco de los seis criterios de E2 se prueban con dobles en `tests\StickyBar.Tests` sin abrir una ventana, y el sexto (recursos del hook) se prueba sobre el wrapper de Interop. La opción B no lo consigue y la C desplaza la parte no comprobable a la App.
 
 ### Consecuencias de la decisión sobre el arrastre
 
@@ -130,12 +130,12 @@ Ambas rutas producen el mismo comportamiento observable y el mismo criterio de a
 
 ## Contratos concretos
 
-Nombres definitivos, en inglés. `namespace StickyDock.Core.Docking;` para todo lo que sigue salvo donde se indique.
+Nombres definitivos, en inglés. `namespace StickyBar.Core.Docking;` para todo lo que sigue salvo donde se indique.
 
 ### Enum único de borde
 
 ```csharp
-// src/StickyDock.Core/Docking/DockEdge.cs
+// src/StickyBar.Core/Docking/DockEdge.cs
 /// <summary>Edge of the screen. The single edge type of the product (ADR-002).</summary>
 public enum DockEdge
 {
@@ -146,14 +146,14 @@ public enum DockEdge
 }
 ```
 
-**Los valores numéricos son parte del contrato**: son los que hoy se persisten en `settings.json` (`dockEdge: 0..3` con el orden `Top, Left, Right, Bottom` de `StickyDockConfiguration`). Cambiarlos reinterpretaría en silencio las configuraciones existentes y obligaría a una migración de esquema que E2 no necesita. `AppBarEdgeMapping` (Interop) traduce a/desde los valores `ABE_*` de `APPBARDATA.uEdge`, que **no coinciden** (`ABE_LEFT = 0`, `ABE_TOP = 1`), en un único punto y con prueba propia.
+**Los valores numéricos son parte del contrato**: son los que hoy se persisten en `settings.json` (`dockEdge: 0..3` con el orden `Top, Left, Right, Bottom` de `StickyBarConfiguration`). Cambiarlos reinterpretaría en silencio las configuraciones existentes y obligaría a una migración de esquema que E2 no necesita. `AppBarEdgeMapping` (Interop) traduce a/desde los valores `ABE_*` de `APPBARDATA.uEdge`, que **no coinciden** (`ABE_LEFT = 0`, `ABE_TOP = 1`), en un único punto y con prueba propia.
 
 Este enum sustituye a los tres actuales: `Configuration.DockEdge`, `Core.Services.TaskbarEdge` e `Interop.Win32.TaskbarEdge`.
 
 ### Tipos de geometría
 
 ```csharp
-// src/StickyDock.Core/Docking/DockingGeometry.cs
+// src/StickyBar.Core/Docking/DockingGeometry.cs
 
 /// <summary>Rectangle in device pixels, origin at the virtual screen's top-left corner.</summary>
 public readonly record struct PixelRect(int X, int Y, int Width, int Height)
@@ -196,8 +196,8 @@ public readonly record struct TaskbarPlacement(
 ### Puertos
 
 ```csharp
-// src/StickyDock.Core/Docking/IWindowGeometrySource.cs
-/// <summary>Reads the geometry that surrounds one bar window. Implemented by StickyDock.Interop.</summary>
+// src/StickyBar.Core/Docking/IWindowGeometrySource.cs
+/// <summary>Reads the geometry that surrounds one bar window. Implemented by StickyBar.Interop.</summary>
 public interface IWindowGeometrySource
 {
     /// <summary>Monitor that currently hosts the bar window.</summary>
@@ -209,9 +209,9 @@ public interface IWindowGeometrySource
 ```
 
 ```csharp
-// src/StickyDock.Core/Docking/IDockWindowHost.cs
+// src/StickyBar.Core/Docking/IDockWindowHost.cs
 /// <summary>
-/// The one window the coordinator drives. Implemented by StickyDock.App over WPF.
+/// The one window the coordinator drives. Implemented by StickyBar.App over WPF.
 /// </summary>
 /// <remarks>
 /// Every member must be called on the thread that owns the window. The implementation enforces it (dispatches when
@@ -231,7 +231,7 @@ public interface IDockWindowHost
 ```
 
 ```csharp
-// src/StickyDock.Core/Docking/DockingEvents.cs
+// src/StickyBar.Core/Docking/DockingEvents.cs
 /// <summary>What changed in the environment of the bar.</summary>
 public enum DockingEventKind
 {
@@ -261,7 +261,7 @@ public sealed class CompositeDockingEventSource : IDockingEventSource
 ### Calculador (puro, estático)
 
 ```csharp
-// src/StickyDock.Core/Docking/DockPlacementCalculator.cs
+// src/StickyBar.Core/Docking/DockPlacementCalculator.cs
 public static class DockPlacementCalculator
 {
     /// <summary>Snap band, in device-independent units (A3). Single adjustment point.</summary>
@@ -294,7 +294,7 @@ public static class DockPlacementCalculator
 ### Coordinador
 
 ```csharp
-// src/StickyDock.Core/Docking/DockPlacementCoordinator.cs
+// src/StickyBar.Core/Docking/DockPlacementCoordinator.cs
 public sealed record DockPlacementChangedEventArgs(DockEdge? Edge, PixelRect Bounds);
 
 /// <summary>Owns the docked state, decides the placement and persists the edge (E2).</summary>
@@ -304,8 +304,8 @@ public sealed class DockPlacementCoordinator : IDisposable
         IDockingEventSource events,                    // owned: disposed with the coordinator
         IWindowGeometrySource geometry,
         IDockWindowHost host,
-        IConfigurationStore<StickyDockConfiguration> configurationStore,
-        StickyDockConfiguration configuration,
+        IConfigurationStore<StickyBarConfiguration> configurationStore,
+        StickyBarConfiguration configuration,
         ILogger logger);
 
     /// <summary>Null while the bar floats.</summary>
@@ -331,7 +331,7 @@ Propiedad de recursos explícita: el coordinador **posee** el `IDockingEventSour
 ### Contrato del lado de Interop
 
 ```csharp
-namespace StickyDock.Interop.Win32;
+namespace StickyBar.Interop.Win32;
 
 /// <summary>Translates APPBARDATA.uEdge (ABE_*) to the product's DockEdge and back.</summary>
 public static class AppBarEdgeMapping
@@ -347,7 +347,7 @@ public static class TaskbarMonitor
 }
 
 /// <summary>Reads monitor bounds, work area and DPI of the monitor that hosts the given window.</summary>
-public sealed class Win32WindowGeometrySource : StickyDock.Core.Docking.IWindowGeometrySource
+public sealed class Win32WindowGeometrySource : StickyBar.Core.Docking.IWindowGeometrySource
 {
     public Win32WindowGeometrySource(nint windowHandle);
     public MonitorGeometry GetMonitorGeometry();
@@ -358,7 +358,7 @@ public sealed class Win32WindowGeometrySource : StickyDock.Core.Docking.IWindowG
 /// EVENT_OBJECT_LOCATIONCHANGE filtered to the taskbar window of the current session.
 /// Callbacks arrive on the installing thread (WINEVENT_OUTOFCONTEXT): install it on the UI thread.
 /// </summary>
-public sealed class WinEventDockingEventSource : StickyDock.Core.Docking.IDockingEventSource
+public sealed class WinEventDockingEventSource : StickyBar.Core.Docking.IDockingEventSource
 {
     public WinEventDockingEventSource();
     /// <summary>True while at least one native hook handle is installed. Diagnostic; used to verify E2-CA5.</summary>
@@ -380,8 +380,8 @@ public static class DockingMessageClassifier
 /// <summary>Window movement driven by SetWindowPos (never by Window.Left/Top).</summary>
 public static class WindowPlacement
 {
-    public static void MoveResize(nint windowHandle, StickyDock.Core.Docking.PixelRect bounds);
-    public static StickyDock.Core.Docking.PixelRect GetBounds(nint windowHandle);
+    public static void MoveResize(nint windowHandle, StickyBar.Core.Docking.PixelRect bounds);
+    public static StickyBar.Core.Docking.PixelRect GetBounds(nint windowHandle);
     public static void BeginNativeMove(nint windowHandle);   // only for the drag contingency
 }
 ```
@@ -389,7 +389,7 @@ public static class WindowPlacement
 ### Contrato del lado de la App
 
 ```csharp
-namespace StickyDock.App.Docking;
+namespace StickyBar.App.Docking;
 
 /// <summary>Adapter between the coordinator and the WPF window. Contains threading and cache plumbing only.</summary>
 internal sealed class WpfDockWindowHost : IDockWindowHost
@@ -410,12 +410,12 @@ internal sealed class WpfMessageDockingEventSource : IDockingEventSource
 ### Cambios en tipos existentes
 
 ```csharp
-// src/StickyDock.Core/Configuration/StickyDockConfiguration.cs
+// src/StickyBar.Core/Configuration/StickyBarConfiguration.cs
 public DockEdge? DockEdge { get; init; } = DockEdge.Top;   // was `null`: first run now docks at the top,
                                                            // which is what E1 already did by hand.
-// The enum moves to StickyDock.Core.Docking; property name, JSON name and numeric values are unchanged.
+// The enum moves to StickyBar.Core.Docking; property name, JSON name and numeric values are unchanged.
 
-// src/StickyDock.Core/ViewModels/DockBarViewModel.cs
+// src/StickyBar.Core/ViewModels/DockBarViewModel.cs
 public DockEdge? DockEdge { get; private set; }            // mirrors coordinator.PlacementChanged; no persistence here
 ```
 
@@ -524,14 +524,14 @@ El gancho de `explorer.exe` se resuelve una vez al instalar. Si `explorer.exe` s
 
 ## Mapa E2-CA → pieza del diseño → prueba
 
-| CA | Pieza que lo satisface | Cómo | Prueba en `tests\StickyDock.Tests` |
+| CA | Pieza que lo satisface | Cómo | Prueba en `tests\StickyBar.Tests` |
 | --- | --- | --- | --- |
 | **CA1** — snap a 48 px; fuera de la franja, flotante; el borde de la barra de tareas nunca es destino | `DockPlacementCalculator.ComputeSnapTarget`; rama `WindowDragCompleted` del coordinador; `ChooseDockEdge`/`IsEdgeAvailable` | Distancia rectángulo-borde ≤ `Round(48 × scale)`, candidatos excluidos antes de medir, empate resuelto por orden de declaración | `Dock/DockPlacementCalculatorTests`: `Gap_47_Snaps`, `Gap_48_Snaps`, `Gap_49_DoesNotSnap`, `TaskbarEdge_IsNeverA_Candidate`, `BarPastTheEdge_StillSnaps`, `Tie_BreaksByDeclarationOrder`, `Threshold_ScalesWithDpi` (96/120/144). `Dock/DockPlacementCoordinatorTests`: `DragEnd_InsideBand_DocksAndPersists`, `DragEnd_OutsideBand_KeepsBarInPlace_AndPersistsNull` |
 | **CA2** — al cambiar la barra de tareas se reubica sin colisionar | `IDockingEventSource` (`WorkAreaChanged`/`TaskbarChanged`), `ChooseDockEdge`, `ResolvePlacement` | Evento → reconsulta → borde válido (`actual` → `opuesto` → orden fijo) → nuevo rectángulo | `Dock/DockPlacementCalculatorTests.ChooseDockEdge_*` (16 combinaciones borde × barra de tareas, exhaustivo). `Dock/DockPlacementCoordinatorTests`: `Repositions_WhenTaskbarMovesToTheDockedEdge`, `MovesToOppositeEdge_WhenCurrentEdgeBecomesIllegal` |
 | **CA3** — cambio de resolución o de barra de tareas: se reubica y redimensiona sin salir de pantalla | `GetDockedBounds` (usa `WorkArea` y recorta), `ClampIntoWorkArea`, `WM_DISPLAYCHANGE`/`WM_DPICHANGED`, `app.manifest` `PerMonitorV2` | Invariante: el rectángulo aplicado está **siempre** contenido en `WorkArea` | `Dock/DockPlacementCalculatorTests.GetDockedBounds_StaysInsideWorkArea` (matriz 4 bordes × 5 geometrías, incluidas 800×600 y área menor que la barra), `ClampIntoWorkArea_*`. `Dock/DockPlacementCoordinatorTests.Resize_ShrinksBarAndKeepsItVisible`, `DpiChange_ConvergesToSameDockedRect` |
 | **CA4** — el borde de la barra de tareas nunca es destino válido | `IsEdgeAvailable`; guarda en `DockTo`; filtro previo en `ComputeSnapTarget` | Triple defensa: cálculo, comando explícito y arranque | `Dock/DockPlacementCalculatorTests.IsEdgeAvailable_*` (4×4). `Dock/DockPlacementCoordinatorTests.DockTo_TaskbarEdge_IsRejectedAndLogged` (el host no recibe `ApplyBounds` y el borde no cambia) |
 | **CA5** — el hook libera recursos al cerrarse | `WinEventDockingEventSource.Dispose` (`IsActive`), `CompositeDockingEventSource.Dispose`, `DockPlacementCoordinator.Dispose` (baja la suscripción) | `UnhookWinEvent` sobre cada handle no nulo y campo a cero; el coordinador deja de escuchar | `Interop/WinEventDockingEventSourceTests`: `Dispose_ReleasesHooks` (`IsActive == false`), `Dispose_TwiceIsIdempotent`. `Dock/DockPlacementCoordinatorTests.Dispose_UnsubscribesFromEventSource` (el doble expone `SubscriberCount == 0`) y `Dispose_DisposesEventSource` |
-| **CA6** — el borde acoplado persiste tras reiniciar | `StickyDockConfiguration.DockEdge`, `Start()` (paso 3-4), persistencia en `DockTo`/`Undock` | El borde efectivo se escribe en `settings.json`; al arrancar se restaura y se valida contra la barra de tareas actual | `Dock/DockPlacementCoordinatorTests.Start_AppliesPersistedEdge` (los 4 valores), `Start_WhenPersistedEdgeIsTheTaskbarEdge_FallsBack`, `DockTo_PersistsEdge`, `Undock_PersistsNull`. `Configuration/DockEdgePersistenceTests`: `dockEdge` sigue escribiéndose como número con el orden `Top=0…Bottom=3` |
+| **CA6** — el borde acoplado persiste tras reiniciar | `StickyBarConfiguration.DockEdge`, `Start()` (paso 3-4), persistencia en `DockTo`/`Undock` | El borde efectivo se escribe en `settings.json`; al arrancar se restaura y se valida contra la barra de tareas actual | `Dock/DockPlacementCoordinatorTests.Start_AppliesPersistedEdge` (los 4 valores), `Start_WhenPersistedEdgeIsTheTaskbarEdge_FallsBack`, `DockTo_PersistsEdge`, `Undock_PersistsNull`. `Configuration/DockEdgePersistenceTests`: `dockEdge` sigue escribiéndose como número con el orden `Top=0…Bottom=3` |
 
 Cobertura de las fuentes no probables por unidad: `WpfMessageDockingEventSource` y `WpfDockWindowHost` no se prueban (necesitan un `HwndSource`), pero **no contienen decisiones**: la clasificación de mensajes vive en `DockingMessageClassifier` (probada) y la geometría en Core (probada). Se verifican por inspección, junto con E0-CA6.
 
@@ -581,30 +581,30 @@ Cobertura de las fuentes no probables por unidad: `WpfMessageDockingEventSource`
 
 ## Lista de verificación de implementación
 
-### Crear — `StickyDock.Core`
+### Crear — `StickyBar.Core`
 
-- [ ] `src\StickyDock.Core\Docking\DockEdge.cs` — enum único, valores `Top=0, Left=1, Right=2, Bottom=3`.
-- [ ] `src\StickyDock.Core\Docking\DockingGeometry.cs` — `PixelRect`, `MonitorGeometry`, `DockBarSize`, `TaskbarState`, `TaskbarPlacement`.
-- [ ] `src\StickyDock.Core\Docking\DockingEvents.cs` — `DockingEventKind`, `DockingEventArgs`, `IDockingEventSource`, `CompositeDockingEventSource`.
-- [ ] `src\StickyDock.Core\Docking\IWindowGeometrySource.cs`.
-- [ ] `src\StickyDock.Core\Docking\IDockWindowHost.cs`.
-- [ ] `src\StickyDock.Core\Docking\DockPlacementCalculator.cs` — `SnapThresholdDips = 48`, cinco métodos puros, sin estado.
-- [ ] `src\StickyDock.Core\Docking\DockPlacementCoordinator.cs` — `DockPlacementChangedEventArgs` + coordinador (`Start`, `DockTo`, `Undock`, `Dispose`), un solo escritor de `DockEdge`.
+- [ ] `src\StickyBar.Core\Docking\DockEdge.cs` — enum único, valores `Top=0, Left=1, Right=2, Bottom=3`.
+- [ ] `src\StickyBar.Core\Docking\DockingGeometry.cs` — `PixelRect`, `MonitorGeometry`, `DockBarSize`, `TaskbarState`, `TaskbarPlacement`.
+- [ ] `src\StickyBar.Core\Docking\DockingEvents.cs` — `DockingEventKind`, `DockingEventArgs`, `IDockingEventSource`, `CompositeDockingEventSource`.
+- [ ] `src\StickyBar.Core\Docking\IWindowGeometrySource.cs`.
+- [ ] `src\StickyBar.Core\Docking\IDockWindowHost.cs`.
+- [ ] `src\StickyBar.Core\Docking\DockPlacementCalculator.cs` — `SnapThresholdDips = 48`, cinco métodos puros, sin estado.
+- [ ] `src\StickyBar.Core\Docking\DockPlacementCoordinator.cs` — `DockPlacementChangedEventArgs` + coordinador (`Start`, `DockTo`, `Undock`, `Dispose`), un solo escritor de `DockEdge`.
 
-### Crear — `StickyDock.Interop`
+### Crear — `StickyBar.Interop`
 
-- [ ] `src\StickyDock.Interop\Win32\AppBarEdgeMapping.cs` — traducción `ABE_*` ↔ `DockEdge`, tabla explícita.
-- [ ] `src\StickyDock.Interop\Win32\Win32WindowGeometrySource.cs` — `GetMonitorGeometry` (`MonitorFromWindow` + `GetMonitorInfoW` + `GetDpiForWindow`), `GetTaskbarPlacement`.
-- [ ] `src\StickyDock.Interop\Win32\WinEventDockingEventSource.cs` — hook filtrado, `IsActive`, `Dispose` idempotente.
-- [ ] `src\StickyDock.Interop\Win32\DockingMessageClassifier.cs` — cuatro mensajes, `wParam` de `SPI_SETWORKAREA`.
+- [ ] `src\StickyBar.Interop\Win32\AppBarEdgeMapping.cs` — traducción `ABE_*` ↔ `DockEdge`, tabla explícita.
+- [ ] `src\StickyBar.Interop\Win32\Win32WindowGeometrySource.cs` — `GetMonitorGeometry` (`MonitorFromWindow` + `GetMonitorInfoW` + `GetDpiForWindow`), `GetTaskbarPlacement`.
+- [ ] `src\StickyBar.Interop\Win32\WinEventDockingEventSource.cs` — hook filtrado, `IsActive`, `Dispose` idempotente.
+- [ ] `src\StickyBar.Interop\Win32\DockingMessageClassifier.cs` — cuatro mensajes, `wParam` de `SPI_SETWORKAREA`.
 
-### Crear — `StickyDock.App`
+### Crear — `StickyBar.App`
 
-- [ ] `src\StickyDock.App\Docking\WpfDockWindowHost.cs` — `GetBarSize` (`ActualWidth/Height`), `GetBounds`, `ApplyBounds` (`WindowPlacement.MoveResize` + espejo de `Left/Top/Width/Height` con conversión por DPI, bandera de reentrada y tolerancia de 0,5 unidades; guarda de `Dispatcher`).
-- [ ] `src\StickyDock.App\Docking\WpfMessageDockingEventSource.cs` — `HwndSource.AddHook` → `DockingMessageClassifier` → `Changed`; `Dispose` → `RemoveHook`.
-- [ ] `src\StickyDock.App\app.manifest` — `dpiAwareness = PerMonitorV2`.
+- [ ] `src\StickyBar.App\Docking\WpfDockWindowHost.cs` — `GetBarSize` (`ActualWidth/Height`), `GetBounds`, `ApplyBounds` (`WindowPlacement.MoveResize` + espejo de `Left/Top/Width/Height` con conversión por DPI, bandera de reentrada y tolerancia de 0,5 unidades; guarda de `Dispatcher`).
+- [ ] `src\StickyBar.App\Docking\WpfMessageDockingEventSource.cs` — `HwndSource.AddHook` → `DockingMessageClassifier` → `Changed`; `Dispose` → `RemoveHook`.
+- [ ] `src\StickyBar.App\app.manifest` — `dpiAwareness = PerMonitorV2`.
 
-### Crear — `tests\StickyDock.Tests`
+### Crear — `tests\StickyBar.Tests`
 
 - [ ] `Docking\DockPlacementCalculatorTests.cs`
 - [ ] `Docking\DockPlacementCoordinatorTests.cs`
@@ -617,22 +617,22 @@ Cobertura de las fuentes no probables por unidad: `WpfMessageDockingEventSource`
 
 ### Modificar
 
-- [ ] `src\StickyDock.Core\Configuration\StickyDockConfiguration.cs` — borrar el enum local, usar `StickyDock.Core.Docking.DockEdge`, valor por defecto `Top`.
-- [ ] `src\StickyDock.Core\ViewModels\DockBarViewModel.cs` — quitar `DockEdgeService` y `PersistDockEdgeAsync`; reflejar `PlacementChanged`.
-- [ ] `src\StickyDock.Interop\Win32\NativeMethods.cs` — añadir `GetDpiForWindow`; retirar lo que quede sin uso.
-- [ ] `src\StickyDock.Interop\Win32\TaskbarMonitor.cs` — devolver `TaskbarPlacement`; derivar el borde contra el monitor de la barra (no contra la pantalla primaria); borrar `TaskbarInfo`, `InteropRect` y el enum duplicado.
-- [ ] `src\StickyDock.Interop\Win32\WindowPlacement.cs` — añadir `MoveResize`, `GetBounds`, `BeginNativeMove`; borrar `WorkArea` y `WindowHelpers.GetWorkArea` (los sustituye `Win32WindowGeometrySource`).
-- [ ] `src\StickyDock.App\Views\MainWindow.xaml` — `WindowChrome` con `CaptionHeight` de la pestaña, `ResizeBorderThickness=0`, `GlassFrameThickness=0`, `CornerRadius=0`.
-- [ ] `src\StickyDock.App\Views\MainWindow.xaml.cs` — dejar solo `InitializeComponent` y los dos manejadores de *hover* de E1; borrar arrastre, `[DllImport]`, `OnLoaded` y el posicionamiento.
-- [ ] `src\StickyDock.App\Bootstrapper.cs` — componer el grafo de docking en `SourceInitialized` (handle ya creado), suscribir `Closing`/`OnExit` al `Dispose` del coordinador, eliminar el bloque con handles en cero y los `catch {}` vacíos.
-- [ ] `src\StickyDock.App\StickyDock.App.csproj` — `<ApplicationManifest>app.manifest</ApplicationManifest>`.
+- [ ] `src\StickyBar.Core\Configuration\StickyBarConfiguration.cs` — borrar el enum local, usar `StickyBar.Core.Docking.DockEdge`, valor por defecto `Top`.
+- [ ] `src\StickyBar.Core\ViewModels\DockBarViewModel.cs` — quitar `DockEdgeService` y `PersistDockEdgeAsync`; reflejar `PlacementChanged`.
+- [ ] `src\StickyBar.Interop\Win32\NativeMethods.cs` — añadir `GetDpiForWindow`; retirar lo que quede sin uso.
+- [ ] `src\StickyBar.Interop\Win32\TaskbarMonitor.cs` — devolver `TaskbarPlacement`; derivar el borde contra el monitor de la barra (no contra la pantalla primaria); borrar `TaskbarInfo`, `InteropRect` y el enum duplicado.
+- [ ] `src\StickyBar.Interop\Win32\WindowPlacement.cs` — añadir `MoveResize`, `GetBounds`, `BeginNativeMove`; borrar `WorkArea` y `WindowHelpers.GetWorkArea` (los sustituye `Win32WindowGeometrySource`).
+- [ ] `src\StickyBar.App\Views\MainWindow.xaml` — `WindowChrome` con `CaptionHeight` de la pestaña, `ResizeBorderThickness=0`, `GlassFrameThickness=0`, `CornerRadius=0`.
+- [ ] `src\StickyBar.App\Views\MainWindow.xaml.cs` — dejar solo `InitializeComponent` y los dos manejadores de *hover* de E1; borrar arrastre, `[DllImport]`, `OnLoaded` y el posicionamiento.
+- [ ] `src\StickyBar.App\Bootstrapper.cs` — componer el grafo de docking en `SourceInitialized` (handle ya creado), suscribir `Closing`/`OnExit` al `Dispose` del coordinador, eliminar el bloque con handles en cero y los `catch {}` vacíos.
+- [ ] `src\StickyBar.App\StickyBar.App.csproj` — `<ApplicationManifest>app.manifest</ApplicationManifest>`.
 
 ### Borrar
 
-- [ ] `src\StickyDock.Core\Services\DockingCoordinator.cs` (sustituido; su matemática pasa al calculador).
-- [ ] `src\StickyDock.Core\Services\DockEdgeService.cs` (la matemática válida se conserva en `DockPlacementCalculator`).
-- [ ] `src\StickyDock.Core\Services\TaskbarEdge.cs` (enum duplicado).
-- [ ] `src\StickyDock.Interop\Win32\DockingHookService.cs` (sustituido por `WinEventDockingEventSource`).
+- [ ] `src\StickyBar.Core\Services\DockingCoordinator.cs` (sustituido; su matemática pasa al calculador).
+- [ ] `src\StickyBar.Core\Services\DockEdgeService.cs` (la matemática válida se conserva en `DockPlacementCalculator`).
+- [ ] `src\StickyBar.Core\Services\TaskbarEdge.cs` (enum duplicado).
+- [ ] `src\StickyBar.Interop\Win32\DockingHookService.cs` (sustituido por `WinEventDockingEventSource`).
 
 ### Verificación previa (espiga de 15 minutos, antes de escribir el resto)
 
@@ -643,7 +643,7 @@ Cobertura de las fuentes no probables por unidad: `WpfMessageDockingEventSource`
 
 - [ ] `dotnet build -c Release` y `-c Debug` sin errores **ni advertencias** (`TreatWarningsAsErrors`).
 - [ ] `dotnet test` en verde con las pruebas nuevas (la cifra de 60 sube; H-E2-02 se cierra).
-- [ ] `grep` de control: ni `DragMove`, ni `DllImport`, ni `IntPtr`/`nint`, ni `catch {}` en `src\StickyDock.App\Views` y `src\StickyDock.Core`.
+- [ ] `grep` de control: ni `DragMove`, ni `DllImport`, ni `IntPtr`/`nint`, ni `catch {}` en `src\StickyBar.App\Views` y `src\StickyBar.Core`.
 - [ ] Medición de CPU en reposo de 30 s tras el cambio (RNF-02) y de memoria privada comprometida (presupuesto 42 MB).
 
 ---

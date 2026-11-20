@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    WPF shell (ADR-001). The application only composes services and hosts the view;
+    state and behaviour belong to the view models and services of StickyBar.Core.
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <UseWPF>true</UseWPF>
+    <RootNamespace>StickyBar.App</RootNamespace>
+    <AssemblyName>StickyBar</AssemblyName>
+    <ApplicationIcon>..\..\icons\stickybar.ico</ApplicationIcon>
+
+    <!-- AMP-03 (ADR-002): per-monitor DPI awareness for mixed-scale desktops (R-05). -->
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+
+    <!-- RNF-01 / Q-12: prioritize low committed private memory footprint. -->
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+    <RetainVMGarbageCollection>false</RetainVMGarbageCollection>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <RuntimeHostConfigurationOption Include="System.GC.ConserveMemory" Value="5" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="..\..\icons\stickybar-24x24.png" Link="Icons\stickybar-24x24.png" />
+    <Resource Include="..\..\icons\stickybar-32x32.png" Link="Icons\stickybar-32x32.png" />
+    <Resource Include="..\..\icons\stickybar-64x64.png" Link="Icons\stickybar-64x64.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\StickyBar.Core\StickyBar.Core.csproj" />
+    <ProjectReference Include="..\StickyBar.Interop\StickyBar.Interop.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="System" />
+  </ItemGroup>
+
+</Project>

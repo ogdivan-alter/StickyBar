@@ -1,6 +1,6 @@
-# Manual de Usuario — Sticky Dock Utility
+# Manual de Usuario — StickyBar
 
-**Sticky Dock Utility** es una barra de accesos directos flotante y acoplable a los bordes de la pantalla para **Windows 10/11 (x64)**, diseñada para mantenerse oculta en reposo como una pestaña minimalista y desplegarse al acercar el cursor.
+**StickyBar** es una barra de accesos directos flotante y acoplable a los bordes de la pantalla para **Windows 10/11 (x64)**, diseñada para mantenerse oculta en reposo como una pestaña minimalista y desplegarse al acercar el cursor.
 
 ---
 
@@ -10,20 +10,20 @@
 - **Runtime**: .NET 10 Desktop Runtime (`Microsoft.WindowsDesktop.App` 10.x).
 
 ### Instalación rápida
-1. Descomprima el paquete de distribución (`StickyDock-Setup-win-x64.zip`).
-2. Ejecute **`Instalar-StickyDock.bat`** con doble clic.
-3. Cuando el instalador pregunte si desea iniciar Sticky Dock automáticamente con Windows, responda **`S`** (Sí) o **`N`** (No).
-4. La aplicación se instalará en `%LocalAppData%\StickyDock`, creará el acceso directo **Sticky Dock Utility** en el Menú Inicio y quedará registrada en *Aplicaciones instaladas* de Windows.
+1. Descomprima el paquete de distribución (`StickyBar-Setup-win-x64.zip`).
+2. Ejecute **`Instalar-StickyBar.bat`** con doble clic.
+3. Cuando el instalador pregunte si desea iniciar StickyBar automáticamente con Windows, responda **`S`** (Sí) o **`N`** (No).
+4. La aplicación se instalará en `%LocalAppData%\StickyBar`, creará el acceso directo **StickyBar** en el Menú Inicio y quedará registrada en *Aplicaciones instaladas* de Windows.
 
 ### Desinstalación
-- Ejecute **`Desinstalar-StickyDock.bat`** o desinstale **Sticky Dock Utility** desde *Configuración de Windows → Aplicaciones → Aplicaciones instaladas*.
+- Ejecute **`Desinstalar-StickyBar.bat`** o desinstale **StickyBar** desde *Configuración de Windows → Aplicaciones → Aplicaciones instaladas*.
 - El desinstalador cierra la aplicación si está activa, retira la entrada de auto-inicio (si existía), elimina el acceso directo del Menú Inicio y borra los archivos de programa.
 
 ---
 
 ## 2. Primer uso y acoplamiento a los bordes
 
-- Al iniciar, Sticky Dock aparece como una pestaña discreta acoplada al borde superior (o en la última posición guardada).
+- Al iniciar, StickyBar aparece como una pestaña discreta acoplada al borde superior (o en la última posición guardada).
 - **Desplegar**: coloque el cursor sobre la pestaña durante **200 ms**; la pestaña emitirá un micro-efecto visual y la barra se desplegará suavemente.
 - **Ocultar**: al retirar el cursor de la barra y sus Cintas, se ocultará automáticamente tras el **temporizador de gracia** (400 ms por defecto).
 - **Mover y acoplar (Sticky)**:
@@ -59,7 +59,7 @@ Las **Cintas** permiten agrupar accesos directos en un solo nivel (estructura pl
 
 ## 5. Bandeja del sistema, configuración y multimonitor
 
-El icono de Sticky Dock permanece en el área de notificación (bandeja del sistema):
+El icono de StickyBar permanece en el área de notificación (bandeja del sistema):
 
 - **Clic izquierdo**: abre la ventana de **Configuración**.
 - **Clic derecho**: abre el menú contextual (**Configuración** / **Salir**).
@@ -74,5 +74,5 @@ En la ventana de **Configuración** puede ajustar:
 
 ## 6. Ubicación de datos y registros
 
-- **Configuración**: `%AppData%\StickyDock\settings.json` (escritura atómica con respaldo automático ante errores).
-- **Registros (logs)**: `%AppData%\StickyDock\logs\stickydock.log`.
+- **Configuración**: `%AppData%\StickyBar\settings.json` (escritura atómica con respaldo automático ante errores).
+- **Registros (logs)**: `%AppData%\StickyBar\logs\stickybar.log`.

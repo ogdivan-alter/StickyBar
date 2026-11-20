@@ -34,12 +34,12 @@ Y dos restricciones transversales que E3 es el primero en poner a prueba: **RNF-
 
 E3 no empieza sobre terreno neutro. Estos son los hechos que condicionan el diseño:
 
-1. **El estado actual es de dos valores y no tiene dueño de política.** `DockState` solo declara `Tab` y `Expanded` (`src\StickyDock.Core\Services\DockState.cs:6-13`) y `DockStateService` los cambia a petición de quien llame (`src\StickyDock.Core\Services\DockStateService.cs:38-47`). No hay temporizadores, ni zona interactiva, ni noción de "armado".
+1. **El estado actual es de dos valores y no tiene dueño de política.** `DockState` solo declara `Tab` y `Expanded` (`src\StickyBar.Core\Services\DockState.cs:6-13`) y `DockStateService` los cambia a petición de quien llame (`src\StickyBar.Core\Services\DockStateService.cs:38-47`). No hay temporizadores, ni zona interactiva, ni noción de "armado".
 2. **El *hover* está cableado en el code-behind y solo escala.** `MainWindow.xaml.cs:21-42` suscribe `MouseEnter`/`MouseLeave` de **toda la ventana** y escribe `viewModel.IsHovered`; el *setter* de `IsHovered` (`DockBarViewModel.cs:89-110`) fija `ScaleX/ScaleY = 1.08` inmediatamente, sin retardo, sin temporizador y sin desplegar nada.
 3. **El tamaño de la barra se mide, no se declara.** `IDockWindowHost.GetBarSize()` (`IDockWindowHost.cs:16`) devuelve `ActualWidth/ActualHeight` con respaldo en `Width/Height` (`WpfDockWindowHost.cs:32-39`) y el coordinador lo consume en cada colocación (`DockPlacementCoordinator.cs:234`). Es el defecto D-01: un `SetWindowPos` externo deja el tamaño intruso en el siguiente cálculo.
 4. **La configuración la escriben dos objetos distintos.** `Bootstrapper` registra el documento como singleton (`Bootstrapper.cs:62-63`) pero pasa a `DockPlacementCoordinator` **otra** referencia al mismo registro inmutable más el almacén (`Bootstrapper.cs:166-172`), y el coordinador guarda su propia copia y persiste sobre ella (`DockPlacementCoordinator.cs:325-334`). Es D-07: en cuanto E3 escriba la gracia y E6 otras preferencias, el último escritor pisa a los demás.
 5. **La persistencia es *fire-and-forget*.** `PersistEdge` ejecuta `_ = SaveAsync(...)` (`DockPlacementCoordinator.cs:333`) sin esperar, sin orden garantizado y sin posibilidad de *flush* al cerrar. Es D-04.
-6. **El esquema persistido es la versión 1 y no conoce la gracia.** `StickyDockConfiguration.CurrentSchemaVersion = 1` (`StickyDockConfiguration.cs:18`) y el propio comentario del tipo anuncia que E3 añade una sección con su migración (`:9-11`). El almacén ya soporta la cadena de migraciones (`JsonConfigurationStore.cs:199-222`), así que no hay que escribir maquinaria nueva, solo registrarla.
+6. **El esquema persistido es la versión 1 y no conoce la gracia.** `StickyBarConfiguration.CurrentSchemaVersion = 1` (`StickyBarConfiguration.cs:18`) y el propio comentario del tipo anuncia que E3 añade una sección con su migración (`:9-11`). El almacén ya soporta la cadena de migraciones (`JsonConfigurationStore.cs:199-222`), así que no hay que escribir maquinaria nueva, solo registrarla.
 7. **El tamaño de la barra no se re-resuelve al cambiar por contenido.** El coordinador solo recalcula al arrancar y ante eventos del entorno (`DockPlacementCoordinator.cs:171-201`). Es D-09, y E3 es el primer caso real: la barra cambia de tamaño sin que llegue `WM_EXITSIZEMOVE` ni un cambio de área de trabajo.
 8. **La ventana entera es área de cliente, con `CaptionHeight = 0`** (`MainWindow.xaml:22`), y el arrastre cuelga de un `PreviewMouseLeftButtonDown` que marca el evento como manejado (`PressDragBehavior.cs:70-86`, `:84`) sobre el `Border` de la pestaña (`MainWindow.xaml:44-47`). ADR-002 dejó anotado que esa zona debe reevaluarse cuando la barra se despliegue; el encargo del Director lo etiqueta como **N-01**. *Nota de exactitud*: N-01 **no consta** en `docs/plan/ESTADO.md`; se cita como aviso del encargo y queda pendiente de registro por el Director.
 
@@ -71,14 +71,14 @@ Ordenados por peso. Los tres primeros son requisito; los tres últimos son ingen
 
 #### Opción A — Mantener el registro inmutable y añadir un servicio de escritura
 
-- **Descripción**: `StickyDockConfiguration` sigue siendo el documento que circula; un `IConfigurationWriter` con métodos `SaveDockEdgeAsync`, `SaveGracePeriodAsync`, … persiste cada preferencia por separado.
+- **Descripción**: `StickyBarConfiguration` sigue siendo el documento que circula; un `IConfigurationWriter` con métodos `SaveDockEdgeAsync`, `SaveGracePeriodAsync`, … persiste cada preferencia por separado.
 - **Ventajas**: cambio mínimo; los consumidores actuales no se tocan; no hace falta migrar firmas.
 - **Desventajas / riesgos**: el registro es inmutable, así que cada escritor debe releer el documento para no pisar las demás preferencias; `IConfigurationStore.SaveAsync` sigue siendo alcanzable desde cualquier sitio, que es exactamente la causa de D-07; y una API con un método por preferencia crece sin control (E4, E5, E6, E7 aportan al menos seis más).
 - **Coste de adopción**: bajo, con deuda estructural.
 
 #### Opción B — Un documento mutable compartido (`IConfigurationDocument`) como único escritor (ELEGIDA)
 
-- **Descripción**: Core expone `IConfigurationDocument` con `Current`, `Changed`, `Update(Func<StickyDockConfiguration, StickyDockConfiguration>)` y `FlushAsync()`. Todos los interesados (coordinador de docking, controlador de interacción, preferencias de E6) reciben **la misma instancia** y solo pueden cambiar el documento pidiendo una transformación. El almacén (`IConfigurationStore`) queda como puerto de E/S puro cuyo único llamador es el documento.
+- **Descripción**: Core expone `IConfigurationDocument` con `Current`, `Changed`, `Update(Func<StickyBarConfiguration, StickyBarConfiguration>)` y `FlushAsync()`. Todos los interesados (coordinador de docking, controlador de interacción, preferencias de E6) reciben **la misma instancia** y solo pueden cambiar el documento pidiendo una transformación. El almacén (`IConfigurationStore`) queda como puerto de E/S puro cuyo único llamador es el documento.
 - **Ventajas**:
   - Un solo escritor, por construcción: `SaveAsync` deja de ser alcanzable desde la lógica de negocio.
   - El documento mantiene la forma de registro inmutable por dentro (`with`), así que la serialización, la comparación por valor y los `init` no cambian.
@@ -91,7 +91,7 @@ Ordenados por peso. Los tres primeros son requisito; los tres últimos son ingen
 
 - **Descripción**: sustituir el registro por una clase mutable con propiedades y eventos por propiedad (`GracePeriodChanged`, `DockEdgeChanged`, …).
 - **Ventajas**: notificaciones finas; lectura directa.
-- **Desventajas / riesgos**: **no es viable tal como está planteada**, porque `StickyDockConfiguration` es un `record` inmutable que se serializa por valor y con el que ya trabajan E0, E1 y E2; convertirlo en clase mutable obliga a reescribir la comparación de cambios, el volcado de configuración y las pruebas de persistencia existentes. Además multiplica los eventos y con ellos las oportunidades de realimentación.
+- **Desventajas / riesgos**: **no es viable tal como está planteada**, porque `StickyBarConfiguration` es un `record` inmutable que se serializa por valor y con el que ya trabajan E0, E1 y E2; convertirlo en clase mutable obliga a reescribir la comparación de cambios, el volcado de configuración y las pruebas de persistencia existentes. Además multiplica los eventos y con ellos las oportunidades de realimentación.
 - **Coste de adopción**: alto y con rotura de lo ya cerrado.
 
 **Decisión: Opción B.** El argumento que decide la balanza es que D-07 no es un defecto de sincronización, es un defecto de **propiedad**: mientras `SaveAsync` sea público y el documento circule por valor, cada etapa nueva añade un escritor y el diseño empeora. La opción B lo cierra en un solo punto y de paso resuelve D-04.
@@ -165,7 +165,7 @@ Tres candidatos: (i) el controlador de interacción conoce el docking —descart
 
 #### Opción B — Controlador único en Core + programador de un solo disparo (ELEGIDA)
 
-- **Descripción**: `DockInteractionController` en `StickyDock.Core.Interaction` posee el estado, las regiones activas y **una** ranura de temporizador detrás de `ISingleShotScheduler` (`Schedule`/`Cancel`/`IsPending`). La implementación real es un `DispatcherTimer` en la App; en pruebas, un `ManualScheduler` que avanza a mano. El controlador implementa `IDockStateService`, así que el ViewModel no cambia de dependencia.
+- **Descripción**: `DockInteractionController` en `StickyBar.Core.Interaction` posee el estado, las regiones activas y **una** ranura de temporizador detrás de `ISingleShotScheduler` (`Schedule`/`Cancel`/`IsPending`). La implementación real es un `DispatcherTimer` en la App; en pruebas, un `ManualScheduler` que avanza a mano. El controlador implementa `IDockStateService`, así que el ViewModel no cambia de dependencia.
 - **Ventajas**:
   - Los cinco CA se prueban con el programador manual: "entra el puntero, avanzan 199 ms, no pasa nada; avanzan 2 ms más, se despliega" es una aserción, no una espera.
   - Una sola ranura de temporizador hace **imposible** el solapamiento de temporizadores, que es la fuente clásica de estados inconsistentes.
@@ -185,7 +185,7 @@ Tres candidatos: (i) el controlador de interacción conoce el docking —descart
 
 #### Sub-decisión P4.b — Cómo llegan las regiones al controlador (H-1)
 
-`EnterRegion` y `LeaveRegion` no existen en `IDockStateService`: el contrato vigente declara exactamente cuatro miembros (`State`, `StateChanged`, `CollapseToTab`, `Expand`; `src\StickyDock.Core\Services\IDockStateService.cs:8-21`). Sin resolver esto, `EnterRegionCommand` y `LeaveRegionCommand` del ViewModel no se pueden implementar sin un *cast* al tipo concreto, que es justo lo que este ADR prohíbe.
+`EnterRegion` y `LeaveRegion` no existen en `IDockStateService`: el contrato vigente declara exactamente cuatro miembros (`State`, `StateChanged`, `CollapseToTab`, `Expand`; `src\StickyBar.Core\Services\IDockStateService.cs:8-21`). Sin resolver esto, `EnterRegionCommand` y `LeaveRegionCommand` del ViewModel no se pueden implementar sin un *cast* al tipo concreto, que es justo lo que este ADR prohíbe.
 
 ##### Opción (a) — Ampliar `IDockStateService` con las dos operaciones
 
@@ -196,7 +196,7 @@ Tres candidatos: (i) el controlador de interacción conoce el docking —descart
 
 ##### Opción (b) — Un puerto propio para las regiones (ELEGIDA)
 
-- **Descripción**: `IDockRegionSink` en `StickyDock.Core.Interaction` declara `EnterRegion`/`LeaveRegion`; `DockInteractionController` lo implementa **junto con** `IDockStateService`; `DockBarViewModel` recibe ambos.
+- **Descripción**: `IDockRegionSink` en `StickyBar.Core.Interaction` declara `EnterRegion`/`LeaveRegion`; `DockInteractionController` lo implementa **junto con** `IDockStateService`; `DockBarViewModel` recibe ambos.
 - **Ventajas**:
   - Cada contrato dice una sola cosa: el estado se **consulta**, la entrada de puntero se **notifica**. Es la misma separación que D1 hizo entre documento y almacén.
   - `IDockStateService` conserva sus cuatro miembros: E1, E2 y E6 no se tocan, y los dobles de estado siguen implementando cuatro miembros.
@@ -277,7 +277,7 @@ Se adoptan las opciones marcadas como ELEGIDAS en §3, que se concretan en siete
 
 ### D1 — Un único documento de configuración mutable y un solo escritor
 
-`StickyDock.Core.Configuration.IConfigurationDocument` es la **única** vía de cambio de preferencias. El coordinador de docking deja de recibir el registro y el almacén por separado y recibe el documento. `IConfigurationStore` no se modifica: sigue siendo el puerto de E/S y su único llamador pasa a ser `ConfigurationDocument`.
+`StickyBar.Core.Configuration.IConfigurationDocument` es la **única** vía de cambio de preferencias. El coordinador de docking deja de recibir el registro y el almacén por separado y recibe el documento. `IConfigurationStore` no se modifica: sigue siendo el puerto de E/S y su único llamador pasa a ser `ConfigurationDocument`.
 
 Motivo: cierra D-07 y D-04 en un punto, y es la forma que E6 y E7 necesitan para no añadir un tercer y un cuarto escritor.
 
@@ -295,7 +295,7 @@ Motivo: es la única opción compatible con los gestos que E5 necesita sobre los
 
 ### D4 — Una máquina de estados explícita con una sola ranura de temporizador
 
-`DockState` pasa a cuatro valores (`Tab`, `Arming`, `Expanded`, `Collapsing`), todos en `StickyDock.Core.Services` (el enum no cambia de espacio de nombres para no romper consumidores). El periodo de gracia **no** es un estado: ocurre dentro de `Expanded` con un temporizador pendiente, de modo que `Collapsing` significa siempre "el fundido de salida está corriendo". `DockInteractionController` implementa `IDockStateService` e `IDockRegionSink` (D7) y sustituye a `DockStateService`.
+`DockState` pasa a cuatro valores (`Tab`, `Arming`, `Expanded`, `Collapsing`), todos en `StickyBar.Core.Services` (el enum no cambia de espacio de nombres para no romper consumidores). El periodo de gracia **no** es un estado: ocurre dentro de `Expanded` con un temporizador pendiente, de modo que `Collapsing` significa siempre "el fundido de salida está corriendo". `DockInteractionController` implementa `IDockStateService` e `IDockRegionSink` (D7) y sustituye a `DockStateService`.
 
 Motivo: menos estados que mantener, y cada estado se corresponde con algo visible (una pestaña, un armado, una barra desplegada, una barra deslizándose hacia fuera), lo que hace la tabla de transiciones verificable de un vistazo.
 
@@ -307,13 +307,13 @@ Motivo: §5.2-01 pide que la lógica no esté en la vista y RNF-02 pide que no h
 
 ### D6 — El esquema de persistencia sube a la versión 2
 
-`StickyDockConfiguration.CurrentSchemaVersion = 2`, con `gracePeriodMs` (entero, por defecto 400) y una migración `AddGracePeriodMigration` (1 → 2) que añade la propiedad al árbol JSON. Se añade `StickyDockSettings.CreateStore(...)` como fábrica única del almacén con sus migraciones registradas, para que la lista no se duplique entre la aplicación y las pruebas.
+`StickyBarConfiguration.CurrentSchemaVersion = 2`, con `gracePeriodMs` (entero, por defecto 400) y una migración `AddGracePeriodMigration` (1 → 2) que añade la propiedad al árbol JSON. Se añade `StickyBarSettings.CreateStore(...)` como fábrica única del almacén con sus migraciones registradas, para que la lista no se duplique entre la aplicación y las pruebas.
 
 Motivo: E3-CA5 exige persistencia del valor; el almacén ya sabe migrar (`JsonConfigurationStore.cs:199-222`) y no admitir la migración dejaría ilegibles los `settings.json` de E0–E2, que están en la versión 1.
 
 ### D7 — Las regiones entran por un puerto propio y no ensanchan el contrato de estado
 
-`IDockRegionSink` (`StickyDock.Core.Interaction`) declara `EnterRegion(DockRegion)` y `LeaveRegion(DockRegion)`. `DockInteractionController` implementa **las dos** interfaces (`IDockStateService` e `IDockRegionSink`) y el `DockBarViewModel` recibe ambas dependencias. `IDockStateService` **no cambia**: sigue con sus cuatro miembros.
+`IDockRegionSink` (`StickyBar.Core.Interaction`) declara `EnterRegion(DockRegion)` y `LeaveRegion(DockRegion)`. `DockInteractionController` implementa **las dos** interfaces (`IDockStateService` e `IDockRegionSink`) y el `DockBarViewModel` recibe ambas dependencias. `IDockStateService` **no cambia**: sigue con sus cuatro miembros.
 
 Motivo: el estado se consulta y la entrada de puntero se notifica; son dos responsabilidades y merecen dos contratos. Es lo que permite que `DockBarSizeSource`, el menú de E6 y los dobles de prueba del estado sigan implementando cuatro miembros, y lo que evita el *cast* al tipo concreto que el borrador anterior exigía sin decirlo (H-1).
 
@@ -330,11 +330,11 @@ Nombres definitivos, en inglés. Los contratos de ADR-002 que no se citan aquí 
 ### 5.1 Documento de configuración (D1)
 
 ```csharp
-namespace StickyDock.Core.Configuration;
+namespace StickyBar.Core.Configuration;
 
 /// <summary>Arguments of <see cref="IConfigurationDocument.Changed"/>.</summary>
 /// <param name="Document">Document as it is after the change.</param>
-public sealed record ConfigurationChangedEventArgs(StickyDockConfiguration Document);
+public sealed record ConfigurationChangedEventArgs(StickyBarConfiguration Document);
 
 /// <summary>
 /// The one mutable configuration of the process (D-07). Every consumer holds the same instance, and the only way to
@@ -347,7 +347,7 @@ public sealed record ConfigurationChangedEventArgs(StickyDockConfiguration Docum
 public interface IConfigurationDocument
 {
     /// <summary>Gets the current document. The instance is replaced on every change.</summary>
-    StickyDockConfiguration Current { get; }
+    StickyBarConfiguration Current { get; }
 
     /// <summary>Raised after a change, with the document that is current at that moment.</summary>
     event EventHandler<ConfigurationChangedEventArgs>? Changed;
@@ -356,7 +356,7 @@ public interface IConfigurationDocument
     /// Replaces the document with the result of <paramref name="change"/> and schedules a write.
     /// </summary>
     /// <returns><see langword="false"/> when the transformation produced an equal document (no write, no event).</returns>
-    bool Update(Func<StickyDockConfiguration, StickyDockConfiguration> change);
+    bool Update(Func<StickyBarConfiguration, StickyBarConfiguration> change);
 
     /// <summary>Awaits the write in flight and writes the document when it is still dirty.</summary>
     Task FlushAsync(CancellationToken cancellationToken = default);
@@ -369,8 +369,8 @@ public interface IConfigurationDocument
 public sealed class ConfigurationDocument : IConfigurationDocument, IDisposable
 {
     public ConfigurationDocument(
-        IConfigurationStore<StickyDockConfiguration> store,
-        StickyDockConfiguration initial,
+        IConfigurationStore<StickyBarConfiguration> store,
+        StickyBarConfiguration initial,
         ILogger logger);
 
     /// <summary>Blocks the shutdown until the pending write is on disk, with a bounded wait.</summary>
@@ -387,7 +387,7 @@ Reglas del escritor, para que se implemente sin ambigüedad:
 - **Un fallo de escritura no rompe la sesión**: se registra y se reintenta en el siguiente cambio.
 
 ```csharp
-namespace StickyDock.Core.Configuration;
+namespace StickyBar.Core.Configuration;
 
 /// <summary>Moves a stored document from schema version 1 to 2 by adding the grace period (D6).</summary>
 public sealed class AddGracePeriodMigration : IConfigurationMigration
@@ -400,14 +400,14 @@ public sealed class AddGracePeriodMigration : IConfigurationMigration
 }
 
 /// <summary>Single place where the configuration store of the product is built, with its migrations registered.</summary>
-public static class StickyDockSettings
+public static class StickyBarSettings
 {
-    public static IConfigurationStore<StickyDockConfiguration> CreateStore(string filePath, ILogger? logger = null);
+    public static IConfigurationStore<StickyBarConfiguration> CreateStore(string filePath, ILogger? logger = null);
 }
 ```
 
 ```csharp
-// src\StickyDock.Core\Configuration\StickyDockConfiguration.cs
+// src\StickyBar.Core\Configuration\StickyBarConfiguration.cs
 public const int CurrentSchemaVersion = 2;
 
 /// <summary>
@@ -420,7 +420,7 @@ public int GracePeriodMilliseconds { get; init; } = 400;
 ### 5.2 Estado y tamaño de la barra (D2, D4)
 
 ```csharp
-// src\StickyDock.Core\Services\DockState.cs — same namespace, two new members (E3, D4)
+// src\StickyBar.Core\Services\DockState.cs — same namespace, two new members (E3, D4)
 public enum DockState
 {
     /// <summary>Collapsed to the idle tab. No timer is armed.</summary>
@@ -440,7 +440,7 @@ public enum DockState
 Los valores **numéricos no se persisten**: el estado nunca se guarda y la aplicación arranca siempre en `Tab` (§4.2: la barra "permanece en estado de reposo" al aparecer). Se fijan por claridad y para que un futuro registro sea estable.
 
 ```csharp
-namespace StickyDock.Core.Docking;
+namespace StickyBar.Core.Docking;
 
 /// <summary>Declared footprint of the bar, in device-independent units (D2). Single adjustment point of the sizes.</summary>
 /// <param name="CollapsedLength">Length along the edge while collapsed. Equal to the window of E1: the tab is the whole footprint.</param>
@@ -476,7 +476,7 @@ public interface IDockBarSizeSource
 ```
 
 ```csharp
-namespace StickyDock.Core.Interaction;
+namespace StickyBar.Core.Interaction;
 
 /// <summary>Default size source: the dock state decides which of the two footprints applies.</summary>
 public sealed class DockBarSizeSource : IDockBarSizeSource
@@ -491,7 +491,7 @@ public sealed class DockBarSizeSource : IDockBarSizeSource
 ### 5.3 Interacción: regiones, tiempos y temporizadores (D4)
 
 ```csharp
-namespace StickyDock.Core.Interaction;
+namespace StickyBar.Core.Interaction;
 
 /// <summary>Part of the interactive area the pointer is in (A4).</summary>
 public enum DockRegion
@@ -510,7 +510,7 @@ public enum DockRegion
 
 /// <summary>
 /// Port the view model uses to report that the pointer entered or left an interactive region (D7). It is deliberately
-/// separate from <see cref="StickyDock.Core.Services.IDockStateService"/>: the state is consulted, the pointer input is
+/// separate from <see cref="StickyBar.Core.Services.IDockStateService"/>: the state is consulted, the pointer input is
 /// notified, and E6 needs the state contract with its four members only.
 /// </summary>
 /// <remarks>Single-threaded: the implementation must be called on the UI thread.</remarks>
@@ -549,7 +549,7 @@ public readonly record struct InteractionTimings(TimeSpan Activation, TimeSpan G
 ```
 
 ```csharp
-namespace StickyDock.Core.Timing;
+namespace StickyBar.Core.Timing;
 
 /// <summary>
 /// One-shot timer with a single slot: scheduling cancels the previous timer. Disposing nowhere is needed because the
@@ -570,7 +570,7 @@ public interface ISingleShotScheduler
 ```
 
 ```csharp
-namespace StickyDock.Core.Interaction;
+namespace StickyBar.Core.Interaction;
 
 /// <summary>
 /// Owns the interaction state of one bar: regions, timers and transitions (E3, D4, D7). It is the single implementation
@@ -647,7 +647,7 @@ El borrador anterior de este ADR preveía `SlideVector` y `ExpansionAnimation.Ge
 ### 5.5 Cambios en contratos existentes
 
 ```csharp
-// src\StickyDock.Core\Docking\IDockWindowHost.cs — GetBarSize() is REMOVED (D-01). The rest is unchanged.
+// src\StickyBar.Core\Docking\IDockWindowHost.cs — GetBarSize() is REMOVED (D-01). The rest is unchanged.
 public interface IDockWindowHost
 {
     PixelRect GetBounds();
@@ -657,7 +657,7 @@ public interface IDockWindowHost
 ```
 
 ```csharp
-// src\StickyDock.Core\Docking\DockPlacementCalculator.cs — two new pure methods, nothing else changes
+// src\StickyBar.Core\Docking\DockPlacementCalculator.cs — two new pure methods, nothing else changes
 public static class DockPlacementCalculator
 {
     /// <summary>Nearest edge of the work area. Ties are broken in the order Top, Left, Right, Bottom.</summary>
@@ -673,7 +673,7 @@ public static class DockPlacementCalculator
 ```
 
 ```csharp
-// src\StickyDock.Core\Docking\DockPlacementCoordinator.cs — constructor and two members change (D1, D2)
+// src\StickyBar.Core\Docking\DockPlacementCoordinator.cs — constructor and two members change (D1, D2)
 public sealed class DockPlacementCoordinator : IDisposable
 {
     public DockPlacementCoordinator(
@@ -701,7 +701,7 @@ public sealed class DockPlacementCoordinator : IDisposable
 El coordinador deja de escribir la preferencia con `_ = SaveAsync(...)` y pasa a `configurationDocument.Update(document => document with { DockEdge = edge })`. `_configurationStore` desaparece del tipo.
 
 ```csharp
-// src\StickyDock.Core\ViewModels\DockBarViewModel.cs — hover properties replaced by state projection (D4, D5, D7)
+// src\StickyBar.Core\ViewModels\DockBarViewModel.cs — hover properties replaced by state projection (D4, D5, D7)
 public sealed class DockBarViewModel : ViewModelBase
 {
     public DockBarViewModel(
@@ -739,7 +739,7 @@ Lo que cambia del ADR-002, y nada más:
 
 Consecuencias sobre la **lista de verificación** de `ADR-002-docking-y-observacion-del-area-de-trabajo.md`:
 
-- El punto «Crear — `StickyDock.App`: `WpfDockWindowHost.cs` — `GetBarSize` … `GetBounds`, `ApplyBounds`» se reduce a `GetBounds`, `ApplyBounds` y el `BeginDrag` que la implementación ya añadió.
+- El punto «Crear — `StickyBar.App`: `WpfDockWindowHost.cs` — `GetBarSize` … `GetBounds`, `ApplyBounds`» se reduce a `GetBounds`, `ApplyBounds` y el `BeginDrag` que la implementación ya añadió.
 - El punto «Crear — tests: `Docking\FakeDockWindowHost.cs`» pierde `BarSize`/`GetBarSize`; el tamaño del doble pasa a `FakeBarSizeSource`.
 - El tercer filtro de ADR-002 (idempotencia del coordinador: solo aplica cuando el rectángulo difiere) **se conserva intacto**; este ADR lo reutiliza como regla R3.
 - Ni la observación del entorno (`IDockingEventSource`, `WinEventDockingEventSource`, `DockingMessageClassifier`, los `WM_*`) ni la geometría (`PixelRect`, `MonitorGeometry`, `TaskbarPlacement`, `GetDockedBounds`, `ClampIntoWorkArea`) se tocan.
@@ -750,7 +750,7 @@ Fuera de esto, ADR-002 sigue vigente y no requiere revisión.
 ### 5.6 Contratos del lado de la App
 
 ```csharp
-namespace StickyDock.App.Timing;
+namespace StickyBar.App.Timing;
 
 /// <summary>Adapter of <see cref="ISingleShotScheduler"/> over one <c>DispatcherTimer</c> created on the UI thread.</summary>
 internal sealed class DispatcherTimerScheduler : ISingleShotScheduler
@@ -763,7 +763,7 @@ internal sealed class DispatcherTimerScheduler : ISingleShotScheduler
 ```
 
 ```csharp
-namespace StickyDock.App.Input;
+namespace StickyBar.App.Input;
 
 /// <summary>
 /// Adapter that turns the pointer events of one element into the region commands of the view model. It holds no policy:
@@ -1147,7 +1147,7 @@ El reposo de E3 es, por tanto, el de E2 más cero. La medición de cierre de eta
 
 ## 9. Mapa E3-CA → pieza del diseño → prueba
 
-Convención: las pruebas nuevas viven en `tests\StickyDock.Tests`; `ManualScheduler` avanza el reloj a mano, sin esperas reales.
+Convención: las pruebas nuevas viven en `tests\StickyBar.Tests`; `ManualScheduler` avanza el reloj a mano, sin esperas reales.
 
 | CA | Pieza que lo satisface | Cómo | Pruebas |
 | --- | --- | --- | --- |
@@ -1155,7 +1155,7 @@ Convención: las pruebas nuevas viven en `tests\StickyDock.Tests`; `ManualSchedu
 | **E3-CA2** — al salir, colapso tras 400 ms (300–500) | `GracePeriod`, `InteractionTimings.FromGrace`, `DockInteractionController` (`Expanded` + `Schedule(Grace)` → `Collapsing` → `Timer(Settle)` → `Tab`), `GracePeriodMilliseconds` persistido | La gracia se arma al quedarse sin regiones y se lee del documento en ese instante | `Interaction/DockInteractionControllerTests`: `LeaveRegion_SchedulesGrace_WithoutChangingState`, `GraceTimerFires_EntersCollapsing`, `SettleTimerFires_CollapsesToTab`; `Interaction/GracePeriodTests`: `Default_Is400`, `Normalize_ClampsBelow300`, `Normalize_ClampsAbove500`, `Normalize_KeepsValidValue`; `Configuration/GracePeriodPersistenceTests`: `Migration_Adds400ToASchemaOneDocument`, `StoredValue_SurvivesAReload` |
 | **E3-CA3** — moverse entre la barra y sus Cintas no colapsa | `DockRegion` (`Tab`, `Bar`, `Ribbon`) + `Reevaluate` (solo arma la gracia con el conjunto de regiones **vacío**) | El área interactiva es la unión de las regiones activas (A4); la gracia absorbe el hueco transitorio entre regiones | `Interaction/DockInteractionControllerTests`: `EnteringBar_CancelsGrace`, `EnteringRibbon_CancelsGrace`, `TabBarRibbonSequence_NeverCollapses`, `LeaveAllRegions_ThenEnterRibbonWithinGrace_StaysExpanded` |
 | **E3-CA4** — el temporizador se cancela si el cursor se retira antes de 200 ms | `Reevaluate` (rama `Arming`) + `ISingleShotScheduler.Cancel` | Al salir de la pestaña sin otra región activa se desarma la ranura y se vuelve a `Tab` | `Interaction/DockInteractionControllerTests`: `LeaveBefore200ms_CancelsActivation`, `LeaveBefore200ms_ThenWait_NeverExpands`, `LeaveAt199ms_DoesNotExpand` |
-| **E3-CA5** — gracia configurable 300–500, 400 por defecto, persistida | `GracePeriod`, `StickyDockConfiguration.GracePeriodMilliseconds`, `AddGracePeriodMigration` (1 → 2), `IConfigurationDocument` | El valor se persiste en `settings.json`; se normaliza al leerlo; el controlador lo consulta al armar | `Configuration/GracePeriodPersistenceTests`: `SchemaTwo_IsWritten`, `SchemaOneDocument_IsMigratedAndKept`, `Grace_IsNormalizedWhenOutOfRange`; `Configuration/ConfigurationDocumentTests`: `Update_PersistsThroughTheStore`, `Update_RaisesChangedOnce`, `Update_WithAnEqualDocument_DoesNotWrite`, `FlushAsync_WritesPendingChange`, `ConcurrentUpdates_CoalesceIntoOneWrite`; `Interaction/DockInteractionControllerTests`: `Grace_IsReadFromTheDocumentWhenArmed` |
+| **E3-CA5** — gracia configurable 300–500, 400 por defecto, persistida | `GracePeriod`, `StickyBarConfiguration.GracePeriodMilliseconds`, `AddGracePeriodMigration` (1 → 2), `IConfigurationDocument` | El valor se persiste en `settings.json`; se normaliza al leerlo; el controlador lo consulta al armar | `Configuration/GracePeriodPersistenceTests`: `SchemaTwo_IsWritten`, `SchemaOneDocument_IsMigratedAndKept`, `Grace_IsNormalizedWhenOutOfRange`; `Configuration/ConfigurationDocumentTests`: `Update_PersistsThroughTheStore`, `Update_RaisesChangedOnce`, `Update_WithAnEqualDocument_DoesNotWrite`, `FlushAsync_WritesPendingChange`, `ConcurrentUpdates_CoalesceIntoOneWrite`; `Interaction/DockInteractionControllerTests`: `Grace_IsReadFromTheDocumentWhenArmed` |
 
 ### Pruebas de soporte (no corresponden a un CA, protegen lo ya cerrado)
 
@@ -1177,29 +1177,29 @@ Convención: las pruebas nuevas viven en `tests\StickyDock.Tests`; `ManualSchedu
 
 ## 10. Lista de verificación de implementación
 
-### Crear — `StickyDock.Core`
+### Crear — `StickyBar.Core`
 
-- [ ] `src\StickyDock.Core\Configuration\IConfigurationDocument.cs` — `IConfigurationDocument`, `ConfigurationChangedEventArgs`.
-- [ ] `src\StickyDock.Core\Configuration\ConfigurationDocument.cs` — escritor único, *latest wins*, `FlushAsync`, `Dispose` acotado.
-- [ ] `src\StickyDock.Core\Configuration\AddGracePeriodMigration.cs` — 1 → 2, añade `gracePeriodMs = 400` si falta.
-- [ ] `src\StickyDock.Core\Configuration\StickyDockSettings.cs` — `CreateStore`, migraciones registradas en un punto.
-- [ ] `src\StickyDock.Core\Docking\DockBarMetrics.cs` — cuatro valores, `Default` = `(120, 36, 168, 96)`, `GetSize`.
-- [ ] `src\StickyDock.Core\Docking\IDockBarSizeSource.cs`.
-- [ ] `src\StickyDock.Core\Interaction\DockRegion.cs`.
-- [ ] `src\StickyDock.Core\Interaction\IDockRegionSink.cs` — `EnterRegion`/`LeaveRegion` (D7).
-- [ ] `src\StickyDock.Core\Interaction\GracePeriod.cs`.
-- [ ] `src\StickyDock.Core\Interaction\InteractionTimings.cs`.
-- [ ] `src\StickyDock.Core\Interaction\DockBarSizeSource.cs`.
-- [ ] `src\StickyDock.Core\Interaction\DockInteractionController.cs` — tabla de §7.2, rutina de §7.3; implementa `IDockStateService` **e** `IDockRegionSink`.
-- [ ] `src\StickyDock.Core\Timing\ISingleShotScheduler.cs`.
-- [ ] `src\StickyDock.Core\Mvvm\RelayCommandOfT.cs` — comando con parámetro para las regiones.
+- [ ] `src\StickyBar.Core\Configuration\IConfigurationDocument.cs` — `IConfigurationDocument`, `ConfigurationChangedEventArgs`.
+- [ ] `src\StickyBar.Core\Configuration\ConfigurationDocument.cs` — escritor único, *latest wins*, `FlushAsync`, `Dispose` acotado.
+- [ ] `src\StickyBar.Core\Configuration\AddGracePeriodMigration.cs` — 1 → 2, añade `gracePeriodMs = 400` si falta.
+- [ ] `src\StickyBar.Core\Configuration\StickyBarSettings.cs` — `CreateStore`, migraciones registradas en un punto.
+- [ ] `src\StickyBar.Core\Docking\DockBarMetrics.cs` — cuatro valores, `Default` = `(120, 36, 168, 96)`, `GetSize`.
+- [ ] `src\StickyBar.Core\Docking\IDockBarSizeSource.cs`.
+- [ ] `src\StickyBar.Core\Interaction\DockRegion.cs`.
+- [ ] `src\StickyBar.Core\Interaction\IDockRegionSink.cs` — `EnterRegion`/`LeaveRegion` (D7).
+- [ ] `src\StickyBar.Core\Interaction\GracePeriod.cs`.
+- [ ] `src\StickyBar.Core\Interaction\InteractionTimings.cs`.
+- [ ] `src\StickyBar.Core\Interaction\DockBarSizeSource.cs`.
+- [ ] `src\StickyBar.Core\Interaction\DockInteractionController.cs` — tabla de §7.2, rutina de §7.3; implementa `IDockStateService` **e** `IDockRegionSink`.
+- [ ] `src\StickyBar.Core\Timing\ISingleShotScheduler.cs`.
+- [ ] `src\StickyBar.Core\Mvvm\RelayCommandOfT.cs` — comando con parámetro para las regiones.
 
-### Crear — `StickyDock.App`
+### Crear — `StickyBar.App`
 
-- [ ] `src\StickyDock.App\Timing\DispatcherTimerScheduler.cs` — un `DispatcherTimer`, creado en el hilo de UI.
-- [ ] `src\StickyDock.App\Input\PointerRegionBehavior.cs` — propiedades adjuntas `Region`, `EnterCommand`, `LeaveCommand`.
+- [ ] `src\StickyBar.App\Timing\DispatcherTimerScheduler.cs` — un `DispatcherTimer`, creado en el hilo de UI.
+- [ ] `src\StickyBar.App\Input\PointerRegionBehavior.cs` — propiedades adjuntas `Region`, `EnterCommand`, `LeaveCommand`.
 
-### Crear — `tests\StickyDock.Tests`
+### Crear — `tests\StickyBar.Tests`
 
 - [ ] `TestInfrastructure\ManualScheduler.cs` — `Advance(TimeSpan)`, `IsPending`, cuenta de cancelaciones.
 - [ ] `Docking\FakeBarSizeSource.cs`.
@@ -1210,31 +1210,31 @@ Convención: las pruebas nuevas viven en `tests\StickyDock.Tests`; `ManualSchedu
 
 ### Modificar
 
-- [ ] `src\StickyDock.Core\Services\DockState.cs` — `Arming = 2`, `Collapsing = 3`.
-- [ ] `src\StickyDock.Core\Configuration\StickyDockConfiguration.cs` — `CurrentSchemaVersion = 2`, `GracePeriodMilliseconds = 400`.
-- [ ] `src\StickyDock.Core\Docking\IDockWindowHost.cs` — retirar `GetBarSize()`.
-- [ ] `src\StickyDock.Core\Docking\DockPlacementCalculator.cs` — añadir `GetNearestEdge` y `GetFloatingBounds`; no tocar `GetDockedBounds` ni `ClampIntoWorkArea`.
-- [ ] `src\StickyDock.Core\Docking\DockPlacementCoordinator.cs` — constructor con `IDockBarSizeSource` e `IConfigurationDocument`; `DragStarted`, `DragCompleted`, `NotifyBarSizeChanged`; persistencia vía `Update`; `ResolveFloating` usa `GetFloatingBounds`.
-- [ ] `src\StickyDock.Core\ViewModels\DockBarViewModel.cs` — constructor con `IDockStateService` **e** `IDockRegionSink` (sin `DockBarMetrics`); `DockState` y los comandos de región que reenvían al puerto; **borrar** `IsHovered`, `TabOpacity`, `ScaleX`, `ScaleY` y `SlideFromX`/`SlideFromY`/`SlideMilliseconds`.
-- [ ] `src\StickyDock.App\Docking\WpfDockWindowHost.cs` — borrar `GetBarSize()` y `UseActual`.
-- [ ] `src\StickyDock.App\Bootstrapper.cs` — crear el documento con `StickyDockSettings.CreateStore` y registrarlo en lugar del registro inmutable; registrar `DockBarMetrics.Default` y `IDockBarSizeSource`; construir `DispatcherTimerScheduler` y `DockInteractionController` en lugar de `DockStateService`, y **registrar la misma instancia** bajo `IDockStateService` y bajo `IDockRegionSink` (el contenedor la dispondrá una vez por tipo registrado, de ahí que `Dispose` sea idempotente); al crear el coordinador en `SourceInitialized`, suscribir `IDockStateService.StateChanged → coordinator.NotifyBarSizeChanged()` (§7.7) y cablear `DragStarted`/`DragCompleted` al controlador; vaciar el documento en `Dispose`.
-- [ ] `src\StickyDock.App\Views\MainWindow.xaml` — `RootPanel` **sin** `ClipToBounds`; `ClipPanel` con `ClipToBounds="True"` envolviendo solo `ContentPanel`; `ContentPanel` con `TranslateTransform`, la huella desplegada declarada y el fondo translúcido de E1; pestaña de tamaño de contenido **fuera** del recorte, sin `Margin`, `Panel.ZIndex="1"` y alineada según `DockEdge`; la ventana plegada **conserva** 120×36 (E1-CA4); *storyboards* de §8.3 (`MultiDataTrigger` por borde, fundido de salida, micro-efecto); `PointerRegionBehavior` en la pestaña y en el panel de la barra.
-- [ ] `src\StickyDock.App\Views\MainWindow.xaml` — **borrar** de `TabBorderStyle` el `ScaleTransform` con `ScaleX`/`ScaleY` enlazados y cualquier `TabOpacity`: los sustituyen los *storyboards* de §8.3, no una propiedad del ViewModel.
-- [ ] `src\StickyDock.App\Views\MainWindow.xaml.cs` — borrar los dos manejadores de *hover*; queda `InitializeComponent`, `MainViewModel` y el campo `DataContext`.
-- [ ] `tests\StickyDock.Tests\Docking\FakeDockWindowHost.cs` — borrar `BarSize` y `GetBarSize`.
-- [ ] `tests\StickyDock.Tests\Docking\DockPlacementCoordinatorTests.cs` — *fixture* con `FakeBarSizeSource` y documento real sobre `RecordingConfigurationStore`.
-- [ ] `tests\StickyDock.Tests\Configuration\DockEdgePersistenceTests.cs` — el documento escrito pasa a `schemaVersion: 2` y el almacén de la prueba registra la migración.
+- [ ] `src\StickyBar.Core\Services\DockState.cs` — `Arming = 2`, `Collapsing = 3`.
+- [ ] `src\StickyBar.Core\Configuration\StickyBarConfiguration.cs` — `CurrentSchemaVersion = 2`, `GracePeriodMilliseconds = 400`.
+- [ ] `src\StickyBar.Core\Docking\IDockWindowHost.cs` — retirar `GetBarSize()`.
+- [ ] `src\StickyBar.Core\Docking\DockPlacementCalculator.cs` — añadir `GetNearestEdge` y `GetFloatingBounds`; no tocar `GetDockedBounds` ni `ClampIntoWorkArea`.
+- [ ] `src\StickyBar.Core\Docking\DockPlacementCoordinator.cs` — constructor con `IDockBarSizeSource` e `IConfigurationDocument`; `DragStarted`, `DragCompleted`, `NotifyBarSizeChanged`; persistencia vía `Update`; `ResolveFloating` usa `GetFloatingBounds`.
+- [ ] `src\StickyBar.Core\ViewModels\DockBarViewModel.cs` — constructor con `IDockStateService` **e** `IDockRegionSink` (sin `DockBarMetrics`); `DockState` y los comandos de región que reenvían al puerto; **borrar** `IsHovered`, `TabOpacity`, `ScaleX`, `ScaleY` y `SlideFromX`/`SlideFromY`/`SlideMilliseconds`.
+- [ ] `src\StickyBar.App\Docking\WpfDockWindowHost.cs` — borrar `GetBarSize()` y `UseActual`.
+- [ ] `src\StickyBar.App\Bootstrapper.cs` — crear el documento con `StickyBarSettings.CreateStore` y registrarlo en lugar del registro inmutable; registrar `DockBarMetrics.Default` y `IDockBarSizeSource`; construir `DispatcherTimerScheduler` y `DockInteractionController` en lugar de `DockStateService`, y **registrar la misma instancia** bajo `IDockStateService` y bajo `IDockRegionSink` (el contenedor la dispondrá una vez por tipo registrado, de ahí que `Dispose` sea idempotente); al crear el coordinador en `SourceInitialized`, suscribir `IDockStateService.StateChanged → coordinator.NotifyBarSizeChanged()` (§7.7) y cablear `DragStarted`/`DragCompleted` al controlador; vaciar el documento en `Dispose`.
+- [ ] `src\StickyBar.App\Views\MainWindow.xaml` — `RootPanel` **sin** `ClipToBounds`; `ClipPanel` con `ClipToBounds="True"` envolviendo solo `ContentPanel`; `ContentPanel` con `TranslateTransform`, la huella desplegada declarada y el fondo translúcido de E1; pestaña de tamaño de contenido **fuera** del recorte, sin `Margin`, `Panel.ZIndex="1"` y alineada según `DockEdge`; la ventana plegada **conserva** 120×36 (E1-CA4); *storyboards* de §8.3 (`MultiDataTrigger` por borde, fundido de salida, micro-efecto); `PointerRegionBehavior` en la pestaña y en el panel de la barra.
+- [ ] `src\StickyBar.App\Views\MainWindow.xaml` — **borrar** de `TabBorderStyle` el `ScaleTransform` con `ScaleX`/`ScaleY` enlazados y cualquier `TabOpacity`: los sustituyen los *storyboards* de §8.3, no una propiedad del ViewModel.
+- [ ] `src\StickyBar.App\Views\MainWindow.xaml.cs` — borrar los dos manejadores de *hover*; queda `InitializeComponent`, `MainViewModel` y el campo `DataContext`.
+- [ ] `tests\StickyBar.Tests\Docking\FakeDockWindowHost.cs` — borrar `BarSize` y `GetBarSize`.
+- [ ] `tests\StickyBar.Tests\Docking\DockPlacementCoordinatorTests.cs` — *fixture* con `FakeBarSizeSource` y documento real sobre `RecordingConfigurationStore`.
+- [ ] `tests\StickyBar.Tests\Configuration\DockEdgePersistenceTests.cs` — el documento escrito pasa a `schemaVersion: 2` y el almacén de la prueba registra la migración.
 
 ### Borrar
 
-- [ ] `src\StickyDock.Core\Services\DockStateService.cs` — sustituido por `DockInteractionController` (sin pruebas que lo referencien).
+- [ ] `src\StickyBar.Core\Services\DockStateService.cs` — sustituido por `DockInteractionController` (sin pruebas que lo referencien).
 
 ### Verificación final
 
 - [ ] `dotnet build -c Release` y `-c Debug` sin errores **ni advertencias** (`TreatWarningsAsErrors`).
 - [ ] `dotnet test` en verde con la suite ampliada; ninguna prueba con esperas reales de temporizador.
-- [ ] `grep` de control en `src\StickyDock.Core`: ni `TabExpansionMargin`, ni `DllImport`, ni `nint`/`IntPtr`, ni `DispatcherTimer`, ni `ActualWidth`, ni `Storyboard`, ni `SlideFromX`/`SlideFromY`/`SlideMilliseconds`.
-- [ ] `grep` de control en `src\StickyDock.App\Views`: ni `ScaleX`, ni `ScaleY`, ni `TabOpacity` (los sustituyen los *storyboards* por estado), ni temporizadores, ni lógica de estado.
+- [ ] `grep` de control en `src\StickyBar.Core`: ni `TabExpansionMargin`, ni `DllImport`, ni `nint`/`IntPtr`, ni `DispatcherTimer`, ni `ActualWidth`, ni `Storyboard`, ni `SlideFromX`/`SlideFromY`/`SlideMilliseconds`.
+- [ ] `grep` de control en `src\StickyBar.App\Views`: ni `ScaleX`, ni `ScaleY`, ni `TabOpacity` (los sustituyen los *storyboards* por estado), ni temporizadores, ni lógica de estado.
 - [ ] Verificación funcional manual: *hover* sostenido de ~200 ms → micro-efecto y despliegue; retirada → colapso tras ~400 ms; retirada antes de 200 ms → no ocurre nada; cambio de la gracia en el documento → efecto inmediato sin reiniciar.
 - [ ] Verificación manual **M-05**: en los cuatro bordes, el despliegue entra desde el borde correcto, el micro-efecto **no** se recorta contra la ventana y la pestaña no se mueve; los literales del XAML coinciden con `DockBarMetrics` (60 = 96 − 36) e `InteractionTimings.SlideMilliseconds` (160).
 - [ ] Verificación manual de **E1-CA4 en reposo** (H-7): con la barra colapsada la ventana mide **120×36**, un clic justo fuera de la pestaña no la activa y la pestaña no ha ganado superficie de captura.

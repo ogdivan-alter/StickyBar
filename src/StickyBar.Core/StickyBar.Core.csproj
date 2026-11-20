@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Domain and application core: MVVM primitives, dependency injection, persistence and logging.
+    It must not reference WPF, WinForms or any Win32 API (AGENTS.md, ADR-001).
+  -->
+  <PropertyGroup>
+    <RootNamespace>StickyBar.Core</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+  </ItemGroup>
+
+</Project>

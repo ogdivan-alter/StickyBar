@@ -1,4 +1,4 @@
-# Documentación de Arquitectura — Sticky Dock Utility
+# Documentación de Arquitectura — StickyBar
 
 Aplicación de escritorio nativa para **Windows 10/11 x64** construida con **.NET 10** (`net10.0-windows`) y **WPF**, diseñada bajo separación estricta **MVVM**, interoperabilidad Win32/COM aislada y presupuesto estricto de memoria privada (< 50 MB) y CPU en reposo (< 1 %).
 
@@ -8,10 +8,10 @@ Aplicación de escritorio nativa para **Windows 10/11 x64** construida con **.NE
 
 | Proyecto | Responsabilidad |
 | --- | --- |
-| `StickyDock.Core` | Modelos de dominio, ViewModels, máquina de estados de interacción, cálculo geométrico de docking, persistencia JSON versionada con migraciones, localización y puertos/interfaces puras. Sin referencias a WPF ni tipos Win32 (`IntPtr`/`nint`). |
-| `StickyDock.Interop` | Encapsulación de `P/Invoke` (`[LibraryImport]`) y COM: lectura de `.lnk` e iconos (`ShellLinkReader`), detección de tema (`WindowsThemeService`), geometría/barra de tareas/monitores (`Win32WindowGeometrySource`, `TaskbarMonitor`, `Win32MonitorCatalog`), bandeja nativa (`Win32TrayIconService`) y auto-inicio en registro (`WindowsAutoStartService`). |
-| `StickyDock.App` | Shell WPF sin lógica en code-behind: vistas (`MainWindow`, `SettingsWindow`), *attached behaviors* (`PointerRegionBehavior`, `PressDragBehavior`, `ShortcutDragDropBehavior`, `ContextMenuHoldBehavior`), convertidores, `Bootstrapper` (raíz de composición) e instancia única (`Mutex`). |
-| `StickyDock.Tests` | Suite automatizada xUnit que valida dominio, máquina de estados, geometría, migraciones JSON, COM `.lnk`, registro Win32, contratos XAML e instalador. |
+| `StickyBar.Core` | Modelos de dominio, ViewModels, máquina de estados de interacción, cálculo geométrico de docking, persistencia JSON versionada con migraciones, localización y puertos/interfaces puras. Sin referencias a WPF ni tipos Win32 (`IntPtr`/`nint`). |
+| `StickyBar.Interop` | Encapsulación de `P/Invoke` (`[LibraryImport]`) y COM: lectura de `.lnk` e iconos (`ShellLinkReader`), detección de tema (`WindowsThemeService`), geometría/barra de tareas/monitores (`Win32WindowGeometrySource`, `TaskbarMonitor`, `Win32MonitorCatalog`), bandeja nativa (`Win32TrayIconService`) y auto-inicio en registro (`WindowsAutoStartService`). |
+| `StickyBar.App` | Shell WPF sin lógica en code-behind: vistas (`MainWindow`, `SettingsWindow`), *attached behaviors* (`PointerRegionBehavior`, `PressDragBehavior`, `ShortcutDragDropBehavior`, `ContextMenuHoldBehavior`), convertidores, `Bootstrapper` (raíz de composición) e instancia única (`Mutex`). |
+| `StickyBar.Tests` | Suite automatizada xUnit que valida dominio, máquina de estados, geometría, migraciones JSON, COM `.lnk`, registro Win32, contratos XAML e instalador. |
 
 ---
 
@@ -40,7 +40,7 @@ Aplicación de escritorio nativa para **Windows 10/11 x64** construida con **.NE
 - `MultiMonitorCoordinator` observa `IMonitorCatalog` (`Win32MonitorCatalog`) y `IConfigurationDocument` para abrir/cerrar barras réplicas en monitores secundarios habilitados, manteniendo sincronizados Cintas y accesos directos mediante `IConfigurationDocument.Changed` como único origen de verdad.
 
 ### 3.3 Persistencia JSON versionada (Esquema v6)
-- `JsonConfigurationStore<StickyDockConfiguration>` ejecuta escrituras atómicas (`AtomicFileWriter`), tolera BOM UTF-8, encadena migraciones (`v1 → v2 → v3 → v4 → v5 → v6`) y ante un archivo corrupto se recupera con valores por defecto registrando el aviso en el log.
+- `JsonConfigurationStore<StickyBarConfiguration>` ejecuta escrituras atómicas (`AtomicFileWriter`), tolera BOM UTF-8, encadena migraciones (`v1 → v2 → v3 → v4 → v5 → v6`) y ante un archivo corrupto se recupera con valores por defecto registrando el aviso en el log.
 
 ### 3.4 Rendimiento y huella de memoria
 - `RenderOptions.ProcessRenderMode = RenderMode.SoftwareOnly`, `System.GC.ConserveMemory=5` y bandeja nativa Win32 evitan cargar `System.Windows.Forms.dll` y controladores Direct3D de escritorio para mantener el consumo en reposo por debajo de 50 MB y 1 % de CPU.
