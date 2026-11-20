@@ -229,6 +229,58 @@ public sealed class DockBarViewModelShortcutsTests : IDisposable
         return path;
     }
 
+    [Fact]
+    public void AcceptInternalShortcutCommand_MovesShortcutFromBarToRibbonAndPersists()
+    {
+        var fixture = CreateFixture();
+        var lnkPath = CreateDummyFile("app.lnk");
+
+        fixture.ViewModel.CreateRibbonCommand.Execute(null);
+        var ribbon = Assert.Single(fixture.ViewModel.Ribbons);
+
+        fixture.ViewModel.DropFilesOnBarCommand.Execute(new[] { lnkPath });
+        var shortcut = Assert.Single(fixture.ViewModel.BarItems);
+
+        ribbon.AcceptInternalShortcutCommand.Execute(shortcut.Id);
+
+        Assert.Empty(fixture.ViewModel.BarItems);
+        var moved = Assert.Single(ribbon.ShortcutItems);
+        Assert.Equal(shortcut.Id, moved.Id);
+        Assert.Equal(ribbon.Id, moved.ContainerRibbonId);
+
+        var reloaded = fixture.CreateReloadedViewModel();
+        Assert.Empty(reloaded.BarItems);
+        Assert.Single(Assert.Single(reloaded.Ribbons).ShortcutItems);
+    }
+
+    [Fact]
+    public void TogglePinAndShortcutDragCommands_UpdateControllerState()
+    {
+        var scheduler = new ManualScheduler();
+        var fixture = CreateFixture(scheduler: scheduler);
+
+        fixture.Controller.Expand();
+        Assert.False(fixture.ViewModel.IsPinned);
+
+        fixture.ViewModel.TogglePinCommand.Execute(null);
+        Assert.True(fixture.ViewModel.IsPinned);
+        Assert.True(fixture.Controller.IsPinned);
+
+        scheduler.Advance(5_000);
+        Assert.Equal(DockState.Expanded, fixture.Controller.State);
+
+        fixture.ViewModel.TogglePinCommand.Execute(null);
+        Assert.False(fixture.ViewModel.IsPinned);
+
+        fixture.ViewModel.BeginShortcutDragCommand.Execute(null);
+        Assert.True(fixture.Controller.IsDragging);
+        scheduler.Advance(5_000);
+        Assert.Equal(DockState.Expanded, fixture.Controller.State);
+
+        fixture.ViewModel.EndShortcutDragCommand.Execute(null);
+        Assert.False(fixture.Controller.IsDragging);
+    }
+
     private TestFixture CreateFixture(ShortcutLaunchResult? launchResult = null, ManualScheduler? scheduler = null)
     {
         var logger = new RecordingLogger();

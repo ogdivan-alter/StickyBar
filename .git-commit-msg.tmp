@@ -1,15 +1,9 @@
-fix(ui,tray,i18n): address 11 UX/visual defects and add ES/EN localization
+feat(ux): add expanded-bar grip drag, pin toggle and drag-shortcut-to-ribbon
 
-Resolve all 11 user-reported visual/UX issues and default Spanish localization:
-1. Render sticky-64x64.png at 34x34 in the deployed bar.
-2. Expand DockBarMetrics (BarActionPadding=118) so the '+' button is never clipped.
-3. Collapse TabBorder while DockState.Expanded so tab/chevron does not overlap the bar.
-4-5. Compute dynamic ribbon thickness from item count, align RibbonPanel flush against ContentPanel with zero adjacent gap to stop lateral jumps.
-6-7. Use ContentControl + DataTemplate inside RibbonPanel so repeated ribbon toggles always render ShortcutItems cleanly.
-8-9. Handle IsVisibleChanged in PointerRegionBehavior to prevent stuck hover regions.
-10. Embed icons/sticky.ico as ApplicationIcon, load it in Win32TrayIconService, and enforce single-instance via Mutex (Local\StickyDock.SingleInstance).
-11. Position tray context menu with GetPhysicalCursorPos instead of GetMessagePos.
-- Add LocalizedStrings (default Spanish "es", configurable to English "en") with v5->v6 schema migration (AddLanguageMigration) and live tray/settings/bar updates.
-- Builds Debug/Release clean (0 errors/warnings); 492/492 tests passing.
+Implement three UX improvements for the expanded dock bar:
+- Bind GripDragHandle (⋮) in MainWindow.xaml to PressDragBehavior.Command so users can dock/undock while the bar is expanded.
+- Add IsPinned / TogglePinCommand (📌) in DockInteractionController and DockBarViewModel plus DragStartedCommand/DragEndedCommand suspension around internal DoDragDrop so the bar never collapses prematurely while dragging shortcuts.
+- Support dragging a shortcut from the main bar (or another ribbon) onto any ribbon tile button or RibbonPanel via AcceptInternalShortcutCommand / MoveToRibbonCommand.
+- Add Spanish/English tooltips in LocalizedStrings and 6 new unit/contract tests (498/498 passing in Debug and Release).
 
-Refs: RF02, RF03, RF04, E4-CA1, E5-CA1, E6-CA1, E6-CA2, E6-CA3
+Refs: RF01, RF02, RF04, HU01, HU04, E5-CA4, E5-CA5

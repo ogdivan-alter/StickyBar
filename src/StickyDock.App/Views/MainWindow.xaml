@@ -110,6 +110,10 @@
             <Setter Property="input:ShortcutDragDropBehavior.DragSourceItem" Value="{Binding}" />
             <Setter Property="input:ShortcutDragDropBehavior.ReorderCommand"
                     Value="{Binding DataContext.ReorderBarItemsCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+            <Setter Property="input:ShortcutDragDropBehavior.DragStartedCommand"
+                    Value="{Binding DataContext.BeginShortcutDragCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+            <Setter Property="input:ShortcutDragDropBehavior.DragEndedCommand"
+                    Value="{Binding DataContext.EndShortcutDragCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
             <Style.Triggers>
                 <DataTrigger Binding="{Binding IsInRibbon}" Value="True">
                     <Setter Property="input:ShortcutDragDropBehavior.ReorderCommand"
@@ -285,6 +289,43 @@
                 <Trigger Property="IsMouseOver" Value="True">
                     <Setter Property="Background" Value="#F0C050" />
                 </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style TargetType="{x:Type Button}" x:Key="PinBarButtonStyle">
+            <Setter Property="Width" Value="26" />
+            <Setter Property="Height" Value="26" />
+            <Setter Property="Margin" Value="2" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Opacity" Value="0.7" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Foreground" Value="{Binding TabForeground}" />
+            <Setter Property="Background" Value="#22FFFFFF" />
+            <Setter Property="BorderBrush" Value="#44FFFFFF" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type Button}">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="7">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#44FFFFFF" />
+                    <Setter Property="Opacity" Value="1.0" />
+                </Trigger>
+                <DataTrigger Binding="{Binding IsPinned}" Value="True">
+                    <Setter Property="Background" Value="#66E8B84B" />
+                    <Setter Property="BorderBrush" Value="#CCE8B84B" />
+                    <Setter Property="Opacity" Value="1.0" />
+                </DataTrigger>
             </Style.Triggers>
         </Style>
 
@@ -839,17 +880,26 @@
 
                     <StackPanel Style="{StaticResource BarMainStackStyle}">
                         <!-- Subtle 3-dot grip indicator at the start of the bar -->
-                        <TextBlock Text="⋮"
-                                   Width="14"
-                                   Height="14"
-                                   FontSize="13"
-                                   FontWeight="Bold"
-                                   TextAlignment="Center"
-                                   Opacity="0.45"
-                                   Margin="0"
-                                   VerticalAlignment="Center"
-                                   HorizontalAlignment="Center"
-                                   Foreground="{Binding TabForeground}" />
+                        <Border x:Name="GripDragHandle"
+                                Background="Transparent"
+                                Padding="4,6"
+                                Cursor="SizeAll"
+                                VerticalAlignment="Center"
+                                HorizontalAlignment="Center"
+                                ToolTip="{Binding Strings.DragHandleToolTip}"
+                                behaviors:PressDragBehavior.Command="{Binding DragCommand}">
+                            <TextBlock Text="⋮"
+                                       Width="14"
+                                       Height="14"
+                                       FontSize="13"
+                                       FontWeight="Bold"
+                                       TextAlignment="Center"
+                                       Opacity="0.45"
+                                       Margin="0"
+                                       VerticalAlignment="Center"
+                                       HorizontalAlignment="Center"
+                                       Foreground="{Binding TabForeground}" />
+                        </Border>
 
                         <!-- App icon container at the start of the bar (after grip) -->
                         <Border Width="34"
@@ -888,7 +938,9 @@
                                     <Button Style="{StaticResource RibbonTileButtonStyle}"
                                             Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}"
                                             Command="{Binding ToggleCommand}"
-                                            input:ShortcutDragDropBehavior.ExternalDropCommand="{Binding DropFilesCommand}">
+                                            input:ShortcutDragDropBehavior.ExternalDropCommand="{Binding DropFilesCommand}"
+                                            input:ShortcutDragDropBehavior.TargetRibbon="{Binding}"
+                                            input:ShortcutDragDropBehavior.MoveToRibbonCommand="{Binding AcceptInternalShortcutCommand}">
                                         <Button.ContextMenu>
                                             <ContextMenu>
                                                 <MenuItem Header="{Binding PlacementTarget.Tag.Strings.MoveEarlier, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
@@ -923,6 +975,12 @@
                                 Style="{StaticResource CreateRibbonButtonStyle}"
                                 Command="{Binding CreateRibbonCommand}"
                                 ToolTip="{Binding Strings.CreateRibbonToolTip}" />
+
+                        <Button x:Name="PinBarButton"
+                                Content="📌"
+                                Style="{StaticResource PinBarButtonStyle}"
+                                Command="{Binding TogglePinCommand}"
+                                ToolTip="{Binding Strings.PinBarToolTip}" />
                     </StackPanel>
                 </Border>
 
@@ -935,7 +993,9 @@
                         input:PointerRegionBehavior.Region="{x:Static interaction:DockRegion.Ribbon}"
                         input:PointerRegionBehavior.EnterCommand="{Binding EnterRegionCommand}"
                         input:PointerRegionBehavior.LeaveCommand="{Binding LeaveRegionCommand}"
-                        input:ShortcutDragDropBehavior.ExternalDropCommand="{Binding OpenRibbon.DropFilesCommand}">
+                        input:ShortcutDragDropBehavior.ExternalDropCommand="{Binding OpenRibbon.DropFilesCommand}"
+                        input:ShortcutDragDropBehavior.TargetRibbon="{Binding OpenRibbon}"
+                        input:ShortcutDragDropBehavior.MoveToRibbonCommand="{Binding OpenRibbon.AcceptInternalShortcutCommand}">
                     <Border.Margin>
                         <MultiBinding Converter="{StaticResource RibbonOffsetToMarginConverter}">
                             <Binding Path="OpenRibbonOffset" />

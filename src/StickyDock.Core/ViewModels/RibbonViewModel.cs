@@ -19,6 +19,7 @@ public sealed class RibbonViewModel : ViewModelBase
     private readonly Func<string, bool> _moveLater;
     private readonly Func<string, IEnumerable<string>, bool>? _dropFiles;
     private readonly Func<string, string, string, bool>? _reorderItems;
+    private readonly Func<string, string, bool>? _acceptInternalShortcut;
 
     private string _name;
     private int _order;
@@ -38,7 +39,8 @@ public sealed class RibbonViewModel : ViewModelBase
         Func<string, bool> moveEarlier,
         Func<string, bool> moveLater,
         Func<string, IEnumerable<string>, bool>? dropFiles = null,
-        Func<string, string, string, bool>? reorderItems = null)
+        Func<string, string, string, bool>? reorderItems = null,
+        Func<string, string, bool>? acceptInternalShortcut = null)
     {
         ArgumentNullException.ThrowIfNull(model);
 
@@ -54,6 +56,7 @@ public sealed class RibbonViewModel : ViewModelBase
         _moveLater = moveLater ?? throw new ArgumentNullException(nameof(moveLater));
         _dropFiles = dropFiles;
         _reorderItems = reorderItems;
+        _acceptInternalShortcut = acceptInternalShortcut;
 
         ShortcutItems.CollectionChanged += OnShortcutItemsChanged;
 
@@ -79,6 +82,14 @@ public sealed class RibbonViewModel : ViewModelBase
                 if (request is not null)
                 {
                     _reorderItems?.Invoke(Id, request.SourceItemId, request.TargetItemId);
+                }
+            });
+        AcceptInternalShortcutCommand = new RelayCommand<string>(
+            itemId =>
+            {
+                if (!string.IsNullOrWhiteSpace(itemId))
+                {
+                    _acceptInternalShortcut?.Invoke(itemId, Id);
                 }
             });
     }
@@ -181,6 +192,9 @@ public sealed class RibbonViewModel : ViewModelBase
 
     /// <summary>Gets the command invoked when a shortcut is reordered within this ribbon (E5-CA5).</summary>
     public ICommand ReorderItemsCommand { get; }
+
+    /// <summary>Gets the command invoked when an internal shortcut is dropped onto this ribbon.</summary>
+    public ICommand AcceptInternalShortcutCommand { get; }
 
     internal Ribbon ToModel() => new()
     {

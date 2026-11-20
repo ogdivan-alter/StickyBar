@@ -129,6 +129,9 @@ public sealed class DockBarViewModel : ViewModelBase, IRibbonLayoutState, IDispo
         _dockState = _dockStateService.State;
 
         DragCommand = new RelayCommand(() => DragRequested?.Invoke(this, EventArgs.Empty));
+        TogglePinCommand = new RelayCommand(() => IsPinned = !IsPinned);
+        BeginShortcutDragCommand = new RelayCommand(() => _dockStateService.BeginDrag());
+        EndShortcutDragCommand = new RelayCommand(() => _dockStateService.EndDrag());
         EnterRegionCommand = new RelayCommand<DockRegion>(region => _regions.EnterRegion(region));
         LeaveRegionCommand = new RelayCommand<DockRegion>(region => _regions.LeaveRegion(region));
         CreateRibbonCommand = new RelayCommand(() => CreateRibbon());
@@ -185,6 +188,31 @@ public sealed class DockBarViewModel : ViewModelBase, IRibbonLayoutState, IDispo
     /// non-client caption. The gesture ends up in <c>IDockWindowHost.BeginDrag</c> (contingency of ADR-002).
     /// </remarks>
     public ICommand DragCommand { get; }
+
+    /// <summary>Gets the command that toggles whether the dock bar is pinned open.</summary>
+    public ICommand TogglePinCommand { get; }
+
+    /// <summary>Gets the command invoked when an internal shortcut drag begins.</summary>
+    public ICommand BeginShortcutDragCommand { get; }
+
+    /// <summary>Gets the command invoked when an internal shortcut drag ends.</summary>
+    public ICommand EndShortcutDragCommand { get; }
+
+    /// <summary>Gets or sets a value indicating whether the dock bar is pinned open (transient, not persisted).</summary>
+    public bool IsPinned
+    {
+        get => _dockStateService.IsPinned;
+        set
+        {
+            if (_dockStateService.IsPinned == value)
+            {
+                return;
+            }
+
+            _dockStateService.IsPinned = value;
+            OnPropertyChanged();
+        }
+    }
 
     /// <summary>
     /// Gets the command an element executes when the pointer enters its region. The parameter is the
@@ -261,7 +289,7 @@ public sealed class DockBarViewModel : ViewModelBase, IRibbonLayoutState, IDispo
             }
 
             const double contentStartOffset = 4d; // 1px border + 3px padding
-            const double gripExtent = 14d;
+            const double gripExtent = 22d; // 14px glyph + 2*4px horizontal padding
             const double appIconExtent = 38d; // 34px + 2*2px margin
             const double barItemActualExtent = 44d; // 40px + 2*2px margin
             const double ribbonPanelHalfExtent = 27d; // 54px / 2
@@ -618,7 +646,9 @@ public sealed class DockBarViewModel : ViewModelBase, IRibbonLayoutState, IDispo
 
         PersistAllShortcuts(sourceRibbon is null);
 
-        if (sourceRibbon is null)
+        if (sourceRibbon is null
+            || ReferenceEquals(sourceRibbon, OpenRibbon)
+            || ReferenceEquals(targetRibbon, OpenRibbon))
         {
             NotifyLayoutChanged();
         }
@@ -779,7 +809,8 @@ public sealed class DockBarViewModel : ViewModelBase, IRibbonLayoutState, IDispo
             MoveRibbonEarlier,
             MoveRibbonLater,
             DropFilesOnRibbon,
-            ReorderRibbonItems);
+            ReorderRibbonItems,
+            MoveShortcutToRibbon);
 
     private ShortcutItemViewModel CreateShortcutViewModel(RibbonItem model, string? containerRibbonId)
     {

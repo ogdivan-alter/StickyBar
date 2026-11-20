@@ -153,6 +153,8 @@ public sealed class RibbonDynamicSizingTests
     {
         public DockState State => state;
 
+        public bool IsPinned { get; set; }
+
         public event EventHandler<DockStateChangedEventArgs>? StateChanged
         {
             add { }
@@ -162,6 +164,10 @@ public sealed class RibbonDynamicSizingTests
         public void Expand() { }
 
         public void CollapseToTab() { }
+
+        public void BeginDrag() { }
+
+        public void EndDrag() { }
     }
 
     private sealed class StubRibbonLayoutState : IRibbonLayoutState

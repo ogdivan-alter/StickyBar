@@ -821,6 +821,30 @@ public sealed class DockInteractionControllerTests
     }
 
     [Fact]
+    public void IsPinned_PreventsCollapseOnRegionExit_AndResumesGraceCollapseWhenUnpinned()
+    {
+        using var fixture = new Fixture();
+
+        fixture.Controller.Expand();
+        fixture.Controller.EnterRegion(DockRegion.Bar);
+        fixture.Controller.IsPinned = true;
+        fixture.Controller.LeaveRegion(DockRegion.Bar);
+
+        fixture.Scheduler.Advance(5_000);
+        Assert.Equal(DockState.Expanded, fixture.Controller.State);
+
+        fixture.Controller.IsPinned = false;
+        fixture.Scheduler.Advance(GracePeriod.DefaultMilliseconds - 1);
+        Assert.Equal(DockState.Expanded, fixture.Controller.State);
+
+        fixture.Scheduler.Advance(1);
+        Assert.Equal(DockState.Collapsing, fixture.Controller.State);
+
+        fixture.Scheduler.Advance(InteractionTimings.SlideMilliseconds);
+        Assert.Equal(DockState.Tab, fixture.Controller.State);
+    }
+
+    [Fact]
     public void Constructor_WhenAnArgumentIsMissing_Throws()
     {
         var logger = new RecordingLogger();

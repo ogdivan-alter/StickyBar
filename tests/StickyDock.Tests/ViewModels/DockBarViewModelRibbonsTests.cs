@@ -302,6 +302,8 @@ public sealed class DockBarViewModelRibbonsTests
     {
         public DockState State { get; private set; } = DockState.Tab;
 
+        public bool IsPinned { get; set; }
+
         public event EventHandler<DockStateChangedEventArgs>? StateChanged;
 
         public void SetState(DockState state)
@@ -313,6 +315,10 @@ public sealed class DockBarViewModelRibbonsTests
         public void Expand() => SetState(DockState.Expanded);
 
         public void CollapseToTab() => SetState(DockState.Tab);
+
+        public void BeginDrag() { }
+
+        public void EndDrag() { }
     }
 
     private sealed class FakeDockRegionSink : IDockRegionSink

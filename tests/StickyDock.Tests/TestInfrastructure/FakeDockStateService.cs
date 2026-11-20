@@ -12,6 +12,9 @@ internal sealed class FakeDockStateService : IDockStateService
     public DockState State { get; private set; } = DockState.Tab;
 
     /// <inheritdoc />
+    public bool IsPinned { get; set; }
+
+    /// <inheritdoc />
     public event EventHandler<DockStateChangedEventArgs>? StateChanged;
 
     /// <summary>Gets the number of times <see cref="Expand"/> was called.</summary>
@@ -46,4 +49,10 @@ internal sealed class FakeDockStateService : IDockStateService
         ExpandCount++;
         SetState(DockState.Expanded);
     }
+
+    /// <inheritdoc />
+    public void BeginDrag() { }
+
+    /// <inheritdoc />
+    public void EndDrag() { }
 }

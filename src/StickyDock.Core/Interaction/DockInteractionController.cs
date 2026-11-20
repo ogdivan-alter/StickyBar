@@ -30,6 +30,7 @@ public sealed class DockInteractionController : IDockStateService, IDockRegionSi
     private PendingTimer _pending = PendingTimer.None;
     private DockState _state = DockState.Tab;
     private bool _dragging;
+    private bool _isPinned;
     private bool _disposed;
 
     /// <summary>
@@ -56,6 +57,39 @@ public sealed class DockInteractionController : IDockStateService, IDockRegionSi
     /// suppressed.
     /// </summary>
     public bool IsDragging => _dragging;
+
+    /// <inheritdoc />
+    public bool IsPinned
+    {
+        get => _isPinned;
+        set
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+
+            if (_isPinned == value)
+            {
+                return;
+            }
+
+            _isPinned = value;
+            _logger.Debug(_isPinned ? "Dock bar pinned open." : "Dock bar unpinned.");
+
+            if (_isPinned)
+            {
+                if (_state == DockState.Collapsing)
+                {
+                    CancelPendingTimer();
+                    SetState(DockState.Expanded);
+                }
+                else if (_state == DockState.Expanded)
+                {
+                    CancelPendingTimer();
+                }
+            }
+
+            Reevaluate();
+        }
+    }
 
     /// <summary>
     /// Gets the regions the pointer is in. Diagnostic and test surface.
@@ -202,7 +236,7 @@ public sealed class DockInteractionController : IDockStateService, IDockRegionSi
 
         if (_state == DockState.Expanded)
         {
-            if (_regions.Count == 0)
+            if (_regions.Count == 0 && !_isPinned)
             {
                 if (_pending != PendingTimer.Grace)
                 {
@@ -273,7 +307,7 @@ public sealed class DockInteractionController : IDockStateService, IDockRegionSi
 
         _pending = PendingTimer.None;
 
-        if (_dragging || _state != DockState.Expanded)
+        if (_dragging || _isPinned || _state != DockState.Expanded)
         {
             return;
         }

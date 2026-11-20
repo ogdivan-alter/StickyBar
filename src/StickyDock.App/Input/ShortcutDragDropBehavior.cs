@@ -46,6 +46,42 @@ public static class ShortcutDragDropBehavior
         typeof(ShortcutDragDropBehavior),
         new PropertyMetadata(null, OnInternalDragChanged));
 
+    /// <summary>
+    /// Attached property holding the command executed just before an internal shortcut drag starts.
+    /// </summary>
+    public static readonly DependencyProperty DragStartedCommandProperty = DependencyProperty.RegisterAttached(
+        "DragStartedCommand",
+        typeof(ICommand),
+        typeof(ShortcutDragDropBehavior),
+        new PropertyMetadata(null));
+
+    /// <summary>
+    /// Attached property holding the command executed after an internal shortcut drag ends.
+    /// </summary>
+    public static readonly DependencyProperty DragEndedCommandProperty = DependencyProperty.RegisterAttached(
+        "DragEndedCommand",
+        typeof(ICommand),
+        typeof(ShortcutDragDropBehavior),
+        new PropertyMetadata(null));
+
+    /// <summary>
+    /// Attached property holding the target <see cref="RibbonViewModel"/> for dropping an internal shortcut onto a ribbon.
+    /// </summary>
+    public static readonly DependencyProperty TargetRibbonProperty = DependencyProperty.RegisterAttached(
+        "TargetRibbon",
+        typeof(RibbonViewModel),
+        typeof(ShortcutDragDropBehavior),
+        new PropertyMetadata(null, OnRibbonDropTargetChanged));
+
+    /// <summary>
+    /// Attached property holding the command executed when an internal shortcut is dropped onto <see cref="TargetRibbonProperty"/>.
+    /// </summary>
+    public static readonly DependencyProperty MoveToRibbonCommandProperty = DependencyProperty.RegisterAttached(
+        "MoveToRibbonCommand",
+        typeof(ICommand),
+        typeof(ShortcutDragDropBehavior),
+        new PropertyMetadata(null, OnRibbonDropTargetChanged));
+
     /// <summary>Gets the external drop command attached to <paramref name="element"/>.</summary>
     public static ICommand? GetExternalDropCommand(DependencyObject element)
     {
@@ -86,6 +122,62 @@ public static class ShortcutDragDropBehavior
     {
         ArgumentNullException.ThrowIfNull(element);
         element.SetValue(ReorderCommandProperty, value);
+    }
+
+    /// <summary>Gets the drag-started command attached to <paramref name="element"/>.</summary>
+    public static ICommand? GetDragStartedCommand(DependencyObject element)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+        return (ICommand?)element.GetValue(DragStartedCommandProperty);
+    }
+
+    /// <summary>Sets the drag-started command attached to <paramref name="element"/>.</summary>
+    public static void SetDragStartedCommand(DependencyObject element, ICommand? value)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+        element.SetValue(DragStartedCommandProperty, value);
+    }
+
+    /// <summary>Gets the drag-ended command attached to <paramref name="element"/>.</summary>
+    public static ICommand? GetDragEndedCommand(DependencyObject element)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+        return (ICommand?)element.GetValue(DragEndedCommandProperty);
+    }
+
+    /// <summary>Sets the drag-ended command attached to <paramref name="element"/>.</summary>
+    public static void SetDragEndedCommand(DependencyObject element, ICommand? value)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+        element.SetValue(DragEndedCommandProperty, value);
+    }
+
+    /// <summary>Gets the target ribbon attached to <paramref name="element"/>.</summary>
+    public static RibbonViewModel? GetTargetRibbon(DependencyObject element)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+        return (RibbonViewModel?)element.GetValue(TargetRibbonProperty);
+    }
+
+    /// <summary>Sets the target ribbon attached to <paramref name="element"/>.</summary>
+    public static void SetTargetRibbon(DependencyObject element, RibbonViewModel? value)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+        element.SetValue(TargetRibbonProperty, value);
+    }
+
+    /// <summary>Gets the move-to-ribbon command attached to <paramref name="element"/>.</summary>
+    public static ICommand? GetMoveToRibbonCommand(DependencyObject element)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+        return (ICommand?)element.GetValue(MoveToRibbonCommandProperty);
+    }
+
+    /// <summary>Sets the move-to-ribbon command attached to <paramref name="element"/>.</summary>
+    public static void SetMoveToRibbonCommand(DependencyObject element, ICommand? value)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+        element.SetValue(MoveToRibbonCommandProperty, value);
     }
 
     private static void OnExternalDropCommandChanged(DependencyObject element, DependencyPropertyChangedEventArgs e)
@@ -134,6 +226,26 @@ public static class ShortcutDragDropBehavior
             target.DragOver += OnInternalDragOver;
             target.Drop += OnInternalDrop;
         }
+    }
+
+    private static void OnRibbonDropTargetChanged(DependencyObject element, DependencyPropertyChangedEventArgs e)
+    {
+        if (element is not UIElement target)
+        {
+            return;
+        }
+
+        target.DragOver -= OnRibbonDragOver;
+        target.Drop -= OnRibbonDrop;
+
+        if (GetTargetRibbon(target) is null || GetMoveToRibbonCommand(target) is null)
+        {
+            return;
+        }
+
+        target.AllowDrop = true;
+        target.DragOver += OnRibbonDragOver;
+        target.Drop += OnRibbonDrop;
     }
 
     private static void OnExternalDragOver(object sender, DragEventArgs e)
@@ -205,7 +317,25 @@ public static class ShortcutDragDropBehavior
 
         element.SetValue(DragStartPointProperty, null);
         var data = new DataObject(InternalShortcutDataFormat, sourceItem);
-        DragDrop.DoDragDrop(element, data, DragDropEffects.Move);
+        var dragStarted = GetDragStartedCommand(element);
+        var dragEnded = GetDragEndedCommand(element);
+
+        if (dragStarted is not null && dragStarted.CanExecute(null))
+        {
+            dragStarted.Execute(null);
+        }
+
+        try
+        {
+            DragDrop.DoDragDrop(element, data, DragDropEffects.Move);
+        }
+        finally
+        {
+            if (dragEnded is not null && dragEnded.CanExecute(null))
+            {
+                dragEnded.Execute(null);
+            }
+        }
     }
 
     private static void OnInternalDragOver(object sender, DragEventArgs e)
@@ -260,6 +390,59 @@ public static class ShortcutDragDropBehavior
         if (command is not null && command.CanExecute(request))
         {
             command.Execute(request);
+            e.Handled = true;
+        }
+    }
+
+    private static void OnRibbonDragOver(object sender, DragEventArgs e)
+    {
+        if (!e.Data.GetDataPresent(InternalShortcutDataFormat) || sender is not DependencyObject element)
+        {
+            return;
+        }
+
+        if (e.Data.GetData(InternalShortcutDataFormat) is not ShortcutItemViewModel source)
+        {
+            return;
+        }
+
+        var targetRibbon = GetTargetRibbon(element);
+
+        if (targetRibbon is null
+            || string.Equals(source.ContainerRibbonId, targetRibbon.Id, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        e.Effects = DragDropEffects.Move;
+        e.Handled = true;
+    }
+
+    private static void OnRibbonDrop(object sender, DragEventArgs e)
+    {
+        if (!e.Data.GetDataPresent(InternalShortcutDataFormat) || sender is not DependencyObject element)
+        {
+            return;
+        }
+
+        if (e.Data.GetData(InternalShortcutDataFormat) is not ShortcutItemViewModel source)
+        {
+            return;
+        }
+
+        var targetRibbon = GetTargetRibbon(element);
+
+        if (targetRibbon is null
+            || string.Equals(source.ContainerRibbonId, targetRibbon.Id, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        var command = GetMoveToRibbonCommand(element);
+
+        if (command is not null && command.CanExecute(source.Id))
+        {
+            command.Execute(source.Id);
             e.Handled = true;
         }
     }

@@ -70,6 +70,12 @@ public sealed class LocalizedStrings : ViewModelBase
     /// <summary>Gets the tooltip for the create ribbon (+) button.</summary>
     public string CreateRibbonToolTip => IsSpanish ? "Crear cinta" : "Create Ribbon";
 
+    /// <summary>Gets the tooltip for the drag handle (⋮) on the deployed bar.</summary>
+    public string DragHandleToolTip => IsSpanish ? "Arrastrar para acoplar o desacoplar" : "Drag to dock or undock";
+
+    /// <summary>Gets the tooltip for the pin bar button.</summary>
+    public string PinBarToolTip => IsSpanish ? "Fijar barra abierta" : "Pin bar open";
+
     /// <summary>Gets the tooltip for the inline ribbon actions button.</summary>
     public string RibbonActionsToolTip => IsSpanish ? "Acciones de cinta" : "Ribbon Actions";
 

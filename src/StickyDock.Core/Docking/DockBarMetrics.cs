@@ -29,8 +29,8 @@ public readonly record struct DockBarMetrics(
     /// </summary>
     public static DockBarMetrics Default { get; } = new(120d, 36d, 168d, 96d);
 
-    /// <summary>Reserved length along the deployed bar for the grip (14), app icon (34), create-ribbon button (34) and padding/margins (~36) (E4-CA6).</summary>
-    public const double BarActionPadding = 118d;
+    /// <summary>Reserved length along the deployed bar for the grip (22), app icon (38), create-ribbon button (32), pin button (28) and padding/margins (~26) (E4-CA6).</summary>
+    public const double BarActionPadding = 146d;
 
     /// <summary>Length occupied by each ribbon indicator slot along the bar (E4-CA6).</summary>
     public const double RibbonIndicatorExtent = 42d;

@@ -77,6 +77,75 @@ public sealed class MainWindowShortcutContractTests
         Assert.Equal("{Binding DropFilesOnBarCommand}", externalDropAttribute.Value);
     }
 
+    [Fact]
+    public void GripDragHandle_DeclaresPressDragCommandAndSizeAllCursor()
+    {
+        var document = LoadMainWindowXaml();
+
+        var grip = document
+            .Descendants()
+            .Single(e => (string?)e.Attribute(XamlNamespace + "Name") == "GripDragHandle");
+
+        Assert.Equal("Transparent", (string?)grip.Attribute("Background"));
+        Assert.Equal("SizeAll", (string?)grip.Attribute("Cursor"));
+        Assert.Equal(
+            "{Binding DragCommand}",
+            (string?)grip.Attributes().Single(a => a.Name.LocalName == "PressDragBehavior.Command").Value);
+    }
+
+    [Fact]
+    public void PinBarButton_AndShortcutDragSuspensionCommands_AreBound()
+    {
+        var document = LoadMainWindowXaml();
+
+        var pinButton = document
+            .Descendants()
+            .Single(e => (string?)e.Attribute(XamlNamespace + "Name") == "PinBarButton");
+        Assert.Equal("{Binding TogglePinCommand}", (string?)pinButton.Attribute("Command"));
+
+        var shortcutStyle = document
+            .Descendants()
+            .Where(e => e.Name.LocalName == "Style")
+            .Single(e => (string?)e.Attribute(XamlNamespace + "Key") == "ShortcutButtonStyle");
+        var setterProperties = shortcutStyle
+            .Elements()
+            .Where(e => e.Name.LocalName == "Setter")
+            .Select(e => (string?)e.Attribute("Property"))
+            .ToList();
+
+        Assert.Contains("input:ShortcutDragDropBehavior.DragStartedCommand", setterProperties);
+        Assert.Contains("input:ShortcutDragDropBehavior.DragEndedCommand", setterProperties);
+    }
+
+    [Fact]
+    public void RibbonIndicatorsAndRibbonPanel_AcceptInternalShortcutDrop()
+    {
+        var document = LoadMainWindowXaml();
+
+        var ribbonTileButton = document
+            .Descendants()
+            .Where(e => e.Name.LocalName == "Button")
+            .Single(b => (string?)b.Attribute("Style") == "{StaticResource RibbonTileButtonStyle}");
+
+        Assert.Equal(
+            "{Binding}",
+            (string?)ribbonTileButton.Attributes().Single(a => a.Name.LocalName == "ShortcutDragDropBehavior.TargetRibbon").Value);
+        Assert.Equal(
+            "{Binding AcceptInternalShortcutCommand}",
+            (string?)ribbonTileButton.Attributes().Single(a => a.Name.LocalName == "ShortcutDragDropBehavior.MoveToRibbonCommand").Value);
+
+        var ribbonPanel = document
+            .Descendants()
+            .Single(e => (string?)e.Attribute(XamlNamespace + "Name") == "RibbonPanel");
+
+        Assert.Equal(
+            "{Binding OpenRibbon}",
+            (string?)ribbonPanel.Attributes().Single(a => a.Name.LocalName == "ShortcutDragDropBehavior.TargetRibbon").Value);
+        Assert.Equal(
+            "{Binding OpenRibbon.AcceptInternalShortcutCommand}",
+            (string?)ribbonPanel.Attributes().Single(a => a.Name.LocalName == "ShortcutDragDropBehavior.MoveToRibbonCommand").Value);
+    }
+
     private static XDocument LoadMainWindowXaml()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);

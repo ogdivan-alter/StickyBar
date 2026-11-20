@@ -10,6 +10,11 @@ public interface IDockStateService
     /// <summary>Gets the current state of the dock bar.</summary>
     DockState State { get; }
 
+    /// <summary>
+    /// Gets or sets a value indicating whether the dock bar is pinned open, preventing automatic collapse.
+    /// </summary>
+    bool IsPinned { get; set; }
+
     /// <summary>Raised when the state changes.</summary>
     event EventHandler<DockStateChangedEventArgs>? StateChanged;
 
@@ -18,6 +23,12 @@ public interface IDockStateService
 
     /// <summary>Sets the state to expanded.</summary>
     void Expand();
+
+    /// <summary>Suppresses automatic state transitions until <see cref="EndDrag"/>.</summary>
+    void BeginDrag();
+
+    /// <summary>Reenables automatic state transitions and reevaluates the current regions.</summary>
+    void EndDrag();
 }
 
 /// <summary>
