@@ -137,6 +137,18 @@ public sealed class RibbonDynamicSizingTests
         Assert.True(host.Bounds.Bottom <= WorkArea.Bottom);
     }
 
+    [Fact]
+    public void GetDynamicSize_OpenRibbon_GrowsProportionallyWithItemCount()
+    {
+        var empty = DockBarMetrics.Default.GetDynamicSize(true, DockEdge.Left, 1, 0, hasOpenRibbon: true, openRibbonItemCount: 0);
+        var one = DockBarMetrics.Default.GetDynamicSize(true, DockEdge.Left, 1, 0, hasOpenRibbon: true, openRibbonItemCount: 1);
+        var three = DockBarMetrics.Default.GetDynamicSize(true, DockEdge.Left, 1, 0, hasOpenRibbon: true, openRibbonItemCount: 3);
+
+        Assert.True(empty.WidthDips < 200d);
+        Assert.Equal(DockBarMetrics.OpenRibbonItemExtent, one.WidthDips - empty.WidthDips);
+        Assert.Equal(2d * DockBarMetrics.OpenRibbonItemExtent, three.WidthDips - one.WidthDips);
+    }
+
     private sealed class StubDockStateService(DockState state) : IDockStateService
     {
         public DockState State => state;

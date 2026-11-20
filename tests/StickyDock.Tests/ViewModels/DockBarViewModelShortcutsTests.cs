@@ -46,7 +46,7 @@ public sealed class DockBarViewModelShortcutsTests : IDisposable
             fixture.ViewModel.RibbonCount,
             fixture.ViewModel.BarItemCount,
             fixture.ViewModel.HasOpenRibbon);
-        Assert.Equal(DockBarMetrics.Default.CollapsedLength, dynamicSize.WidthDips);
+        Assert.Equal(DockBarMetrics.BarActionPadding + DockBarMetrics.BarItemExtent, dynamicSize.WidthDips);
     }
 
     [Fact]

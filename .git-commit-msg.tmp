@@ -1,11 +1,15 @@
-feat(ui): refine Win7 glass aesthetic, docked tab and narrow ribbon strip
+fix(ui,tray,i18n): address 11 UX/visual defects and add ES/EN localization
 
-Refine MainWindow.xaml, DockBarViewModel and DockBarMetrics per user visual feedback:
-- Docked TabBorder renders as a slim Win7 glass tab with a subtle inward chevron and no "Sticky" text; floating TabBorder displays sticky-64x64.png + "Sticky".
-- Place the app icon at the start (left when horizontal, top when vertical) of ContentPanel.
-- Fix ContentPanel thickness (52) with per-edge DockPanel.Dock so the bar never stretches vertically/horizontally when opening a ribbon.
-- Narrow RibbonPanel (54 px strip) aligned under/beside its indicator via OpenRibbonOffset and RibbonOffsetToMarginConverter.
-- Replace green tones with Win7 Aero glass gradients/borders and open-chevron indicator paths without black fill.
-- Add 4 contract/ViewModel tests (487/487 passing in Debug and Release).
+Resolve all 11 user-reported visual/UX issues and default Spanish localization:
+1. Render sticky-64x64.png at 34x34 in the deployed bar.
+2. Expand DockBarMetrics (BarActionPadding=118) so the '+' button is never clipped.
+3. Collapse TabBorder while DockState.Expanded so tab/chevron does not overlap the bar.
+4-5. Compute dynamic ribbon thickness from item count, align RibbonPanel flush against ContentPanel with zero adjacent gap to stop lateral jumps.
+6-7. Use ContentControl + DataTemplate inside RibbonPanel so repeated ribbon toggles always render ShortcutItems cleanly.
+8-9. Handle IsVisibleChanged in PointerRegionBehavior to prevent stuck hover regions.
+10. Embed icons/sticky.ico as ApplicationIcon, load it in Win32TrayIconService, and enforce single-instance via Mutex (Local\StickyDock.SingleInstance).
+11. Position tray context menu with GetPhysicalCursorPos instead of GetMessagePos.
+- Add LocalizedStrings (default Spanish "es", configurable to English "en") with v5->v6 schema migration (AddLanguageMigration) and live tray/settings/bar updates.
+- Builds Debug/Release clean (0 errors/warnings); 492/492 tests passing.
 
-Refs: RF02, RF03, §4.2, §4.4, E4-CA1
+Refs: RF02, RF03, RF04, E4-CA1, E5-CA1, E6-CA1, E6-CA2, E6-CA3

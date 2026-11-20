@@ -31,7 +31,8 @@ public sealed class SettingsViewModelTests
         Assert.Equal(GracePeriod.MaximumMilliseconds, viewModel.GracePeriodMaximum);
         Assert.Equal(450, viewModel.GracePeriodMilliseconds);
         Assert.True(viewModel.AutoStartEnabled);
-        Assert.Equal("Left", viewModel.DockedEdgeLabel);
+        Assert.Equal("Izquierda", viewModel.DockedEdgeLabel);
+        Assert.Equal("es", viewModel.SelectedLanguage);
     }
 
     [Fact]
@@ -156,13 +157,39 @@ public sealed class SettingsViewModelTests
         var autoStart = new FakeAutoStartService(initialEnabled: false);
 
         using var viewModel = new SettingsViewModel(document, autoStart, logger);
-        Assert.Equal("Top", viewModel.DockedEdgeLabel);
+        Assert.Equal("Superior", viewModel.DockedEdgeLabel);
 
         document.Update(current => current with { DockEdge = null });
-        Assert.Equal("Floating", viewModel.DockedEdgeLabel);
+        Assert.Equal("Flotante", viewModel.DockedEdgeLabel);
 
         document.Update(current => current with { DockEdge = DockEdge.Right });
-        Assert.Equal("Right", viewModel.DockedEdgeLabel);
+        Assert.Equal("Derecha", viewModel.DockedEdgeLabel);
+    }
+
+    [Fact]
+    public async Task SelectedLanguage_WhenChanged_UpdatesStringsPersistsAndTranslatesEdgeLabels()
+    {
+        using var directory = new TemporaryDirectory();
+        var logger = new RecordingLogger();
+        var filePath = directory.GetFilePath("settings.json");
+        var store = StickyDockSettings.CreateStore(filePath, logger);
+        using var document = new ConfigurationDocument(store, new StickyDockConfiguration(), logger);
+        var autoStart = new FakeAutoStartService(initialEnabled: false);
+
+        using var viewModel = new SettingsViewModel(document, autoStart, logger);
+        Assert.Equal("es", viewModel.SelectedLanguage);
+        Assert.Equal("Superior", viewModel.DockedEdgeLabel);
+        Assert.Equal("Configuración", viewModel.Strings.TraySettings);
+
+        viewModel.SelectedLanguage = "en";
+        await document.FlushAsync();
+
+        Assert.Equal("en", viewModel.SelectedLanguage);
+        Assert.Equal("Top", viewModel.DockedEdgeLabel);
+        Assert.Equal("Settings", viewModel.Strings.TraySettings);
+
+        var reloaded = await store.LoadAsync();
+        Assert.Equal("en", reloaded.Language);
     }
 
     [Fact]

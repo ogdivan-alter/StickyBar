@@ -1,10 +1,12 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Globalization;
 using System.Windows.Input;
 using StickyDock.Core.Configuration;
 using StickyDock.Core.Diagnostics;
 using StickyDock.Core.Docking;
 using StickyDock.Core.Interaction;
+using StickyDock.Core.Localization;
 using StickyDock.Core.Mvvm;
 using StickyDock.Core.Ribbons;
 using StickyDock.Core.Services;
@@ -38,6 +40,7 @@ public sealed class DockBarViewModel : ViewModelBase, IRibbonLayoutState, IDispo
     private readonly IShellLinkReader? _shellLinkReader;
     private readonly IShortcutLauncher? _shortcutLauncher;
     private readonly IUserAlertService? _userAlertService;
+    private readonly LocalizedStrings _strings;
     private readonly Dictionary<string, (byte[]? IconPngBytes, string TargetPath)> _metadataCache =
         new(StringComparer.OrdinalIgnoreCase);
 
@@ -108,7 +111,8 @@ public sealed class DockBarViewModel : ViewModelBase, IRibbonLayoutState, IDispo
         IRibbonDeletionConfirmer? deletionConfirmer,
         IShellLinkReader? shellLinkReader,
         IShortcutLauncher? shortcutLauncher,
-        IUserAlertService? userAlertService)
+        IUserAlertService? userAlertService,
+        LocalizedStrings? strings = null)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _dockStateService = dockStateService ?? throw new ArgumentNullException(nameof(dockStateService));
@@ -119,6 +123,7 @@ public sealed class DockBarViewModel : ViewModelBase, IRibbonLayoutState, IDispo
         _shellLinkReader = shellLinkReader;
         _shortcutLauncher = shortcutLauncher;
         _userAlertService = userAlertService;
+        _strings = strings ?? new LocalizedStrings(_configuration?.Current.Language);
 
         _isLightTheme = _themeService?.IsLightTheme ?? true;
         _dockState = _dockStateService.State;
@@ -208,14 +213,28 @@ public sealed class DockBarViewModel : ViewModelBase, IRibbonLayoutState, IDispo
     /// <summary>Gets the shortcut items pinned directly on the main dock bar in display order (E5).</summary>
     public ObservableCollection<ShortcutItemViewModel> BarItems { get; } = [];
 
+    /// <summary>Gets the localized UI strings bound by the dock bar view.</summary>
+    public LocalizedStrings Strings => _strings;
+
     /// <summary>Gets the currently open ribbon, or <see langword="null"/> when all ribbons are closed.</summary>
     public RibbonViewModel? OpenRibbon
     {
         get => _openRibbon;
         private set
         {
+            var previous = _openRibbon;
             if (SetProperty(ref _openRibbon, value))
             {
+                if (previous is not null)
+                {
+                    previous.PropertyChanged -= OnOpenRibbonPropertyChanged;
+                }
+
+                if (value is not null)
+                {
+                    value.PropertyChanged += OnOpenRibbonPropertyChanged;
+                }
+
                 OnPropertyChanged(nameof(HasOpenRibbon));
                 OnPropertyChanged(nameof(OpenRibbonOffset));
             }
@@ -243,13 +262,14 @@ public sealed class DockBarViewModel : ViewModelBase, IRibbonLayoutState, IDispo
 
             const double contentStartOffset = 4d; // 1px border + 3px padding
             const double gripExtent = 14d;
-            const double appIconExtent = 32d; // 28px + 2*2px margin
+            const double appIconExtent = 38d; // 34px + 2*2px margin
+            const double barItemActualExtent = 44d; // 40px + 2*2px margin
             const double ribbonPanelHalfExtent = 27d; // 54px / 2
 
             var ribbonCenter = contentStartOffset
                 + gripExtent
                 + appIconExtent
-                + BarItems.Count * DockBarMetrics.BarItemExtent
+                + BarItems.Count * barItemActualExtent
                 + ribbonIndex * DockBarMetrics.RibbonIndicatorExtent
                 + DockBarMetrics.RibbonIndicatorExtent / 2d;
 
@@ -259,6 +279,12 @@ public sealed class DockBarViewModel : ViewModelBase, IRibbonLayoutState, IDispo
 
     /// <inheritdoc />
     public bool HasOpenRibbon => _openRibbon is not null;
+
+    /// <inheritdoc />
+    public int OpenRibbonItemCount => _openRibbon?.ItemCount ?? 0;
+
+    /// <inheritdoc />
+    public bool IsOpenRibbonActionsOpen => _openRibbon?.IsActionsOpen ?? false;
 
     /// <inheritdoc />
     public int RibbonCount => Ribbons.Count;
@@ -558,8 +584,8 @@ public sealed class DockBarViewModel : ViewModelBase, IRibbonLayoutState, IDispo
         if (!result.Succeeded)
         {
             _userAlertService?.ShowError(
-                "Cannot Launch Shortcut",
-                result.ErrorMessage ?? $"Could not launch '{item.Name}'.");
+                _strings.CannotLaunchShortcutTitle,
+                result.ErrorMessage ?? _strings.FormatCannotLaunchShortcutMessage(item.Name));
         }
     }
 
@@ -786,8 +812,8 @@ public sealed class DockBarViewModel : ViewModelBase, IRibbonLayoutState, IDispo
             {
                 _logger.Warning($"Rejected non-.lnk drop item '{path}'.");
                 _userAlertService?.ShowWarning(
-                    "Unsupported Item",
-                    $"'{Path.GetFileName(path)}' cannot be added directly. Only .lnk shortcut files are supported; please package executables, folders or scripts as a Windows shortcut (.lnk) first.");
+                    _strings.UnsupportedItemTitle,
+                    _strings.FormatUnsupportedItemMessage(Path.GetFileName(path)));
                 continue;
             }
 
@@ -1012,8 +1038,21 @@ public sealed class DockBarViewModel : ViewModelBase, IRibbonLayoutState, IDispo
             _configuration.Changed -= OnConfigurationChanged;
         }
 
+        if (_openRibbon is not null)
+        {
+            _openRibbon.PropertyChanged -= OnOpenRibbonPropertyChanged;
+        }
+
         DragRequested = null;
         LayoutChanged = null;
+    }
+
+    private void OnOpenRibbonPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(RibbonViewModel.IsActionsOpen) or nameof(RibbonViewModel.ItemCount))
+        {
+            NotifyLayoutChanged();
+        }
     }
 
     private void OnConfigurationChanged(object? sender, ConfigurationChangedEventArgs e)
@@ -1022,6 +1061,8 @@ public sealed class DockBarViewModel : ViewModelBase, IRibbonLayoutState, IDispo
         {
             return;
         }
+
+        _strings.SetLanguage(e.Document.Language);
 
         if (ContentMatchesConfiguration(e.Document))
         {

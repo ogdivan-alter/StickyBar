@@ -39,6 +39,9 @@ public sealed class Win32TrayIconServiceTests
         using var service = new Win32TrayIconService();
 
         Assert.Equal(new[] { "Settings", "Exit" }, service.MenuItemTexts);
+
+        service.UpdateMenuTexts("Configuración", "Salir");
+        Assert.Equal(new[] { "Configuración", "Salir" }, service.MenuItemTexts);
     }
 
     [Fact]

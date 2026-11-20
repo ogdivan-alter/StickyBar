@@ -61,7 +61,7 @@ public sealed class MainWindowRibbonContractTests
             images,
             img => string.Equals(
                 (string?)img.Attribute("Source"),
-                "pack://application:,,,/Icons/sticky-24x24.png",
+                "pack://application:,,,/Icons/sticky-64x64.png",
                 StringComparison.Ordinal));
 
         var arrowStyle = document
@@ -156,7 +156,7 @@ public sealed class MainWindowRibbonContractTests
 
         var iconIndex = children.FindIndex(e => e.Name.LocalName == "Border"
             && e.Descendants().Any(img => img.Name.LocalName == "Image"
-                && (string?)img.Attribute("Source") == "pack://application:,,,/Icons/sticky-24x24.png"));
+                && (string?)img.Attribute("Source") == "pack://application:,,,/Icons/sticky-64x64.png"));
         var barItemsIndex = children.FindIndex(e => e.Name.LocalName == "ItemsControl"
             && (string?)e.Attribute("ItemsSource") == "{Binding BarItems}");
         var ribbonsIndex = children.FindIndex(e => e.Name.LocalName == "ItemsControl"
@@ -211,6 +211,17 @@ public sealed class MainWindowRibbonContractTests
         Assert.DoesNotContain("43A047", serialized, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("66BB6A", serialized, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("81C784", serialized, StringComparison.OrdinalIgnoreCase);
+
+        var tabBorderStyle = StyleWithKey(document, "TabBorderStyle");
+        Assert.Contains(
+            tabBorderStyle.Descendants(),
+            e => e.Name.LocalName == "DataTrigger"
+                && ((string?)e.Attribute("Value") ?? string.Empty).Contains("DockState.Expanded", StringComparison.Ordinal)
+                && e.Elements().Any(s => (string?)s.Attribute("Property") == "Visibility" && (string?)s.Attribute("Value") == "Collapsed"));
+
+        var contentControl = ribbonPanel.Elements().FirstOrDefault(e => e.Name.LocalName == "ContentControl");
+        Assert.NotNull(contentControl);
+        Assert.Equal("{Binding OpenRibbon}", (string?)contentControl.Attribute("Content"));
     }
 
     private static XElement StyleWithKey(XDocument document, string key)

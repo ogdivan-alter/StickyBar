@@ -7,6 +7,7 @@ using StickyDock.Core.Configuration;
 using StickyDock.Core.Diagnostics;
 using StickyDock.Core.Docking;
 using StickyDock.Core.Interaction;
+using StickyDock.Core.Localization;
 using StickyDock.Core.Services;
 using StickyDock.Core.Shortcuts;
 using StickyDock.Core.ViewModels;
@@ -28,6 +29,7 @@ internal sealed class WpfBarHostFactory : IBarHostFactory
     private readonly IShortcutLauncher _shortcutLauncher;
     private readonly IUserAlertService _userAlertService;
     private readonly IRibbonDeletionConfirmer _deletionConfirmer;
+    private readonly LocalizedStrings _strings;
     private readonly ILogger _logger;
 
     public WpfBarHostFactory(
@@ -39,6 +41,7 @@ internal sealed class WpfBarHostFactory : IBarHostFactory
         IShortcutLauncher shortcutLauncher,
         IUserAlertService userAlertService,
         IRibbonDeletionConfirmer deletionConfirmer,
+        LocalizedStrings strings,
         ILogger logger)
     {
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
@@ -49,6 +52,7 @@ internal sealed class WpfBarHostFactory : IBarHostFactory
         _shortcutLauncher = shortcutLauncher ?? throw new ArgumentNullException(nameof(shortcutLauncher));
         _userAlertService = userAlertService ?? throw new ArgumentNullException(nameof(userAlertService));
         _deletionConfirmer = deletionConfirmer ?? throw new ArgumentNullException(nameof(deletionConfirmer));
+        _strings = strings ?? throw new ArgumentNullException(nameof(strings));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -67,7 +71,8 @@ internal sealed class WpfBarHostFactory : IBarHostFactory
             _deletionConfirmer,
             _shellLinkReader,
             _shortcutLauncher,
-            _userAlertService);
+            _userAlertService,
+            _strings);
         var sizeSource = new DockBarSizeSource(controller, DockBarMetrics.Default, viewModel);
 
         var window = new MainWindow

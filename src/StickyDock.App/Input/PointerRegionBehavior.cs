@@ -130,6 +130,7 @@ public static class PointerRegionBehavior
         target.MouseLeave -= OnMouseLeave;
         target.DragEnter -= OnDragEnter;
         target.DragLeave -= OnDragLeave;
+        target.IsVisibleChanged -= OnIsVisibleChanged;
 
         if (GetRegion(target) == DockRegion.None)
         {
@@ -146,6 +147,7 @@ public static class PointerRegionBehavior
         {
             target.MouseLeave += OnMouseLeave;
             target.DragLeave += OnDragLeave;
+            target.IsVisibleChanged += OnIsVisibleChanged;
         }
     }
 
@@ -176,6 +178,15 @@ public static class PointerRegionBehavior
     private static void OnDragLeave(object sender, DragEventArgs e)
     {
         if (e.Data.GetDataPresent(DataFormats.FileDrop) && sender is DependencyObject element)
+        {
+            Execute(GetLeaveCommand(element), GetRegion(element));
+        }
+    }
+
+    private static void OnIsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        // WPF does not raise MouseLeave when an element collapses (e.g., TabBorder in Expanded or RibbonPanel closing).
+        if (e.NewValue is false && sender is DependencyObject element)
         {
             Execute(GetLeaveCommand(element), GetRegion(element));
         }

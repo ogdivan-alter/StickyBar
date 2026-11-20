@@ -55,6 +55,8 @@ public sealed class DockBarSizeSource : IDockBarSizeSource
             anchor,
             _ribbonLayout.RibbonCount,
             _ribbonLayout.BarItemCount,
-            _ribbonLayout.HasOpenRibbon);
+            _ribbonLayout.HasOpenRibbon,
+            _ribbonLayout.OpenRibbonItemCount,
+            _ribbonLayout.IsOpenRibbonActionsOpen);
     }
 }

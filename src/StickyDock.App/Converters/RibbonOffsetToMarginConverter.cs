@@ -17,15 +17,15 @@ public sealed class RibbonOffsetToMarginConverter : IMultiValueConverter
     {
         if (values.Length < 2 || values[0] is not double offset || double.IsNaN(offset) || double.IsInfinity(offset))
         {
-            return new Thickness(2d);
+            return new Thickness(0d);
         }
 
         var clamped = Math.Max(0d, offset);
         var edge = values[1] as DockEdge?;
 
         return edge is DockEdge.Left or DockEdge.Right
-            ? new Thickness(0d, clamped, 0d, 2d)
-            : new Thickness(clamped, 0d, 2d, 0d);
+            ? new Thickness(0d, clamped, 0d, 0d)
+            : new Thickness(clamped, 0d, 0d, 0d);
     }
 
     /// <inheritdoc />

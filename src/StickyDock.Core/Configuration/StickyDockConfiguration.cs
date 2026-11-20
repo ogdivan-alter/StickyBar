@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using StickyDock.Core.Interaction;
+using StickyDock.Core.Localization;
 using StickyDock.Core.Ribbons;
 using DockEdgeKind = StickyDock.Core.Docking.DockEdge;
 
@@ -40,9 +41,14 @@ public sealed record StickyDockConfiguration : IVersionedDocument
     public const string EnabledReplicaMonitorsPropertyName = "enabledReplicaMonitors";
 
     /// <summary>
+    /// Serialized name of <see cref="Language"/>.
+    /// </summary>
+    public const string LanguagePropertyName = "language";
+
+    /// <summary>
     /// Schema version written and understood by this build.
     /// </summary>
-    public const int CurrentSchemaVersion = 5;
+    public const int CurrentSchemaVersion = 6;
 
     /// <inheritdoc />
     public int SchemaVersion { get; init; } = CurrentSchemaVersion;
@@ -87,4 +93,10 @@ public sealed record StickyDockConfiguration : IVersionedDocument
     /// </summary>
     [JsonPropertyName(EnabledReplicaMonitorsPropertyName)]
     public IReadOnlyList<string> EnabledReplicaMonitors { get; init; } = [];
+
+    /// <summary>
+    /// Gets the UI language code (<c>"es"</c> by default, or <c>"en"</c>).
+    /// </summary>
+    [JsonPropertyName(LanguagePropertyName)]
+    public string Language { get; init; } = SupportedLanguages.Spanish;
 }

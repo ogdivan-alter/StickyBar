@@ -54,7 +54,7 @@ public sealed class Win32TrayIconService : ITrayIconService
     private const uint TrayIconId = 1;
     private const string TooltipText = "Sticky Dock Utility";
 
-    private static readonly string[] s_menuItemTexts = ["Settings", "Exit"];
+    private readonly string[] _menuItemTexts = ["Settings", "Exit"];
 
     private readonly string _windowClassName;
     private readonly nint _moduleHandle;
@@ -96,7 +96,23 @@ public sealed class Win32TrayIconService : ITrayIconService
     /// <summary>
     /// Gets the context menu item texts in display order.
     /// </summary>
-    public IReadOnlyList<string> MenuItemTexts => s_menuItemTexts;
+    public IReadOnlyList<string> MenuItemTexts => _menuItemTexts;
+
+    /// <inheritdoc />
+    public void UpdateMenuTexts(string settingsText, string exitText)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        if (!string.IsNullOrWhiteSpace(settingsText))
+        {
+            _menuItemTexts[0] = settingsText;
+        }
+
+        if (!string.IsNullOrWhiteSpace(exitText))
+        {
+            _menuItemTexts[1] = exitText;
+        }
+    }
 
     /// <inheritdoc />
     public void Show()
@@ -108,7 +124,12 @@ public sealed class Win32TrayIconService : ITrayIconService
             return;
         }
 
-        var iconHandle = NativeMethods.LoadIconW(nint.Zero, IdiApplication);
+        var iconHandle = NativeMethods.LoadIconW(_moduleHandle, IdiApplication);
+        if (iconHandle == nint.Zero)
+        {
+            iconHandle = NativeMethods.LoadIconW(nint.Zero, IdiApplication);
+        }
+
         var notifyData = CreateNotifyIconData(NifMessage | NifIcon | NifTip, iconHandle);
 
         // Shell_NotifyIconW returns false when no taskbar shell exists (e.g. headless CI or early startup);
@@ -271,9 +292,10 @@ public sealed class Win32TrayIconService : ITrayIconService
 
         NativeMethods.SetForegroundWindow(_messageWindowHandle);
 
-        var packedPosition = NativeMethods.GetMessagePos();
-        var x = unchecked((short)(packedPosition & 0xFFFF));
-        var y = unchecked((short)((packedPosition >> 16) & 0xFFFF));
+        if (!NativeMethods.GetPhysicalCursorPos(out var cursorPoint))
+        {
+            return 0;
+        }
 
         var menuHandle = NativeMethods.CreatePopupMenu();
         if (menuHandle == nint.Zero)
@@ -283,15 +305,15 @@ public sealed class Win32TrayIconService : ITrayIconService
 
         try
         {
-            NativeMethods.AppendMenuW(menuHandle, MfString, SettingsMenuCommandId, s_menuItemTexts[0]);
+            NativeMethods.AppendMenuW(menuHandle, MfString, SettingsMenuCommandId, _menuItemTexts[0]);
             NativeMethods.AppendMenuW(menuHandle, MfSeparator, 0, null);
-            NativeMethods.AppendMenuW(menuHandle, MfString, ExitMenuCommandId, s_menuItemTexts[1]);
+            NativeMethods.AppendMenuW(menuHandle, MfString, ExitMenuCommandId, _menuItemTexts[1]);
 
             var command = NativeMethods.TrackPopupMenuEx(
                 menuHandle,
                 TpmReturnCmd | TpmRightButton,
-                x,
-                y,
+                cursorPoint.X,
+                cursorPoint.Y,
                 _messageWindowHandle,
                 nint.Zero);
 

@@ -17,17 +17,16 @@ public sealed class MonitorReplicaPersistenceTests : IDisposable
     public void Dispose() => _directory.Dispose();
 
     [Fact]
-    public void TheDefaultDocument_IsSchemaFiveWithEmptyEnabledReplicaMonitors()
+    public void TheDefaultDocument_IsCurrentSchemaWithEmptyEnabledReplicaMonitors()
     {
         var configuration = new StickyDockConfiguration();
 
-        Assert.Equal(5, StickyDockConfiguration.CurrentSchemaVersion);
-        Assert.Equal(5, configuration.SchemaVersion);
+        Assert.Equal(StickyDockConfiguration.CurrentSchemaVersion, configuration.SchemaVersion);
         Assert.Empty(configuration.EnabledReplicaMonitors);
     }
 
     [Fact]
-    public async Task SaveAsync_WritesSchemaVersionFiveAndEnabledReplicaMonitors()
+    public async Task SaveAsync_WritesCurrentSchemaVersionAndEnabledReplicaMonitors()
     {
         var store = CreateStore();
         var config = new StickyDockConfiguration
@@ -38,14 +37,14 @@ public sealed class MonitorReplicaPersistenceTests : IDisposable
         await store.SaveAsync(config);
 
         var content = await File.ReadAllTextAsync(store.FilePath);
-        Assert.Contains("\"schemaVersion\": 5", content, StringComparison.Ordinal);
+        Assert.Contains($"\"schemaVersion\": {StickyDockConfiguration.CurrentSchemaVersion}", content, StringComparison.Ordinal);
         Assert.Contains("\"enabledReplicaMonitors\"", content, StringComparison.Ordinal);
         Assert.Contains("DISPLAY2", content, StringComparison.Ordinal);
         Assert.Contains("DISPLAY3", content, StringComparison.Ordinal);
     }
 
     [Fact]
-    public async Task LoadAsync_FromSchemaFourDocument_MigratesToFivePreservingBarItemsAndRibbons()
+    public async Task LoadAsync_FromSchemaFourDocument_MigratesToCurrentSchemaPreservingBarItemsAndRibbons()
     {
         var store = CreateStore();
         await File.WriteAllTextAsync(
@@ -71,7 +70,7 @@ public sealed class MonitorReplicaPersistenceTests : IDisposable
 
         var loaded = await store.LoadAsync();
 
-        Assert.Equal(5, loaded.SchemaVersion);
+        Assert.Equal(StickyDockConfiguration.CurrentSchemaVersion, loaded.SchemaVersion);
         Assert.Equal(DockEdge.Left, loaded.DockEdge);
         Assert.Equal(420, loaded.GracePeriodMilliseconds);
         Assert.Empty(loaded.EnabledReplicaMonitors);

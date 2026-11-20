@@ -29,16 +29,28 @@ public readonly record struct DockBarMetrics(
     /// </summary>
     public static DockBarMetrics Default { get; } = new(120d, 36d, 168d, 96d);
 
-    /// <summary>Reserved length along the deployed bar for the grip, create-ribbon button, app icon and padding (E4-CA6).</summary>
-    public const double BarActionPadding = 76d;
+    /// <summary>Reserved length along the deployed bar for the grip (14), app icon (34), create-ribbon button (34) and padding/margins (~36) (E4-CA6).</summary>
+    public const double BarActionPadding = 118d;
 
     /// <summary>Length occupied by each ribbon indicator slot along the bar (E4-CA6).</summary>
     public const double RibbonIndicatorExtent = 42d;
 
     /// <summary>Length occupied by each shortcut slot on the main bar (E4-CA6).</summary>
-    public const double BarItemExtent = 44d;
+    public const double BarItemExtent = 54d;
 
-    /// <summary>Additional perpendicular thickness added when a ribbon is open (E4-CA1, E4-CA6).</summary>
+    /// <summary>Fixed thickness of the main bar slot along the docked edge.</summary>
+    public const double BarSlotThickness = 52d;
+
+    /// <summary>Base perpendicular thickness for an open ribbon (header + inline edit button + padding/margins).</summary>
+    public const double OpenRibbonBaseThickness = 72d;
+
+    /// <summary>Perpendicular thickness occupied by each shortcut item inside an open ribbon.</summary>
+    public const double OpenRibbonItemExtent = 44d;
+
+    /// <summary>Additional perpendicular thickness when inline ribbon management actions are expanded.</summary>
+    public const double OpenRibbonActionsExtent = 80d;
+
+    /// <summary>Legacy maximum perpendicular thickness constant kept for reference.</summary>
     public const double OpenRibbonThickness = 260d;
 
     /// <summary>
@@ -78,6 +90,27 @@ public readonly record struct DockBarMetrics(
         int ribbonCount,
         int barItemCount,
         bool hasOpenRibbon)
+        => GetDynamicSize(
+            expanded,
+            anchor,
+            ribbonCount,
+            barItemCount,
+            hasOpenRibbon,
+            openRibbonItemCount: 0,
+            isOpenRibbonActionsOpen: false);
+
+    /// <summary>
+    /// Gets the dynamic footprint of the bar considering its ribbons, items, open-ribbon state and open-ribbon item
+    /// count so the window expands proportionally without clipping or jumping (E4-CA6).
+    /// </summary>
+    public DockBarSize GetDynamicSize(
+        bool expanded,
+        DockEdge? anchor,
+        int ribbonCount,
+        int barItemCount,
+        bool hasOpenRibbon,
+        int openRibbonItemCount,
+        bool isOpenRibbonActionsOpen = false)
     {
         if (!expanded)
         {
@@ -87,6 +120,7 @@ public readonly record struct DockBarMetrics(
         var vertical = anchor is DockEdge.Left or DockEdge.Right;
         var ribbons = Math.Max(0, ribbonCount);
         var items = Math.Max(0, barItemCount);
+        var ribbonItems = Math.Max(0, openRibbonItemCount);
 
         var length = ribbons == 0 && items == 0
             ? CollapsedLength
@@ -94,7 +128,14 @@ public readonly record struct DockBarMetrics(
                 CollapsedLength,
                 BarActionPadding + ribbons * RibbonIndicatorExtent + items * BarItemExtent);
 
-        var thickness = ExpandedThickness + (hasOpenRibbon ? OpenRibbonThickness : 0d);
+        var thickness = ExpandedThickness;
+        if (hasOpenRibbon)
+        {
+            var ribbonPanelThickness = OpenRibbonBaseThickness
+                + ribbonItems * OpenRibbonItemExtent
+                + (isOpenRibbonActionsOpen ? OpenRibbonActionsExtent : 0d);
+            thickness = Math.Max(ExpandedThickness, BarSlotThickness + ribbonPanelThickness);
+        }
 
         return vertical ? new DockBarSize(thickness, length) : new DockBarSize(length, thickness);
     }

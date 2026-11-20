@@ -9,6 +9,7 @@
     <UseWPF>true</UseWPF>
     <RootNamespace>StickyDock.App</RootNamespace>
     <AssemblyName>StickyDock</AssemblyName>
+    <ApplicationIcon>..\..\icons\sticky.ico</ApplicationIcon>
 
     <!-- AMP-03 (ADR-002): per-monitor DPI awareness for mixed-scale desktops (R-05). -->
     <ApplicationManifest>app.manifest</ApplicationManifest>

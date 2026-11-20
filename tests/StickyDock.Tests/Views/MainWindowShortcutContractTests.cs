@@ -28,12 +28,15 @@ public sealed class MainWindowShortcutContractTests
             .Where(h => h is not null)
             .ToList();
 
-        Assert.Contains("Move to Main Bar", headers);
-        Assert.Contains("Move to Ribbon", headers);
-        Assert.Contains("Remove", headers);
+        Assert.Contains(headers, h => h!.Contains("Strings.MoveToMainBar", StringComparison.Ordinal));
+        Assert.Contains(headers, h => h!.Contains("Strings.MoveToRibbon", StringComparison.Ordinal));
+        Assert.Contains(headers, h => h!.Contains("Strings.Remove", StringComparison.Ordinal));
         Assert.DoesNotContain(headers, h => h!.Contains("Edit", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(headers, h => h!.Contains("Argument", StringComparison.OrdinalIgnoreCase));
-        Assert.DoesNotContain(headers, h => h!.Contains("Target", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(
+            headers,
+            h => h!.Replace("PlacementTarget", string.Empty, StringComparison.Ordinal)
+                .Contains("Target", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(headers, h => h!.Contains("Properties", StringComparison.OrdinalIgnoreCase));
     }
 

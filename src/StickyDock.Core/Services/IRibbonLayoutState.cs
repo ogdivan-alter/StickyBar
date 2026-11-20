@@ -13,4 +13,10 @@ public interface IRibbonLayoutState
 
     /// <summary>Gets a value indicating whether a ribbon is currently open.</summary>
     bool HasOpenRibbon { get; }
+
+    /// <summary>Gets the number of shortcut items inside the currently open ribbon, or <c>0</c> if none is open.</summary>
+    int OpenRibbonItemCount => 0;
+
+    /// <summary>Gets a value indicating whether the inline actions strip of the open ribbon is expanded.</summary>
+    bool IsOpenRibbonActionsOpen => false;
 }

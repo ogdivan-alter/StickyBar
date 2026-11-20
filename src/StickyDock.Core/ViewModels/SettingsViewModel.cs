@@ -5,10 +5,18 @@ using StickyDock.Core.Configuration;
 using StickyDock.Core.Diagnostics;
 using StickyDock.Core.Docking;
 using StickyDock.Core.Interaction;
+using StickyDock.Core.Localization;
 using StickyDock.Core.Mvvm;
 using StickyDock.Core.Services;
 
 namespace StickyDock.Core.ViewModels;
+
+/// <summary>
+/// Represents a selectable UI language option in settings.
+/// </summary>
+/// <param name="Code">Language code (<c>"es"</c> or <c>"en"</c>).</param>
+/// <param name="DisplayName">Human-readable native name.</param>
+public sealed record LanguageOption(string Code, string DisplayName);
 
 /// <summary>
 /// View model for the general settings window opened from the system tray (§4.6-01, HU05 CA #1, Q-09, E6-CA3).
@@ -19,10 +27,12 @@ public sealed class SettingsViewModel : ViewModelBase, IDisposable
     private readonly IAutoStartService _autoStartService;
     private readonly IMonitorCatalog? _monitorCatalog;
     private readonly ILogger _logger;
+    private readonly LocalizedStrings _strings;
 
     private int _gracePeriodMilliseconds;
     private bool _autoStartEnabled;
     private string _dockedEdgeLabel;
+    private string _selectedLanguage;
     private bool _isUpdatingMonitors;
     private bool _disposed;
 
@@ -33,25 +43,61 @@ public sealed class SettingsViewModel : ViewModelBase, IDisposable
     /// <param name="autoStartService">Service that reads and writes the Windows startup registration.</param>
     /// <param name="logger">Application logger.</param>
     /// <param name="monitorCatalog">Optional catalog of attached display monitors (E7).</param>
+    /// <param name="strings">Optional shared localized strings instance.</param>
     public SettingsViewModel(
         IConfigurationDocument configuration,
         IAutoStartService autoStartService,
         ILogger logger,
-        IMonitorCatalog? monitorCatalog = null)
+        IMonitorCatalog? monitorCatalog = null,
+        LocalizedStrings? strings = null)
     {
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         _autoStartService = autoStartService ?? throw new ArgumentNullException(nameof(autoStartService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _monitorCatalog = monitorCatalog;
+        _strings = strings ?? new LocalizedStrings(_configuration.Current.Language);
 
+        _selectedLanguage = SupportedLanguages.Normalize(_configuration.Current.Language);
+        _strings.SetLanguage(_selectedLanguage);
         _gracePeriodMilliseconds = GracePeriod.Normalize(_configuration.Current.GracePeriodMilliseconds);
-        _dockedEdgeLabel = FormatDockEdge(_configuration.Current.DockEdge);
+        _dockedEdgeLabel = _strings.FormatDockEdge(_configuration.Current.DockEdge);
         _autoStartEnabled = ReadAutoStartState();
 
         RefreshMonitors();
 
         CloseCommand = new RelayCommand(RequestClose);
         _configuration.Changed += OnConfigurationChanged;
+    }
+
+    /// <summary>Gets the localized UI strings bound by the settings window.</summary>
+    public LocalizedStrings Strings => _strings;
+
+    /// <summary>Gets the available UI languages.</summary>
+    public IReadOnlyList<LanguageOption> AvailableLanguages { get; } =
+    [
+        new(SupportedLanguages.Spanish, "Español"),
+        new(SupportedLanguages.English, "English"),
+    ];
+
+    /// <summary>Gets or sets the active UI language code (<c>"es"</c> or <c>"en"</c>).</summary>
+    public string SelectedLanguage
+    {
+        get => _selectedLanguage;
+        set
+        {
+            var normalized = SupportedLanguages.Normalize(value);
+
+            if (!SetProperty(ref _selectedLanguage, normalized))
+            {
+                return;
+            }
+
+            _strings.SetLanguage(normalized);
+            DockedEdgeLabel = _strings.FormatDockEdge(_configuration.Current.DockEdge);
+            RefreshMonitors();
+            _configuration.Update(current => current with { Language = normalized });
+            _logger.Information($"UI language updated to '{normalized}'.");
+        }
     }
 
     /// <summary>
@@ -169,9 +215,11 @@ public sealed class SettingsViewModel : ViewModelBase, IDisposable
                     continue;
                 }
 
-                var label = string.Create(
-                    CultureInfo.InvariantCulture,
-                    $"Secondary Display {index} ({monitor.DeviceName}, {monitor.Bounds.Width}×{monitor.Bounds.Height})");
+                var label = _strings.FormatSecondaryMonitor(
+                    index,
+                    monitor.DeviceName,
+                    monitor.Bounds.Width,
+                    monitor.Bounds.Height);
                 SecondaryMonitors.Add(new SecondaryMonitorItemViewModel(
                     monitor.DeviceName,
                     label,
@@ -252,7 +300,15 @@ public sealed class SettingsViewModel : ViewModelBase, IDisposable
     {
         var normalized = GracePeriod.Normalize(e.Document.GracePeriodMilliseconds);
         SetProperty(ref _gracePeriodMilliseconds, normalized, nameof(GracePeriodMilliseconds));
-        DockedEdgeLabel = FormatDockEdge(e.Document.DockEdge);
+
+        var normalizedLanguage = SupportedLanguages.Normalize(e.Document.Language);
+        if (SetProperty(ref _selectedLanguage, normalizedLanguage, nameof(SelectedLanguage)))
+        {
+            _strings.SetLanguage(normalizedLanguage);
+            RefreshMonitors();
+        }
+
+        DockedEdgeLabel = _strings.FormatDockEdge(e.Document.DockEdge);
 
         if (_isUpdatingMonitors)
         {
@@ -270,7 +326,4 @@ public sealed class SettingsViewModel : ViewModelBase, IDisposable
     }
 
     private void RequestClose() => CloseRequested?.Invoke(this, EventArgs.Empty);
-
-    private static string FormatDockEdge(Docking.DockEdge? edge)
-        => edge?.ToString() ?? "Floating";
 }

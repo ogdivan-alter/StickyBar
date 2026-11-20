@@ -131,8 +131,9 @@ internal static partial class NativeMethods
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static partial bool PostMessageW(nint hWnd, uint msg, nint wParam, nint lParam);
 
-    [LibraryImport(User32LibraryName, EntryPoint = "GetMessagePos")]
-    internal static partial uint GetMessagePos();
+    [LibraryImport(User32LibraryName, EntryPoint = "GetPhysicalCursorPos")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool GetPhysicalCursorPos(out PhysicalCursorPoint lpPoint);
 
     [LibraryImport(User32LibraryName, EntryPoint = "CreatePopupMenu")]
     internal static partial nint CreatePopupMenu();
@@ -159,6 +160,13 @@ internal delegate nint WndProcDelegate(nint hWnd, uint msg, nint wParam, nint lP
 
 [return: MarshalAs(UnmanagedType.Bool)]
 internal delegate bool MonitorEnumProc(nint hMonitor, nint hdcMonitor, nint lprcMonitor, nint dwData);
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct PhysicalCursorPoint
+{
+    public int X;
+    public int Y;
+}
 
 [StructLayout(LayoutKind.Sequential)]
 internal struct RECT

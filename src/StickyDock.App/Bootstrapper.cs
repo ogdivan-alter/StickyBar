@@ -10,6 +10,7 @@ using StickyDock.Core.DependencyInjection;
 using StickyDock.Core.Diagnostics;
 using StickyDock.Core.Docking;
 using StickyDock.Core.Interaction;
+using StickyDock.Core.Localization;
 using StickyDock.Core.Services;
 using StickyDock.Core.Shortcuts;
 using StickyDock.Core.ViewModels;
@@ -80,6 +81,7 @@ internal sealed class Bootstrapper : IDisposable
             // flushed when the container disposes it (D-04).
             var document = new ConfigurationDocument(store, configuration, logger);
             services.AddSingleton<IConfigurationDocument>(document);
+            services.AddSingleton(new LocalizedStrings(configuration.Language));
 
             if (!store.Exists)
             {
@@ -180,8 +182,9 @@ internal sealed class Bootstrapper : IDisposable
         _interactionController = controller;
         var shellLinkReader = new ShellLinkReader();
         var shortcutLauncher = new ShortcutLauncher(shellLinkReader, _logger);
+        var strings = _services.GetRequiredService<LocalizedStrings>();
         var userAlertService = new WpfUserAlertService();
-        var deletionConfirmer = new WpfRibbonDeletionConfirmer();
+        var deletionConfirmer = new WpfRibbonDeletionConfirmer(strings);
         _deletionConfirmer = deletionConfirmer;
 
         _services.AddSingleton<IShellLinkReader>(shellLinkReader);
@@ -197,7 +200,8 @@ internal sealed class Bootstrapper : IDisposable
             deletionConfirmer,
             shellLinkReader,
             shortcutLauncher,
-            userAlertService);
+            userAlertService,
+            strings);
 
         _services.AddSingleton(dockBarViewModel);
 
@@ -305,12 +309,23 @@ internal sealed class Bootstrapper : IDisposable
         }
 
         var trayIcon = new Win32TrayIconService();
+        var strings = _services.GetRequiredService<LocalizedStrings>();
+        trayIcon.UpdateMenuTexts(strings.TraySettings, strings.TrayExit);
         _services.AddSingleton<ITrayIconService>(trayIcon);
         _trayIconService = trayIcon;
+
+        _services.GetRequiredService<IConfigurationDocument>().Changed += OnConfigurationLanguageChanged;
 
         trayIcon.SettingsRequested += OnTraySettingsRequested;
         trayIcon.ExitRequested += OnTrayExitRequested;
         trayIcon.Show();
+    }
+
+    private void OnConfigurationLanguageChanged(object? sender, ConfigurationChangedEventArgs e)
+    {
+        var strings = _services.GetRequiredService<LocalizedStrings>();
+        strings.SetLanguage(e.Document.Language);
+        _trayIconService?.UpdateMenuTexts(strings.TraySettings, strings.TrayExit);
     }
 
     private void DisposeTrayIcon()
@@ -323,6 +338,10 @@ internal sealed class Bootstrapper : IDisposable
         }
 
         _trayIconService = null;
+        if (_services.IsRegistered(typeof(IConfigurationDocument)))
+        {
+            _services.GetRequiredService<IConfigurationDocument>().Changed -= OnConfigurationLanguageChanged;
+        }
         trayIcon.SettingsRequested -= OnTraySettingsRequested;
         trayIcon.ExitRequested -= OnTrayExitRequested;
         trayIcon.Dispose();
@@ -355,7 +374,8 @@ internal sealed class Bootstrapper : IDisposable
             _services.GetRequiredService<IConfigurationDocument>(),
             _services.GetRequiredService<IAutoStartService>(),
             _logger,
-            _services.GetRequiredService<IMonitorCatalog>());
+            _services.GetRequiredService<IMonitorCatalog>(),
+            _services.GetRequiredService<LocalizedStrings>());
 
         var window = new SettingsWindow
         {
@@ -399,6 +419,7 @@ internal sealed class Bootstrapper : IDisposable
             return;
         }
 
+        var strings = _services.GetRequiredService<LocalizedStrings>();
         var hostFactory = new WpfBarHostFactory(
             _services.GetRequiredService<IConfigurationDocument>(),
             _services.GetRequiredService<IMonitorCatalog>(),
@@ -407,7 +428,8 @@ internal sealed class Bootstrapper : IDisposable
             _services.GetRequiredService<IShellLinkReader>(),
             _services.GetRequiredService<IShortcutLauncher>(),
             _services.GetRequiredService<IUserAlertService>(),
-            _deletionConfirmer ?? new WpfRibbonDeletionConfirmer(),
+            _deletionConfirmer ?? new WpfRibbonDeletionConfirmer(strings),
+            strings,
             _logger);
 
         _multiMonitorCoordinator = new MultiMonitorCoordinator(

@@ -19,4 +19,11 @@ public interface ITrayIconService : IDisposable
     /// Makes the tray icon visible in the Windows notification area.
     /// </summary>
     void Show();
+
+    /// <summary>
+    /// Updates the localized text labels of the tray context menu items.
+    /// </summary>
+    /// <param name="settingsText">Menu label for opening Settings.</param>
+    /// <param name="exitText">Menu label for exiting the application.</param>
+    void UpdateMenuTexts(string settingsText, string exitText);
 }

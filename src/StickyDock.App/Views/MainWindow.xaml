@@ -105,6 +105,7 @@
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="BorderBrush" Value="#44FFFFFF" />
             <Setter Property="ToolTip" Value="{Binding ToolTipText}" />
+            <Setter Property="Tag" Value="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}" />
             <Setter Property="Command" Value="{Binding LaunchCommand}" />
             <Setter Property="input:ShortcutDragDropBehavior.DragSourceItem" Value="{Binding}" />
             <Setter Property="input:ShortcutDragDropBehavior.ReorderCommand"
@@ -121,10 +122,10 @@
             <Button Style="{StaticResource ShortcutButtonStyle}">
                 <Button.ContextMenu>
                     <ContextMenu>
-                        <MenuItem Header="Move to Main Bar"
+                        <MenuItem Header="{Binding PlacementTarget.Tag.Strings.MoveToMainBar, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                   Command="{Binding MoveToBarCommand}"
                                   Visibility="{Binding IsInRibbon, Converter={StaticResource BoolToVisibilityConverter}}" />
-                        <MenuItem Header="Move to Ribbon"
+                        <MenuItem Header="{Binding PlacementTarget.Tag.Strings.MoveToRibbon, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                   ItemsSource="{Binding AllRibbons}">
                             <MenuItem.ItemContainerStyle>
                                 <Style TargetType="{x:Type MenuItem}">
@@ -136,10 +137,13 @@
                             </MenuItem.ItemContainerStyle>
                         </MenuItem>
                         <Separator />
-                        <MenuItem Header="Move Earlier" Command="{Binding MoveEarlierCommand}" />
-                        <MenuItem Header="Move Later" Command="{Binding MoveLaterCommand}" />
+                        <MenuItem Header="{Binding PlacementTarget.Tag.Strings.MoveEarlier, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                  Command="{Binding MoveEarlierCommand}" />
+                        <MenuItem Header="{Binding PlacementTarget.Tag.Strings.MoveLater, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                  Command="{Binding MoveLaterCommand}" />
                         <Separator />
-                        <MenuItem Header="Remove" Command="{Binding RemoveCommand}" />
+                        <MenuItem Header="{Binding PlacementTarget.Tag.Strings.Remove, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                  Command="{Binding RemoveCommand}" />
                     </ContextMenu>
                 </Button.ContextMenu>
 
@@ -530,6 +534,9 @@
                     <Setter Property="Width" Value="Auto" />
                     <Setter Property="Height" Value="Auto" />
                 </DataTrigger>
+                <DataTrigger Binding="{Binding DockState}" Value="{x:Static coreServices:DockState.Expanded}">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                </DataTrigger>
 
                 <!-- Micro-expansion of HU02 CA #2: 1.06 of the tab during ~120 ms, before the bar is fully deployed. -->
                 <DataTrigger Binding="{Binding DockState}" Value="{x:Static coreServices:DockState.Arming}">
@@ -572,6 +579,7 @@
                     <Setter Property="BorderBrush" Value="#77243447" />
                 </DataTrigger>
                 <DataTrigger Binding="{Binding DockEdge}" Value="{x:Static coreDocking:DockEdge.Bottom}">
+                    <Setter Property="HorizontalAlignment" Value="Left" />
                     <Setter Property="VerticalAlignment" Value="Bottom" />
                 </DataTrigger>
                 <DataTrigger Binding="{Binding DockEdge}" Value="{x:Static coreDocking:DockEdge.Left}">
@@ -844,17 +852,19 @@
                                    Foreground="{Binding TabForeground}" />
 
                         <!-- App icon container at the start of the bar (after grip) -->
-                        <Border Width="28"
-                                Height="28"
+                        <Border Width="34"
+                                Height="34"
                                 Margin="2"
-                                Padding="3"
+                                Padding="2"
                                 CornerRadius="8"
                                 Background="#22FFFFFF"
                                 BorderBrush="#44FFFFFF"
                                 BorderThickness="1">
-                            <Image Width="20"
-                                   Height="20"
-                                   Source="pack://application:,,,/Icons/sticky-24x24.png"
+                            <Image Width="28"
+                                   Height="28"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   Source="pack://application:,,,/Icons/sticky-64x64.png"
                                    RenderOptions.BitmapScalingMode="HighQuality" />
                         </Border>
 
@@ -876,14 +886,18 @@
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
                                     <Button Style="{StaticResource RibbonTileButtonStyle}"
+                                            Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}"
                                             Command="{Binding ToggleCommand}"
                                             input:ShortcutDragDropBehavior.ExternalDropCommand="{Binding DropFilesCommand}">
                                         <Button.ContextMenu>
                                             <ContextMenu>
-                                                <MenuItem Header="Move Earlier" Command="{Binding MoveEarlierCommand}" />
-                                                <MenuItem Header="Move Later" Command="{Binding MoveLaterCommand}" />
+                                                <MenuItem Header="{Binding PlacementTarget.Tag.Strings.MoveEarlier, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                                          Command="{Binding MoveEarlierCommand}" />
+                                                <MenuItem Header="{Binding PlacementTarget.Tag.Strings.MoveLater, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                                          Command="{Binding MoveLaterCommand}" />
                                                 <Separator />
-                                                <MenuItem Header="Delete" Command="{Binding DeleteCommand}" />
+                                                <MenuItem Header="{Binding PlacementTarget.Tag.Strings.Delete, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                                          Command="{Binding DeleteCommand}" />
                                             </ContextMenu>
                                         </Button.ContextMenu>
 
@@ -908,7 +922,7 @@
                         <Button Content="+"
                                 Style="{StaticResource CreateRibbonButtonStyle}"
                                 Command="{Binding CreateRibbonCommand}"
-                                ToolTip="Create Ribbon" />
+                                ToolTip="{Binding Strings.CreateRibbonToolTip}" />
                     </StackPanel>
                 </Border>
 
@@ -932,57 +946,62 @@
                         <TranslateTransform X="0" Y="0" />
                     </Border.RenderTransform>
 
-                    <StackPanel DataContext="{Binding OpenRibbon}"
-                                Style="{StaticResource RibbonBodyOrientationStyle}"
-                                HorizontalAlignment="Center"
-                                VerticalAlignment="Center">
-                        <!-- Subtle ribbon number at the beginning of the deployed ribbon -->
-                        <TextBlock Text="{Binding DisplayNumber, StringFormat='#{0}'}"
-                                   FontSize="10"
-                                   FontWeight="SemiBold"
-                                   Opacity="0.7"
-                                   Margin="2"
-                                   HorizontalAlignment="Center"
-                                   VerticalAlignment="Center"
-                                   Foreground="{Binding DataContext.TabForeground, RelativeSource={RelativeSource AncestorType=Window}}" />
+                    <ContentControl Content="{Binding OpenRibbon}">
+                        <ContentControl.ContentTemplate>
+                            <DataTemplate>
+                                <StackPanel Style="{StaticResource RibbonBodyOrientationStyle}"
+                                            HorizontalAlignment="Center"
+                                            VerticalAlignment="Center">
+                                    <!-- Subtle ribbon number at the beginning of the deployed ribbon -->
+                                    <TextBlock Text="{Binding DisplayNumber, StringFormat='#{0}'}"
+                                               FontSize="10"
+                                               FontWeight="SemiBold"
+                                               Opacity="0.7"
+                                               Margin="2"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center"
+                                               Foreground="{Binding DataContext.TabForeground, RelativeSource={RelativeSource AncestorType=Window}}" />
 
-                        <!-- Shortcuts arranged in a single column/row perpendicularly to the bar -->
-                        <ItemsControl ItemsSource="{Binding ShortcutItems}"
-                                      ItemTemplate="{StaticResource ShortcutItemTemplate}">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <StackPanel Style="{StaticResource RibbonBodyOrientationStyle}" />
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                        </ItemsControl>
+                                    <!-- Shortcuts arranged in a single column/row perpendicularly to the bar -->
+                                    <ItemsControl ItemsSource="{Binding ShortcutItems}"
+                                                  ItemTemplate="{StaticResource ShortcutItemTemplate}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <StackPanel Style="{StaticResource RibbonBodyOrientationStyle}" />
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                    </ItemsControl>
 
-                        <!-- Edit button and inline management actions at the end of the ribbon -->
-                        <StackPanel Style="{StaticResource RibbonBodyOrientationStyle}"
-                                    HorizontalAlignment="Center"
-                                    VerticalAlignment="Center"
-                                    Margin="2">
-                            <Button Content="✎"
-                                    Style="{StaticResource InlineRibbonActionButtonStyle}"
-                                    Command="{Binding ToggleActionsCommand}"
-                                    ToolTip="Ribbon Actions" />
+                                    <!-- Edit button and inline management actions at the end of the ribbon -->
+                                    <StackPanel Style="{StaticResource RibbonBodyOrientationStyle}"
+                                                HorizontalAlignment="Center"
+                                                VerticalAlignment="Center"
+                                                Margin="2">
+                                        <Button Content="✎"
+                                                Style="{StaticResource InlineRibbonActionButtonStyle}"
+                                                Command="{Binding ToggleActionsCommand}"
+                                                ToolTip="{Binding DataContext.Strings.RibbonActionsToolTip, RelativeSource={RelativeSource AncestorType=Window}}" />
 
-                            <StackPanel Style="{StaticResource RibbonBodyOrientationStyle}"
-                                        Visibility="{Binding IsActionsOpen, Converter={StaticResource BoolToVisibilityConverter}}">
-                                <Button Content="◀"
-                                        Style="{StaticResource InlineRibbonActionButtonStyle}"
-                                        Command="{Binding MoveEarlierCommand}"
-                                        ToolTip="Move Earlier" />
-                                <Button Content="▶"
-                                        Style="{StaticResource InlineRibbonActionButtonStyle}"
-                                        Command="{Binding MoveLaterCommand}"
-                                        ToolTip="Move Later" />
-                                <Button Content="✕"
-                                        Style="{StaticResource InlineRibbonActionButtonStyle}"
-                                        Command="{Binding DeleteCommand}"
-                                        ToolTip="Delete Ribbon" />
-                            </StackPanel>
-                        </StackPanel>
-                    </StackPanel>
+                                        <StackPanel Style="{StaticResource RibbonBodyOrientationStyle}"
+                                                    Visibility="{Binding IsActionsOpen, Converter={StaticResource BoolToVisibilityConverter}}">
+                                            <Button Content="◀"
+                                                    Style="{StaticResource InlineRibbonActionButtonStyle}"
+                                                    Command="{Binding MoveEarlierCommand}"
+                                                    ToolTip="{Binding DataContext.Strings.MoveEarlier, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                            <Button Content="▶"
+                                                    Style="{StaticResource InlineRibbonActionButtonStyle}"
+                                                    Command="{Binding MoveLaterCommand}"
+                                                    ToolTip="{Binding DataContext.Strings.MoveLater, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                            <Button Content="✕"
+                                                    Style="{StaticResource InlineRibbonActionButtonStyle}"
+                                                    Command="{Binding DeleteCommand}"
+                                                    ToolTip="{Binding DataContext.Strings.DeleteRibbonToolTip, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ContentControl.ContentTemplate>
+                    </ContentControl>
                 </Border>
             </DockPanel>
         </Grid>

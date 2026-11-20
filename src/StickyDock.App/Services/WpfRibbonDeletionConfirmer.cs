@@ -1,5 +1,5 @@
-using System.Globalization;
 using System.Windows;
+using StickyDock.Core.Localization;
 using StickyDock.Core.Services;
 
 namespace StickyDock.App.Services;
@@ -9,16 +9,21 @@ namespace StickyDock.App.Services;
 /// </summary>
 internal sealed class WpfRibbonDeletionConfirmer : IRibbonDeletionConfirmer
 {
+    private readonly LocalizedStrings _strings;
+
+    public WpfRibbonDeletionConfirmer(LocalizedStrings? strings = null)
+    {
+        _strings = strings ?? new LocalizedStrings();
+    }
+
     /// <inheritdoc />
     public bool ConfirmDeleteRibbon(string ribbonName, int itemCount)
     {
-        var message = string.Create(
-            CultureInfo.CurrentCulture,
-            $"Delete ribbon \"{ribbonName}\" and its {itemCount} shortcut(s)? This action cannot be undone.");
+        var message = _strings.FormatConfirmDeleteRibbon(ribbonName, itemCount);
 
         var result = MessageBox.Show(
             message,
-            "Sticky Dock Utility",
+            _strings.AppTitle,
             MessageBoxButton.YesNo,
             MessageBoxImage.Warning,
             MessageBoxResult.No);
