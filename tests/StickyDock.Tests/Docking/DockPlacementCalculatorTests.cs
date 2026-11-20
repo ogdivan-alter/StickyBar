@@ -372,47 +372,43 @@ public sealed class DockPlacementCalculatorTests
     }
 
     [Theory]
-    [InlineData(DockEdge.Top, 670, 400)]
-    [InlineData(DockEdge.Bottom, 670, 325)]
-    [InlineData(DockEdge.Left, 700, 362)]
-    [InlineData(DockEdge.Right, 640, 362)]
-    public void GetFloatingBounds_GrowsAwayFromTheNearestEdge(DockEdge anchor, int expectedX, int expectedY)
+    [InlineData(DockEdge.Top)]
+    [InlineData(DockEdge.Bottom)]
+    [InlineData(DockEdge.Left)]
+    [InlineData(DockEdge.Right)]
+    public void GetFloatingBounds_KeepsTopLeftFixedRegardlessOfAnchor(DockEdge anchor)
     {
-        // Reference of ADR-003 §6.5: a floating 150×45 at (700,400) becomes 210×120 at 125 % keeping the anchor side.
+        // Fixed top-left anchor: resizing a floating bar keeps X = current.X and Y = current.Y.
         var bounds = DockPlacementCalculator.GetFloatingBounds(
             new PixelRect(700, 400, 150, 45),
             anchor,
             CreateMonitor(120),
             DockBarMetrics.Default.GetSize(expanded: true, anchor: null));
 
-        Assert.Equal(new PixelRect(expectedX, expectedY, 210, 120), bounds);
+        Assert.Equal(new PixelRect(700, 400, 210, 120), bounds);
     }
 
     [Fact]
-    public void GetFloatingBounds_KeepsTheCentreAlongTheEdge()
+    public void GetFloatingBounds_DeployAndCollapse_ReturnsToExactTopLeftRect()
     {
-        var current = new PixelRect(700, 400, 150, 45);
+        var monitor = new MonitorGeometry(MonitorBounds, MonitorBounds, 96);
+        var collapsedRect = new PixelRect(104, 104, 120, 36);
 
-        foreach (var anchor in Enum.GetValues<DockEdge>())
-        {
-            var bounds = DockPlacementCalculator.GetFloatingBounds(
-                current,
-                anchor,
-                CreateMonitor(120),
-                DockBarMetrics.Default.GetSize(expanded: true, anchor: null));
+        var expandedRect = DockPlacementCalculator.GetFloatingBounds(
+            collapsedRect,
+            DockEdge.Top,
+            monitor,
+            DockBarMetrics.Default.GetSize(expanded: true, anchor: null));
 
-            switch (anchor)
-            {
-                case DockEdge.Top:
-                case DockEdge.Bottom:
-                    Assert.Equal(current.X + (current.Width / 2), bounds.X + (bounds.Width / 2));
-                    break;
+        Assert.Equal(new PixelRect(104, 104, 168, 96), expandedRect);
 
-                default:
-                    Assert.Equal(current.Y + (current.Height / 2), bounds.Y + (bounds.Height / 2));
-                    break;
-            }
-        }
+        var roundTripRect = DockPlacementCalculator.GetFloatingBounds(
+            expandedRect,
+            DockEdge.Top,
+            monitor,
+            DockBarMetrics.Default.GetSize(expanded: false, anchor: null));
+
+        Assert.Equal(collapsedRect, roundTripRect);
     }
 
     [Fact]

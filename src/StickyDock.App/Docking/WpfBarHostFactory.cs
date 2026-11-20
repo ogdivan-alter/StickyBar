@@ -182,14 +182,18 @@ internal sealed class WpfBarHostFactory : IBarHostFactory
                 handle,
                 new PixelRect(_monitor.WorkArea.X, _monitor.WorkArea.Y, initialWidth, initialHeight));
 
+            var messageEvents = new WpfMessageDockingEventSource(messageSource);
             var events = new CompositeDockingEventSource(
-                new WpfMessageDockingEventSource(messageSource),
+                messageEvents,
                 new WinEventDockingEventSource());
 
             var coordinator = new DockPlacementCoordinator(
                 events,
                 new Win32WindowGeometrySource(handle, _monitorCatalog, _monitor.DeviceName),
-                new WpfDockWindowHost(_window),
+                new WpfDockWindowHost(
+                    _window,
+                    messageEvents.BeginNativeMoveTracking,
+                    messageEvents.EnsureDragCompletedAfterNativeMove),
                 _sizeSource,
                 _configuration,
                 _logger,

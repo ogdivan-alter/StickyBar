@@ -15,15 +15,24 @@ internal sealed class WpfDockWindowHost : IDockWindowHost
     private const double DipTolerance = 0.5;
 
     private readonly Window _window;
+    private readonly Action? _onNativeMoveStarting;
+    private readonly Action? _onNativeMoveEnded;
     private bool _isMirroring;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="WpfDockWindowHost"/> class.
     /// </summary>
     /// <param name="window">Window the coordinator drives.</param>
-    public WpfDockWindowHost(Window window)
+    /// <param name="onNativeMoveStarting">Optional callback invoked right before entering the native move loop.</param>
+    /// <param name="onNativeMoveEnded">Optional callback invoked after the native move loop exits.</param>
+    public WpfDockWindowHost(
+        Window window,
+        Action? onNativeMoveStarting = null,
+        Action? onNativeMoveEnded = null)
     {
         _window = window ?? throw new ArgumentNullException(nameof(window));
+        _onNativeMoveStarting = onNativeMoveStarting;
+        _onNativeMoveEnded = onNativeMoveEnded;
     }
 
     private nint Handle => new WindowInteropHelper(_window).Handle;
@@ -55,11 +64,19 @@ internal sealed class WpfDockWindowHost : IDockWindowHost
     {
         Dispatch(() =>
         {
-            var handle = Handle;
-
-            if (handle != nint.Zero)
+            _onNativeMoveStarting?.Invoke();
+            try
             {
-                WindowPlacement.BeginNativeMove(handle);
+                var handle = Handle;
+
+                if (handle != nint.Zero)
+                {
+                    WindowPlacement.BeginNativeMove(handle);
+                }
+            }
+            finally
+            {
+                _onNativeMoveEnded?.Invoke();
             }
         });
     }

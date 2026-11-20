@@ -229,14 +229,18 @@ internal sealed class Bootstrapper : IDisposable
         }
 
         // Both sources are cheap while idle: window messages and a hook filtered by the taskbar window (ADR-002).
+        var messageEvents = new WpfMessageDockingEventSource(messageSource);
         var events = new CompositeDockingEventSource(
-            new WpfMessageDockingEventSource(messageSource),
+            messageEvents,
             new WinEventDockingEventSource());
 
         var coordinator = new DockPlacementCoordinator(
             events,
             new Win32WindowGeometrySource(handle),
-            new WpfDockWindowHost(window),
+            new WpfDockWindowHost(
+                window,
+                messageEvents.BeginNativeMoveTracking,
+                messageEvents.EnsureDragCompletedAfterNativeMove),
             _services.GetRequiredService<IDockBarSizeSource>(),
             _services.GetRequiredService<IConfigurationDocument>(),
             _logger);

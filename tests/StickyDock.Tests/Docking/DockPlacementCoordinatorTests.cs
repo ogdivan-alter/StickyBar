@@ -407,9 +407,9 @@ public sealed class DockPlacementCoordinatorTests
     }
 
     [Fact]
-    public void NotifyBarSizeChanged_OfAFloatingBar_KeepsTheAnchorSide()
+    public void NotifyBarSizeChanged_OfAFloatingBar_KeepsTopLeftFixed()
     {
-        // Invariant I2: a floating bar grows away from the nearest edge, so the anchored side does not move.
+        // Fixed top-left anchor: a floating bar keeps X and Y fixed when resized.
         using var fixture = Create(persistedEdge: null);
         fixture.Host.Bounds = new PixelRect(700, 400, 150, 45);
         fixture.Coordinator.Start();
@@ -419,7 +419,7 @@ public sealed class DockPlacementCoordinatorTests
         fixture.Coordinator.NotifyBarSizeChanged();
 
         Assert.Null(fixture.Coordinator.CurrentEdge);
-        Assert.Equal(new PixelRect(670, 400, 210, 120), fixture.Host.Bounds);
+        Assert.Equal(new PixelRect(700, 400, 210, 120), fixture.Host.Bounds);
     }
 
     [Fact]
@@ -537,7 +537,7 @@ public sealed class DockPlacementCoordinatorTests
     [Fact]
     public void FloatingCycle_DeployAndCollapse_ReturnsToTheSameRestingRect()
     {
-        // ADR-005 (H-E3-07): deploying from (104,104,120,36) and collapsing must return to the exact resting rect.
+        // Deploying from (104,104,120,36) keeps (104,104) fixed and collapsing returns to the exact resting rect.
         using var fixture = Create(persistedEdge: DockEdge.Top);
         fixture.Geometry.Monitor = new MonitorGeometry(MonitorBounds, MonitorBounds, 96);
         fixture.Coordinator.Start();
@@ -548,7 +548,7 @@ public sealed class DockPlacementCoordinatorTests
 
         fixture.BarSize.Expanded = true;
         fixture.Coordinator.NotifyBarSizeChanged();
-        Assert.Equal(new PixelRect(80, 104, 168, 96), fixture.Host.Bounds);
+        Assert.Equal(new PixelRect(104, 104, 168, 96), fixture.Host.Bounds);
 
         fixture.BarSize.Expanded = false;
         fixture.Coordinator.NotifyBarSizeChanged();
@@ -558,7 +558,7 @@ public sealed class DockPlacementCoordinatorTests
     [Fact]
     public void NotifyBarSizeChanged_OfAFloatingBar_KeepsTheAnchoredSideFixed()
     {
-        // ADR-005 D5: resizing a floating bar keeps its anchored side fixed even when dimensions grow repeatedly.
+        // Resizing a floating bar keeps its top-left (X, Y) fixed even when dimensions grow repeatedly.
         using var fixture = Create(persistedEdge: null);
         fixture.Geometry.Monitor = new MonitorGeometry(MonitorBounds, MonitorBounds, 96);
         fixture.Host.Bounds = new PixelRect(104, 104, 120, 36);
@@ -568,6 +568,7 @@ public sealed class DockPlacementCoordinatorTests
         fixture.BarSize.Expanded = true;
         fixture.Coordinator.NotifyBarSizeChanged();
 
+        Assert.Equal(104, fixture.Host.Bounds.X);
         Assert.Equal(104, fixture.Host.Bounds.Y);
         Assert.Equal(260, fixture.Host.Bounds.Width);
         Assert.Equal(140, fixture.Host.Bounds.Height);
@@ -575,6 +576,7 @@ public sealed class DockPlacementCoordinatorTests
         fixture.BarSize.Metrics = new DockBarMetrics(120d, 36d, 340d, 240d);
         fixture.Coordinator.NotifyBarSizeChanged();
 
+        Assert.Equal(104, fixture.Host.Bounds.X);
         Assert.Equal(104, fixture.Host.Bounds.Y);
         Assert.Equal(340, fixture.Host.Bounds.Width);
         Assert.Equal(240, fixture.Host.Bounds.Height);
@@ -583,7 +585,7 @@ public sealed class DockPlacementCoordinatorTests
     [Fact]
     public void Start_WithAPersistedFloatingEdge_DerivesTheAnchorOnce_AndKeepsItAcrossTransitions()
     {
-        // ADR-005 D3: first floating resolution derives Top on (104,104,120,36) and freezes it across transitions.
+        // Floating placement keeps (104,104) fixed across expand and collapse transitions.
         using var fixture = Create(persistedEdge: null);
         fixture.Geometry.Monitor = new MonitorGeometry(MonitorBounds, MonitorBounds, 96);
         fixture.Host.Bounds = new PixelRect(104, 104, 120, 36);
@@ -593,7 +595,7 @@ public sealed class DockPlacementCoordinatorTests
 
         fixture.BarSize.Expanded = true;
         fixture.Coordinator.NotifyBarSizeChanged();
-        Assert.Equal(new PixelRect(80, 104, 168, 96), fixture.Host.Bounds);
+        Assert.Equal(new PixelRect(104, 104, 168, 96), fixture.Host.Bounds);
 
         fixture.BarSize.Expanded = false;
         fixture.Coordinator.NotifyBarSizeChanged();
@@ -603,14 +605,14 @@ public sealed class DockPlacementCoordinatorTests
     [Fact]
     public void DockTo_ClearsTheAnchor_AndUndockSetsItAgain()
     {
-        // ADR-005 D2/D4: docking clears the floating anchor; undocking derives a new one from the current rect.
+        // Docking clears the floating anchor; undocking leaves the bar floating with fixed top-left anchor.
         using var fixture = Create(persistedEdge: null);
         fixture.Geometry.Monitor = new MonitorGeometry(MonitorBounds, MonitorBounds, 96);
         fixture.Host.Bounds = new PixelRect(104, 104, 120, 36);
         fixture.Coordinator.Start();
 
-        fixture.Coordinator.DockTo(DockEdge.Right);
-        Assert.Equal(DockEdge.Right, fixture.Coordinator.CurrentEdge);
+        fixture.Coordinator.DockTo(DockEdge.Left);
+        Assert.Equal(DockEdge.Left, fixture.Coordinator.CurrentEdge);
 
         fixture.Coordinator.Undock();
         Assert.Null(fixture.Coordinator.CurrentEdge);
@@ -619,7 +621,8 @@ public sealed class DockPlacementCoordinatorTests
 
         fixture.BarSize.Expanded = true;
         fixture.Coordinator.NotifyBarSizeChanged();
-        Assert.Equal(undockedRect.Right, fixture.Host.Bounds.Right);
+        Assert.Equal(undockedRect.X, fixture.Host.Bounds.X);
+        Assert.Equal(undockedRect.Y, fixture.Host.Bounds.Y);
 
         fixture.BarSize.Expanded = false;
         fixture.Coordinator.NotifyBarSizeChanged();

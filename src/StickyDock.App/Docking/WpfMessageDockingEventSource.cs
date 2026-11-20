@@ -16,6 +16,7 @@ internal sealed class WpfMessageDockingEventSource : IDockingEventSource
     private readonly HwndSource _source;
     private readonly HwndSourceHook _hook;
 
+    private bool _sawExitSizeMove;
     private bool _disposed;
 
     /// <summary>
@@ -31,6 +32,29 @@ internal sealed class WpfMessageDockingEventSource : IDockingEventSource
 
     /// <inheritdoc />
     public event EventHandler<DockingEventArgs>? Changed;
+
+    /// <summary>
+    /// Resets the <c>WM_EXITSIZEMOVE</c> observation flag before entering the native move loop.
+    /// </summary>
+    public void BeginNativeMoveTracking()
+    {
+        _sawExitSizeMove = false;
+    }
+
+    /// <summary>
+    /// Emits <see cref="DockingEventKind.WindowDragCompleted"/> when the native move loop returned without
+    /// <c>WM_EXITSIZEMOVE</c> (for example, a click without movement).
+    /// </summary>
+    public void EnsureDragCompletedAfterNativeMove()
+    {
+        if (_disposed || _sawExitSizeMove)
+        {
+            return;
+        }
+
+        _sawExitSizeMove = true;
+        Changed?.Invoke(this, new DockingEventArgs(DockingEventKind.WindowDragCompleted));
+    }
 
     /// <inheritdoc />
     public void Dispose()
@@ -50,6 +74,11 @@ internal sealed class WpfMessageDockingEventSource : IDockingEventSource
         if (_disposed || !DockingMessageClassifier.TryClassify(message, wParam, out var kind))
         {
             return nint.Zero;
+        }
+
+        if (kind == DockingEventKind.WindowDragCompleted)
+        {
+            _sawExitSizeMove = true;
         }
 
         Changed?.Invoke(this, new DockingEventArgs(kind));

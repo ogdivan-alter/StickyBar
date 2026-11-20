@@ -568,8 +568,8 @@
                     <Setter Property="Height" Value="56" />
                 </DataTrigger>
                 <DataTrigger Binding="{Binding DockEdge}" Value="{x:Null}">
-                    <Setter Property="HorizontalAlignment" Value="Center" />
-                    <Setter Property="VerticalAlignment" Value="Center" />
+                    <Setter Property="HorizontalAlignment" Value="Left" />
+                    <Setter Property="VerticalAlignment" Value="Top" />
                     <Setter Property="CornerRadius" Value="8" />
                     <Setter Property="Padding" Value="10,4" />
                     <Setter Property="Width" Value="Auto" />

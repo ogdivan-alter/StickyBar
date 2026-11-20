@@ -180,19 +180,21 @@ public static class DockPlacementCalculator
     }
 
     /// <summary>
-    /// Gets the rectangle of a floating bar resized to <paramref name="size"/>, growing away from
-    /// <paramref name="anchor"/> so that the opposite side stays fixed (invariant I2 of ADR-003).
+    /// Gets the rectangle of a floating bar resized to <paramref name="size"/>, keeping its top-left corner
+    /// <c>(current.X, current.Y)</c> fixed.
     /// </summary>
     /// <param name="current">Rectangle of the floating bar, in device pixels.</param>
-    /// <param name="anchor">Edge the bar grows away from, taken from <see cref="GetNearestEdge"/>.</param>
+    /// <param name="anchor">Unused for floating placement; kept for signature compatibility.</param>
     /// <param name="monitor">Monitor that hosts the bar.</param>
     /// <param name="size">Declared footprint of the state the bar is in.</param>
     /// <returns>
     /// <paramref name="current"/> untouched when its size is already the declared one, which is what keeps the
-    /// recalculation idempotent (rule R4); otherwise the resized rectangle, not yet clamped to the work area.
+    /// recalculation idempotent (rule R4); otherwise the resized rectangle anchored at <c>(current.X, current.Y)</c>,
+    /// not yet clamped to the work area.
     /// </returns>
     public static PixelRect GetFloatingBounds(PixelRect current, DockEdge anchor, MonitorGeometry monitor, DockBarSize size)
     {
+        _ = anchor;
         var (width, height) = GetPixelSize(size, monitor);
 
         if (current.Width == width && current.Height == height)
@@ -200,19 +202,7 @@ public static class DockPlacementCalculator
             return current;
         }
 
-        var centreX = current.X + (current.Width / 2);
-        var centreY = current.Y + (current.Height / 2);
-
-        return anchor switch
-        {
-            DockEdge.Top => new PixelRect(centreX - (width / 2), current.Y, width, height),
-            DockEdge.Bottom => new PixelRect(centreX - (width / 2), current.Bottom - height, width, height),
-            DockEdge.Left => new PixelRect(current.X, centreY - (height / 2), width, height),
-            DockEdge.Right => new PixelRect(current.Right - width, centreY - (height / 2), width, height),
-
-            // Unreachable: DockEdge has four members. Kept explicit so that a new member fails visibly.
-            _ => throw new ArgumentOutOfRangeException(nameof(anchor), anchor, "Unknown dock edge."),
-        };
+        return new PixelRect(current.X, current.Y, width, height);
     }
 
     /// <summary>

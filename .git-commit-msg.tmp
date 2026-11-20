@@ -1,8 +1,8 @@
-fix(interaction): prevent stuck Tab/Expanded regions after repeated gestures
+fix(docking,interaction): guarantee drag completion and top-left floating anchor
 
-Fix intermittent stuck states (chevron failing to deploy or expanded bar failing to collapse):
-- In DockInteractionController.EnterRegion, call Reevaluate() when Tab is already in _regions under DockState.Tab with no pending timer instead of returning silently.
-- In PointerRegionBehavior, check !IsMouseOver on Input-priority Dispatcher after Drop to clear drag-entered regions, and emit EnterCommand when a region becomes Visible while IsMouseOver is true.
-- Add regression test in DockInteractionControllerTests (499/499 passing, Release build clean).
+Fix remaining stuck-state bug and floating horizontal jump:
+- Track WM_EXITSIZEMOVE in WpfMessageDockingEventSource and invoke EnsureDragCompletedAfterNativeMove in WpfDockWindowHost.BeginDrag finally block (main and replica hosts) so clicks without movement never leave _dragging stuck true.
+- Update DockPlacementCalculator.GetFloatingBounds to keep X, Y fixed (top-left anchor without recentering) and set TabBorderStyle to Left/Top in floating mode so the idle icon+name stays stationary and the deployed bar starts at the exact same X.
+- Update floating placement tests and add TabBorderStyle_InFloatingMode_AnchorsTopLeft (500/500 passing in Debug and Release).
 
-Refs: RF02, HU02 (CA #2, CA #3), E3-CA1, E3-CA2, E3-CA3
+Refs: RF01, RF02, HU01, HU02, E2-CA1, E3-CA1, E3-CA2, ADR-005

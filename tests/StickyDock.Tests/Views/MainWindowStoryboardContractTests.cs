@@ -240,6 +240,28 @@ public sealed class MainWindowStoryboardContractTests
         });
     }
 
+    [Fact]
+    public void TabBorderStyle_InFloatingMode_AnchorsTopLeft()
+    {
+        var floatingTrigger = Assert.Single(
+            StyleWithKey(TabBorderStyleKey).Descendants(),
+            element => element.Name.LocalName == "DataTrigger"
+                && (string?)element.Attribute("Binding") == "{Binding DockEdge}"
+                && (string?)element.Attribute("Value") == "{x:Null}");
+
+        var horizontalAlignment = Assert.Single(
+            floatingTrigger.Elements(),
+            element => element.Name.LocalName == "Setter"
+                && (string?)element.Attribute("Property") == "HorizontalAlignment");
+        var verticalAlignment = Assert.Single(
+            floatingTrigger.Elements(),
+            element => element.Name.LocalName == "Setter"
+                && (string?)element.Attribute("Property") == "VerticalAlignment");
+
+        Assert.Equal("Left", (string?)horizontalAlignment.Attribute("Value"));
+        Assert.Equal("Top", (string?)verticalAlignment.Attribute("Value"));
+    }
+
     /// <summary>Asserts that an element declares the attached property that announces <paramref name="region"/>.</summary>
     private static XElement DeclaringRegion(string region)
         => Assert.Single(
